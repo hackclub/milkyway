@@ -1,0 +1,44 @@
+<script>
+  let { onclick, href, showarrow = false } = $props();
+
+</script>
+
+<a href={href ? href : ""} onclick={onclick ? onclick : ""}>
+<slot>Click me!</slot>
+
+{#if showarrow}
+<svg viewBox="0 0 14 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+<path d="M1 7C0.447715 7 4.82823e-08 7.44772 0 8C-4.82823e-08 8.55228 0.447715 9 1 9L1 8L1 7ZM13.7071 8.70711C14.0976 8.31658 14.0976 7.68342 13.7071 7.29289L7.34315 0.928933C6.95262 0.538408 6.31946 0.538408 5.92893 0.928933C5.53841 1.31946 5.53841 1.95262 5.92893 2.34315L11.5858 8L5.92893 13.6569C5.53841 14.0474 5.53841 14.6805 5.92893 15.0711C6.31946 15.4616 6.95262 15.4616 7.34315 15.0711L13.7071 8.70711ZM1 8L1 9L13 9L13 8L13 7L1 7L1 8Z" fill="currentColor"/>
+</svg>
+
+{/if}
+</a>
+
+
+<style>
+a {
+  border: 4px solid var(--orange);
+  background-color: var(--yellow);
+  padding: 8px 16px;
+  border-radius: 100px;
+  color: black;
+  text-decoration: none;
+  transition: 0.2s;
+}
+
+a svg {
+  color: black;
+  height: 1em;
+  margin-bottom: -0.1em;
+  transition: 0.2s;
+}
+
+a:hover {
+  background-color: var(--orange);
+}
+
+a:hover svg {
+  margin-left: 5px;
+}
+
+</style>
