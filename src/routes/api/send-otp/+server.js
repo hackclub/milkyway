@@ -12,9 +12,7 @@ export async function POST({ request }) {
 
   try {
     await createOTPRecord(email);
-
-    // return json with success!!!
-    return json({ success: true });
+    return json({ success: true }); // success!!
 
   } catch (err) {
 

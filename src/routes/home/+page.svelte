@@ -1,4 +1,9 @@
+<script>
+let { data } = $props();
 
+console.log(data.user)
+
+</script>
 <main>
 
 <div class="zlayer room">
@@ -12,7 +17,7 @@
 
 <div class="zlayer profile-info">
 <div class="profile-box">
-<p>your name!
+<p>{ data.user.username }</p>
 </div>
 </div>
 

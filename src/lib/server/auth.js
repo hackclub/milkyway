@@ -4,10 +4,26 @@ import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js'
 
 
+export async function getUserRecordBySessionId(sessionid) {
+  const records = await base('OTP')
+  .select({ filterByFormula: `{token} = "${sessionid}"`, maxRecords: 1 })
+  .firstPage();
 
-//
+  if (!records.length) return null;
+  const user = records[0].fields;
+  return { user };
+}
 
+export async function getUserInfoBySessionId(sessionid) {
 
+  const records = await base('User')
+    .select({ filterByFormula: `FIND("${sessionid}", ARRAYJOIN({OTP}, ","))`, maxRecords: 1 })
+    .firstPage();
+
+  if (!records.length) return null;
+  const user = records[0].fields;
+  return user;
+}
 
 // ------- VERIFY OTP
 export async function verifyOTPAndCreateSession(email, otp) {
@@ -84,7 +100,7 @@ async function createUserFromEmail(email) {
 
 }
 
-async function getUserRecordIDByEmail(email) {
+async function getUserRecordIdByEmail(email) {
   const record = await base('User')
   .select({
     filterByFormula: `{email} = "${email}"`,
