@@ -32,9 +32,17 @@ console.log(data.user)
 </div>
 
 <div class="zlayer profile-info">
-<div class="profile-box">
-<p>{ data.user.username }</p>
-</div>
+  <img src="https://assets.hackclub.com/flag-orpheus-left.svg" style="width: 100px; position: absolute; top: 5px; left: 0;"/>
+
+  <div class="profile-box">
+    <img src="/pfp_placeholder.png" />
+
+    <div class="profile-text">
+      <p class="hourinfo">xx hours · xx projects</p>
+      <p class="username">{ data.user.username }</p>
+    </div>
+
+  </div>
 </div>
 
 </main>
@@ -47,7 +55,6 @@ main {
   background-position: center;
   height: 100%;
   width: 100%;
-  padding: 30px;
   box-sizing: border-box;
 
   position: absolute;
@@ -69,26 +76,67 @@ main {
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* IE10+/Edge */
   user-select: none; /* Standard */
+  pointer-events: none;
 }
 
 .room-bg {
   height: 75%;
 }
 
+
 .profile-info {
+  position: relative;
 
 }
 
 .profile-box {
-  position: relative;
+  position: absolute;;
   background-color: #FBF2BF;
   border: 4px solid #F7C881;
-  padding: 20px;
+  padding: 8px;
   border-radius: 8px;
-  top: 20px;
-  left: 20px;
 
+  display: flex;
+  box-sizing: border-box;
+
+  height: 6em;
+  width: auto;
+
+  top: 50px;
+  left: 30px;
 }
+
+.profile-box img {
+  height: 100%;
+  border-radius: 2px;
+}
+
+
+
+.profile-text {
+  padding: 0 12px;
+
+  display: flex;
+  flex-flow: column;
+  justify-content: center;
+}
+
+
+
+.profile-text p {
+  margin: 0;
+}
+
+
+p.hourinfo {
+  opacity: 50%;
+  font-size: 0.8em;
+}
+
+p.username {
+  font-size: 1.2em;
+}
+
 
 
 .bottom-buttons {
@@ -98,7 +146,8 @@ main {
   display: flex;
   flex-flow: row;
   justify-content: space-between;
-  padding: 20px;
+  align-items: flex-end;
+  padding: 30px;
 }
 
 .bottom-buttons a {
@@ -117,7 +166,7 @@ main {
   aspect-ratio: 1;
   padding: 12px;
   width: auto;
-  height: 8em;
+  height: 6em;
   box-sizing: border-box;
 
   border-radius: 8px;
@@ -129,7 +178,7 @@ main {
 }
 
 .bottom-button img {
-  height: 75%;
+  height: 80%;
 }
 
 .bottom-button p, .bottom-button a {

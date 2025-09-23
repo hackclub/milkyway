@@ -35,8 +35,6 @@ export async function verifyOTPAndCreateSession(email, otp) {
   })
   .firstPage();
 
-  console.log("actual otp is ", record[0].fields.otp)
-
   if (!record[0]) {
     throw new Error('OTP not found')
   }
@@ -76,7 +74,6 @@ export async function createOTPRecord(email) {
     }
 
     console.log("creating OTP record...")
-    console.log(userRecordId)
     await base('OTP').create({
       'user': [ userRecordId ],
       'otp': parseInt(otp),
@@ -111,7 +108,6 @@ async function getUserRecordIdByEmail(email) {
   if (!record[0]) {
     throw new Error('User does not exist')
   }
-  console.log(record[0])
   return record[0].id; // return user info
 }
 
