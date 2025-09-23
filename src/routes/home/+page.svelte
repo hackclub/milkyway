@@ -1,4 +1,7 @@
 <script>
+
+import FloorTile from '$lib/components/FloorTile.svelte'
+
 let { data } = $props();
 
 console.log(data.user)
@@ -7,12 +10,25 @@ console.log(data.user)
 <main>
 
 <div class="zlayer room">
+
   <img aria-hidden="true" class="room-bg" src="room_draft.png" />
+
+  <FloorTile></FloorTile>
 </div>
 
 <div class="zlayer bottom-buttons">
-  <a href="/friends">friends</a>
-  <a href="/shop">shop</a>
+
+
+  <div class="bottom-button">
+    <img src="/friends.png" />
+    <a href="/friends">friends</a>
+  </div>
+
+  <div class="bottom-button">
+    <img src="/shop.png" />
+    <a href="/shop">shop</a>
+  </div>
+
 </div>
 
 <div class="zlayer profile-info">
@@ -53,8 +69,8 @@ main {
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* IE10+/Edge */
   user-select: none; /* Standard */
-
 }
+
 .room-bg {
   height: 75%;
 }
@@ -82,10 +98,50 @@ main {
   display: flex;
   flex-flow: row;
   justify-content: space-between;
+  padding: 20px;
 }
 
 .bottom-buttons a {
   padding: 20px;
 
 }
+
+.bottom-button {
+  display: flex;
+  flex-flow: column;
+  justify-content: space-evenly;
+  align-items: center;
+  text-align: center;
+
+  border: 2px solid white;
+  aspect-ratio: 1;
+  padding: 12px;
+  width: auto;
+  height: 8em;
+  box-sizing: border-box;
+
+  border-radius: 8px;
+  background-color: #ffffff25;
+
+  color: white;
+
+  transition: 0.2s;
+}
+
+.bottom-button img {
+  height: 75%;
+}
+
+.bottom-button p, .bottom-button a {
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.bottom-button:hover {
+  background-color: white;
+  color: black;
+}
+
 </style>
