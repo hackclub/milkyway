@@ -32,9 +32,9 @@ var floors = [
 }
 
 .floor {
-  position: relative;
-  left: -336px;
-  top: 1px;
+  position: absolute;
+
+  margin-left: calc(-1 * var(--tile-width));
 
 }
 

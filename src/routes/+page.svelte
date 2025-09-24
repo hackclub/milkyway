@@ -7,7 +7,6 @@ let { data } = $props();
 console.log("data: ", data)
 
 
-
 let sendOTPPromise = $state(/** @type {Promise<any> | null} */ (null));
 let checkOTPPromise = $state(null);
 let email = $state("");

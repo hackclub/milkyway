@@ -1,24 +1,21 @@
 <script>
 
-import FloorTile from '$lib/components/FloorTile.svelte'
+import FloorTile from '$lib/components/FloorTile.svelte';
+import EventsList from '$lib/components/EventsList.svelte';
 
 let { data } = $props();
 
-console.log(data.user)
+
+let isCreateOpen = $state(false);
+
 
 </script>
 <main>
 
-<div class="zlayer room">
 
-  <img aria-hidden="true" class="room-bg" src="room_draft.png" />
 
-  <FloorTile></FloorTile>
-</div>
 
 <div class="zlayer bottom-buttons">
-
-
   <div class="bottom-button">
     <img src="/friends.png" />
     <a href="/friends">friends</a>
@@ -30,6 +27,7 @@ console.log(data.user)
   </div>
 
 </div>
+
 
 <div class="zlayer profile-info">
   <img src="https://assets.hackclub.com/flag-orpheus-left.svg" style="width: 100px; position: absolute; top: 5px; left: 0;"/>
@@ -45,6 +43,25 @@ console.log(data.user)
   </div>
 </div>
 
+
+
+<div class="zlayer room {isCreateOpen ? 'move-down' : ''}">
+
+  <img aria-hidden="true" class="room-bg" src="room_draft.png" />
+
+  <FloorTile></FloorTile>
+
+  {#if !data.user.projects}
+    <p class="new-project" on:click={() => { isCreateOpen = !isCreateOpen }}>you don't have any projects yet. create something new?</p>
+  {/if}
+</div>
+
+{#if isCreateOpen}
+<div class="zlayer create-project">
+<EventsList></EventsList>
+</div>
+{/if}
+
 </main>
 
 
@@ -58,6 +75,8 @@ main {
   box-sizing: border-box;
 
   position: absolute;
+
+  overflow: hidden;
 }
 
 .zlayer {
@@ -72,17 +91,42 @@ main {
   display: flex;
   justify-content: center;
   align-items: center;
+  position: absolute;
+  pointer-events: none;
+}
+
+.room.move-down {
+  margin-top: 40vh;
+}
+
+.room-bg {
+  position: absolute;
+  height: 75%;
+  pointer-events: none;
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* IE10+/Edge */
   user-select: none; /* Standard */
-  pointer-events: none;
 }
 
-.room-bg {
-  height: 75%;
+.room .new-project {
+  position: absolute;
+
+  background-color: #ffffffaa;
+  border: 4px solid white;
+  border-radius: 8px;
+
+  width: 300px;
+  text-align: center;
+  padding: 10px 20px;
+  transition: 0.2s;
+  pointer-events: all;
 }
 
+.room .new-project:hover {
+  background-color: white;
+  cursor: pointer;
+}
 
 .profile-info {
   position: relative;
@@ -175,6 +219,9 @@ p.username {
   color: white;
 
   transition: 0.2s;
+
+  cursor: pointer;
+  pointer-events: all;
 }
 
 .bottom-button img {
