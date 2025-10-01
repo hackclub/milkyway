@@ -1,13 +1,17 @@
 <script>
 
 import FloorTile from '$lib/components/FloorTile.svelte';
-import EventsList from '$lib/components/EventsList.svelte';
+import CreateProject from '$lib/components/CreateProject.svelte';
+import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
 
 let { data } = $props();
 
-
 let isCreateOpen = $state(false);
+let projectList = $state(data.projects || []);
 
+// Debug: log the projects data
+console.log('Projects data from server:', data.projects);
+console.log('Project list state:', projectList);
 
 </script>
 <main>
@@ -45,21 +49,26 @@ let isCreateOpen = $state(false);
 
 
 
-<div class="zlayer room {isCreateOpen ? 'move-down' : ''}">
+<div class="zlayer room">
 
   <img aria-hidden="true" class="room-bg" src="room_draft.png" />
 
   <FloorTile></FloorTile>
 
-  {#if !data.user.projects}
-    <p class="new-project" on:click={() => { isCreateOpen = !isCreateOpen }}>you don't have any projects yet. create something new?</p>
+  {#if !projectList || projectList.length === 0}
+    <button class="new-project" onclick={() => { isCreateOpen = !isCreateOpen }}>you don't have any projects yet. create something new?</button>
   {/if}
+
+  {#each projectList as project, index}
+
+    <ProjectEgg eggImg={project.egg} bind:projInfo={projectList[index]} x=100px y=80px></ProjectEgg>
+
+
+  {/each}
 </div>
 
 {#if isCreateOpen}
-<div class="zlayer create-project">
-<EventsList></EventsList>
-</div>
+  <CreateProject onClose={() => { isCreateOpen = false }} bind:projectList={projectList} />
 {/if}
 
 </main>
@@ -92,12 +101,8 @@ main {
   justify-content: center;
   align-items: center;
   position: absolute;
-  pointer-events: none;
 }
 
-.room.move-down {
-  margin-top: 40vh;
-}
 
 .room-bg {
   position: absolute;
@@ -121,11 +126,13 @@ main {
   padding: 10px 20px;
   transition: 0.2s;
   pointer-events: all;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .room .new-project:hover {
   background-color: white;
-  cursor: pointer;
 }
 
 .profile-info {

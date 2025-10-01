@@ -22,6 +22,7 @@ export async function getUserInfoBySessionId(sessionid) {
 
   if (!records.length) return null;
   const user = records[0].fields;
+  user.recId = records[0].id; // Add the record ID
   return user;
 }
 
