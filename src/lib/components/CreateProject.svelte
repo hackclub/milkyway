@@ -79,7 +79,7 @@
 
                 const result = await response.json();
 
-                
+
                 if (result.success) {
                     // Add to local project list optimistically
                     projectList.push(result.project);
