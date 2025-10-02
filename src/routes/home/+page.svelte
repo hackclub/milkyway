@@ -106,7 +106,7 @@ main {
 
 .room-bg {
   position: absolute;
-  height: 75%;
+  height: 700px;
   pointer-events: none;
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */

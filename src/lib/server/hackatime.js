@@ -2,13 +2,14 @@
  * Fetches projects from HackaTime API for a given user email and date
  * @param {string} email - User's email address
  * @param {string} date - Date in YYYY-MM-DD format
+ * @param {string} startDate - Start date in YYYY-MM-DD format (optional)
  * @returns {Promise<Object>} - API response data
  */
 
 import dotenv from 'dotenv';
 dotenv.config();
 
-export async function fetchProjects(email, date) {
+export async function fetchProjects(email, date, startDate = null) {
 	try {
 		const headers = {
 			"Rack-Attack-Bypass": process.env.HACKATIME_RATE_LIMIT_BYPASS || '',
@@ -55,12 +56,22 @@ export async function fetchProjects(email, date) {
 				"Rack-Attack-Bypass": process.env.HACKATIME_RATE_LIMIT_BYPASS || '',
 			};
 
-			const projectData = await fetch(`https://hackatime.hackclub.com/api/v1/users/${hackatimeId}/stats?features=projects`, {
+			let apiUrl = `https://hackatime.hackclub.com/api/v1/users/${hackatimeId}/stats?features=projects`;
+			if (startDate) {
+				apiUrl += `&start_date=${startDate}`;
+			}
+
+			const projectData = await fetch(apiUrl, {
 				method: 'GET',
 				headers,
 			});
 
 			const projdata = await projectData.json();
+			console.log('HackaTime API raw response:', {
+				status: projectData.status,
+				ok: projectData.ok,
+				data: projdata
+			});
 			return projdata;
 
 		} catch (error) {

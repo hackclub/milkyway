@@ -2,7 +2,7 @@ import { base } from '$lib/server/db.js';
 
 /**
  * Get all projects for a specific user
- * @param {string} userId - The user's record ID in Airtable
+ * @param {string} userEmail - The user's email address
  * @returns {Promise<Array<Object>>} Array of project objects
  */
 export async function getUserProjectsByEmail(userEmail) {
@@ -26,6 +26,7 @@ export async function getUserProjectsByEmail(userEmail) {
       egg: record.fields.egg || 'projects/egg1.png',
       status: 'active', // Default since you don't have this field
       hours: record.fields.hours || 0,
+      totalHours: record.fields.totalHours || 0,
       hackatimeProjects: record.fields.hackatimeProjects || [],
       created: record.fields.Created
     }));
