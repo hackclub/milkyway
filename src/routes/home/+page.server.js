@@ -17,10 +17,14 @@ export async function load({ locals }) {
   const { coins, stellarships } = await getUserCoinsAndStellarships(locals.user.recId);
   console.log('Loaded coins:', coins, 'stellarships:', stellarships);
 
+  // Check if user has completed onboarding
+  const hasOnboarded = locals.user.hasOnboarded || false;
+
   return {
     user: locals.user,
     projects,
     coins,
-    stellarships
+    stellarships,
+    hasOnboarded
   };
 }

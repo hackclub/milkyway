@@ -17,12 +17,6 @@
   let isLoadingHackatime = $state(false);
   let currentHackatimeHours = $state(0);
 
-  // Run on component mount to check hackatimeHours
-  $effect(() => {
-    if (projInfo.id && projInfo.hackatimeProjects && hackatimeProjects.length > 0) {
-      checkAndUpdateHackatimeHours();
-    }
-  });
 
 
   // Function to update project in Airtable
@@ -181,9 +175,6 @@
           
           // Restore selected projects from Airtable
           restoreSelectedProjects();
-          
-          // Check and update hackatimeHours after loading projects
-          await checkAndUpdateHackatimeHours();
         } else {
           console.log('No projects array found in data:', result.data);
           hackatimeProjects = [];
@@ -210,8 +201,17 @@
     if (!projInfo.hackatimeProjects) return;
     
     // Parse the stored hackatimeProjects string
-    const storedProjectNames = projInfo.hackatimeProjects.split(', ').filter(name => name.trim());
-    selectedHackatimeProjects = new Set(storedProjectNames);
+    try {
+      if (projInfo.hackatimeProjects && typeof projInfo.hackatimeProjects === 'string') {
+        const storedProjectNames = projInfo.hackatimeProjects.split(', ').filter(name => name.trim());
+        selectedHackatimeProjects = new Set(storedProjectNames);
+      } else if (Array.isArray(projInfo.hackatimeProjects)) {
+        // Handle case where it's already an array
+        selectedHackatimeProjects = new Set(projInfo.hackatimeProjects.filter(name => name && name.trim()));
+      }
+    } catch {
+      selectedHackatimeProjects = new Set();
+    }
     
     // Update the hours count and totalHours
     updateCurrentHours();
@@ -243,44 +243,6 @@
     updateCurrentHours();
   }
 
-  // Check and update hackatimeHours based on selected projects
-  async function checkAndUpdateHackatimeHours() {
-    if (!projInfo.id || !projInfo.hackatimeProjects) return;
-    
-    // Parse the stored hackatimeProjects string
-    const storedProjectNames = projInfo.hackatimeProjects.split(', ').filter(name => name.trim());
-    if (storedProjectNames.length === 0) return;
-    
-    // Calculate total hours from stored projects
-    let totalHours = 0;
-    storedProjectNames.forEach(projectName => {
-      const project = hackatimeProjects.find(p => p.name === projectName);
-      if (project) {
-        totalHours += project.hours;
-      }
-    });
-    
-    const calculatedHours = Math.round(totalHours * 100) / 100;
-    const currentHours = projInfo.hackatimeHours || 0;
-    
-    // Update if the calculated hours don't match the stored hours
-    if (Math.abs(calculatedHours - currentHours) > 0.01) { // Small tolerance for floating point
-      console.log('Updating hackatimeHours:', {
-        current: currentHours,
-        calculated: calculatedHours,
-        projects: storedProjectNames
-      });
-      
-      const updates = {
-        hackatimeHours: calculatedHours
-      };
-      
-      const success = await updateProject(projInfo.id, updates);
-      if (success) {
-        projInfo.hackatimeHours = calculatedHours;
-      }
-    }
-  }
 </script>
 
 

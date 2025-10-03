@@ -5,12 +5,14 @@ import CreateProject from '$lib/components/CreateProject.svelte';
 import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
 import Tooltip from '$lib/components/Tooltip.svelte';
 import ExpandableButton from '$lib/components/ExpandableButton.svelte';
+import OnboardingOverlay from '$lib/components/OnboardingOverlay.svelte';
 
 let { data } = $props();
 
 let isCreateOpen = $state(false);
 let projectList = $state(data.projects || []);
 let showRoomEditPopup = $state(false);
+let showOnboarding = $state(!data.hasOnboarded);
 
 </script>
 
@@ -110,6 +112,12 @@ let showRoomEditPopup = $state(false);
       <button class="popup-close" onclick={() => { showRoomEditPopup = false }}>×</button>
     </div>
   </div>
+{/if}
+
+{#if showOnboarding}
+  <OnboardingOverlay onClose={() => { showOnboarding = false }} user={data.user}>
+    <!-- Add your onboarding content here -->
+  </OnboardingOverlay>
 {/if}
 
 </main>
@@ -366,5 +374,6 @@ p.username {
   align-items: center;
   justify-content: center;
 }
+
 
 </style>
