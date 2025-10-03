@@ -112,6 +112,25 @@ async function getUserRecordIdByEmail(email) {
   return record[0].id; // return user info
 }
 
+export async function getUserCoinsAndStellarships(userId) {
+  const record = await base('User')
+    .select({
+      filterByFormula: `RECORD_ID() = "${userId}"`,
+      maxRecords: 1,
+    })
+    .firstPage();
+
+  if (!record[0]) {
+    throw new Error('User does not exist')
+  }
+
+  const fields = record[0].fields;
+  return {
+    coins: fields.coins || 0,
+    stellarships: fields.stellarships || 0
+  };
+}
+
 
 
 // generate 6-digit otp

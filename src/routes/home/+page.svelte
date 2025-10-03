@@ -3,34 +3,35 @@
 import FloorTile from '$lib/components/FloorTile.svelte';
 import CreateProject from '$lib/components/CreateProject.svelte';
 import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
+import Tooltip from '$lib/components/Tooltip.svelte';
 
 let { data } = $props();
 
 let isCreateOpen = $state(false);
 let projectList = $state(data.projects || []);
 
-// Debug: log the projects data
-console.log('Projects data from server:', data.projects);
-console.log('Project list state:', projectList);
-
 </script>
+
+<svelte:head>
+  <title>Home ✦ Milkyway</title>
+</svelte:head>
+
 <main>
 
 
-
-
 <div class="zlayer bottom-buttons">
-  <div class="bottom-button">
+  <a href="/friends" class="bottom-button">
     <img src="/friends.png" />
-    <a href="/friends">friends</a>
-  </div>
+    <span>friends</span>
+  </a>
 
-  <div class="bottom-button">
+  <a href="/shop" class="bottom-button">
     <img src="/shop.png" />
-    <a href="/shop">shop</a>
-  </div>
+    <span>shop</span>
+  </a>
 
 </div>
+
 
 
 <div class="zlayer profile-info">
@@ -42,6 +43,18 @@ console.log('Project list state:', projectList);
     <div class="profile-text">
       <p class="hourinfo">xx hours · xx projects</p>
       <p class="username">{ data.user.username }</p>
+        <div class="coins-info">
+
+         <p>{ data.coins || 0 }</p>
+          <Tooltip text="earn coins by submitting projects. use them to buy items in the shop!">
+            <img src="/coin.png" />
+          </Tooltip>
+          <p> · </p>
+          <p>{ data.stellarships || 0 }</p>
+          <Tooltip text="earn stellar ships by polishing projects after shipping them. use them for special items in the shop!">
+            <img src="/stellarship.png" />
+          </Tooltip>
+        </div>
     </div>
 
   </div>
@@ -65,6 +78,11 @@ console.log('Project list state:', projectList);
 
 
   {/each}
+
+  <button class="fab-button" onclick={() => { isCreateOpen = !isCreateOpen }}>
+    <span class="fab-text">create new project</span>
+    <span class="fab-plus">+</span>
+  </button>
 </div>
 
 {#if isCreateOpen}
@@ -94,7 +112,24 @@ main {
   left: 0;
 }
 
+.profile-info {
+  z-index: 5;
+}
+
+.coins-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.coins-info img {
+  height: 1em;
+  filter: drop-shadow(-1.5px -1.5px 0 white) drop-shadow(1.5px -1.5px 0 white) drop-shadow(-1.5px 1.5px 0 white) drop-shadow(1.5px 1.5px 0 white) drop-shadow(0 0 3px white);
+}
+
 .room {
+  z-index: 1;
   height: 100%;
   width: 100%;
   display: flex;
@@ -157,9 +192,10 @@ main {
   left: 30px;
 }
 
-.profile-box img {
+.profile-box > img {
   height: 100%;
   border-radius: 2px;
+
 }
 
 
@@ -191,6 +227,7 @@ p.username {
 
 
 .bottom-buttons {
+  z-index: 10;
   bottom: 0;
   width: 100%;
   top: auto;
@@ -199,6 +236,7 @@ p.username {
   justify-content: space-between;
   align-items: flex-end;
   padding: 30px;
+  pointer-events: none;
 }
 
 .bottom-buttons a {
@@ -207,11 +245,13 @@ p.username {
 }
 
 .bottom-button {
+  pointer-events: auto;
   display: flex;
-  flex-flow: column;
-  justify-content: space-evenly;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
   text-align: center;
+  gap: 4px;
 
   border: 2px solid white;
   aspect-ratio: 1;
@@ -224,6 +264,7 @@ p.username {
   background-color: #ffffff25;
 
   color: white;
+  text-decoration: none;
 
   transition: 0.2s;
 
@@ -235,16 +276,68 @@ p.username {
   height: 80%;
 }
 
-.bottom-button p, .bottom-button a {
+.bottom-button span {
   margin: 0;
   padding: 0;
   color: inherit;
-  text-decoration: none;
 }
+
 
 .bottom-button:hover {
   background-color: white;
   color: black;
+}
+
+.fab-button {
+  position: absolute;
+  bottom: 12vw;
+  left: 32vw;
+  background-color: #ffffff25;
+  border: 2px solid white;
+  color: white;
+  border-radius: 30px;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+
+  display: flex;
+  flex-flow: row;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+
+  font-family: inherit;
+  z-index: 20;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.fab-button:hover {
+  width: 170px;
+  border-radius: 30px;
+  left: calc(32vw - 130px);
+}
+
+
+.fab-plus {
+  font-size: 1.2em;
+  transition: 0.2s;
+  margin-top: -4px;
+  margin-bottom: -4px;
+}
+
+.fab-text {
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity 0.3s ease;
+}
+
+.fab-button:hover .fab-plus {
+}
+
+.fab-button:hover .fab-text {
+  opacity: 1;
 }
 
 </style>
