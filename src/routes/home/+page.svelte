@@ -4,11 +4,13 @@ import FloorTile from '$lib/components/FloorTile.svelte';
 import CreateProject from '$lib/components/CreateProject.svelte';
 import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
 import Tooltip from '$lib/components/Tooltip.svelte';
+import ExpandableButton from '$lib/components/ExpandableButton.svelte';
 
 let { data } = $props();
 
 let isCreateOpen = $state(false);
 let projectList = $state(data.projects || []);
+let showRoomEditPopup = $state(false);
 
 </script>
 
@@ -79,14 +81,35 @@ let projectList = $state(data.projects || []);
 
   {/each}
 
-  <button class="fab-button" onclick={() => { isCreateOpen = !isCreateOpen }}>
-    <span class="fab-text">create new project</span>
-    <span class="fab-plus">+</span>
-  </button>
+  <div class="fab-container">
+    <ExpandableButton 
+      icon="+" 
+      expandedText="create new project" 
+      expandedWidth="165px"
+      onClick={() => { isCreateOpen = !isCreateOpen }} 
+    />
+
+    <ExpandableButton 
+      icon="✎"
+      expandedText="edit room" 
+      expandedWidth="112px"
+      onClick={() => { showRoomEditPopup = true }} 
+    />
+  </div>
+
 </div>
 
 {#if isCreateOpen}
   <CreateProject onClose={() => { isCreateOpen = false }} bind:projectList={projectList} />
+{/if}
+
+{#if showRoomEditPopup}
+  <div class="popup-overlay" onclick={() => { showRoomEditPopup = false }}>
+    <div class="popup-content" onclick={(e) => e.stopPropagation()}>
+      <h3>room editing coming soon!</h3>
+      <button class="popup-close" onclick={() => { showRoomEditPopup = false }}>×</button>
+    </div>
+  </div>
 {/if}
 
 </main>
@@ -288,56 +311,60 @@ p.username {
   color: black;
 }
 
-.fab-button {
+.fab-container {
   position: absolute;
-  bottom: 12vw;
-  left: 32vw;
-  background-color: #ffffff25;
-  border: 2px solid white;
-  color: white;
-  border-radius: 30px;
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
-
-  display: flex;
-  flex-flow: row;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 12px;
-
-  font-family: inherit;
+  bottom: 22vw;
+  left: 24vw;
   z-index: 20;
-  transition: all 0.3s ease;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.fab-button:hover {
-  width: 170px;
-  border-radius: 30px;
-  left: calc(32vw - 130px);
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
 
-
-.fab-plus {
-  font-size: 1.2em;
-  transition: 0.2s;
-  margin-top: -4px;
-  margin-bottom: -4px;
+.popup-content {
+  background-color: #FBF2BF;
+  border: 4px solid #F7C881;
+  border-radius: 8px;
+  padding: 30px;
+  position: relative;
+  max-width: 300px;
+  text-align: center;
 }
 
-.fab-text {
-  opacity: 0;
-  white-space: nowrap;
-  transition: opacity 0.3s ease;
+.popup-content h3 {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
 }
 
-.fab-button:hover .fab-plus {
-}
-
-.fab-button:hover .fab-text {
-  opacity: 1;
+.popup-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #333;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 </style>

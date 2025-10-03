@@ -1,6 +1,8 @@
 <script>
     import { fly, fade } from 'svelte/transition';
     import SpinWheel from './prompts/roulette/SpinWheel.svelte';
+    import Tooltip from './Tooltip.svelte';
+
 
     let { onClose, projectList = $bindable() } = $props();
 
@@ -41,7 +43,7 @@
       "new": {
         name: 'OR: MAKE YOUR OWN GAME!',
         description: 'Make anything you want!',
-        image: '/prompts/new.png',
+        image: '/prompts/yourown.png',
         minHours: 0,
         minStars: 0,
         maxStars: 0,
@@ -72,7 +74,7 @@
                     // update this in the future, if required — specifically for egg.
                     body: JSON.stringify({
                         name: 'New game!',
-                        description: `A new ${selectedEvent} project. Update this description!`,
+                        description: `${eventNames[selectedEvent]?.name || selectedEvent}`,
                         egg: 'projects/egg1.png'
                     })
                 });
@@ -151,7 +153,9 @@
       transition:fly|global={{ y: 40, duration: 80, delay: index * 80 }}
     >
       <p class="event-name">{event.name}</p>
-      <p class="event-info">Min {event.minHours} hours · Earn {event.minStars}-{event.maxStars} stars</p>
+      <p class="event-info">Min {event.minHours} hours · Earn {event.minStars}-{event.maxStars} <Tooltip text="earn coins by submitting projects. use them to buy items in the shop!">
+        <img style="height: 1.2em; width: auto; margin-bottom: -0.1em;" src="/coin.png" />
+      </Tooltip></p>
       <img class="event-image" src={event.image} alt={event.name} />
       <p>{event.description}</p>
     </div>
