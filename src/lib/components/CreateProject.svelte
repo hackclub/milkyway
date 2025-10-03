@@ -44,9 +44,9 @@
         name: 'OR: MAKE YOUR OWN GAME!',
         description: 'Make anything you want!',
         image: '/prompts/yourown.png',
-        minHours: 0,
-        minStars: 0,
-        maxStars: 0,
+        minHours: 10,
+        minStars: 50,
+        maxStars: 1000,
         primaryColor: 'black',
         secondaryColor: 'white',
         cta: 'SOMETHING NEW!'
