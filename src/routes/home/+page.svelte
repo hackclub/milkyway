@@ -6,6 +6,7 @@ import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
 import Tooltip from '$lib/components/Tooltip.svelte';
 import ExpandableButton from '$lib/components/ExpandableButton.svelte';
 import OnboardingOverlay from '$lib/components/OnboardingOverlay.svelte';
+import FaqPopup from '$lib/components/FaqPopup.svelte';
 
 let { data } = $props();
 
@@ -14,6 +15,7 @@ let projectList = $state(data.projects || []);
 let showRoomEditPopup = $state(false);
 let showOnboarding = $state(!data.hasOnboarded);
 let selectedEggId = $state(null);
+let showFaqPopup = $state(false);
 
 // Function to handle egg selection
 function selectEgg(projectId) {
@@ -40,6 +42,12 @@ function selectEgg(projectId) {
     <span>shop</span>
   </a>
 
+</div>
+
+<div class="zlayer faq-button">
+  <button class="faq-icon" onclick={() => { showFaqPopup = true }} aria-label="Open FAQ">
+    <img src="/mimi_faq.png" alt="FAQ" />
+  </button>
 </div>
 
 
@@ -132,6 +140,11 @@ function selectEgg(projectId) {
     <!-- Add your onboarding content here -->
   </OnboardingOverlay>
 {/if}
+
+<FaqPopup 
+  showPopup={showFaqPopup} 
+  onClose={() => { showFaqPopup = false }} 
+/>
 
 </main>
 
@@ -387,6 +400,58 @@ p.username {
   align-items: center;
   justify-content: center;
 }
+
+.faq-button {
+  z-index: 10;
+  bottom: 0;
+  left: 200px;
+  top: auto;
+}
+
+.faq-icon {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: block;
+  line-height: 0;
+  position: relative;
+}
+
+.faq-icon img {
+  width: auto;
+  height: 100px;
+  display: block;
+}
+
+.faq-icon:hover img {
+  opacity: 0;
+}
+
+.faq-icon::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 110%;
+  background-image: url('/mimi_faq_hover.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: bottom;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.faq-icon:hover::after {
+  opacity: 1;
+}
+
+
+
+
+
 
 
 </style>
