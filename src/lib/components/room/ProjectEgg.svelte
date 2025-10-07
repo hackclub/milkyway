@@ -1,9 +1,7 @@
 <script>
   import { slide } from 'svelte/transition';
 
-  let { eggImg, projInfo = $bindable(), x, y} = $props();
-
-  let selected = $state(false);
+  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect} = $props();
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
@@ -246,10 +244,10 @@
 </script>
 
 
-<div class="project-egg {selected ? 'selected' : ''}" style:--x={x} style:--y={y} >
+<div class="project-egg {selected ? 'selected' : ''}" style:--x={x} style:--y={y} onclick={(e) => e.stopPropagation()}>
 <img class="egg-img" src={eggImg} alt="Project egg" />
 
-<button class="egg-svg" onclick={() => selected = !selected } aria-label="Toggle project details">
+<button class="egg-svg" onclick={onSelect} aria-label="Toggle project details">
   <img src="/projects/egg_shape.svg" alt="Project egg shape" />
 </button>
 
@@ -278,11 +276,11 @@
     <!-- HackaTime Projects Section -->
     <div class="hackatime-section">
       <div class="hackatime-header">
-        <h5 class="hackatime-title">Hackatime Projects</h5>
-        <div class="hackatime-total">Total: {currentHackatimeHours}h</div>
+        <h5 class="hackatime-title">hackatime projects</h5>
+        <div class="hackatime-total">total: {currentHackatimeHours}h</div>
       </div>
       {#if isLoadingHackatime}
-        <div class="hackatime-loading">Loading projects...</div>
+        <div class="hackatime-loading">loading projects...</div>
       {:else if hackatimeProjects.length > 0}
         <div class="hackatime-projects-list">
           {#each hackatimeProjects as project}
@@ -298,11 +296,11 @@
           {/each}
         </div>
       {:else}
-        <div class="hackatime-empty">No Hackatime projects found for this period</div>
+        <div class="hackatime-empty">no hackatime projects found for this time. start coding!</div>
       {/if}
     </div>
   {:else}
-    <p class="project-desc-display">{projInfo.description || 'No description yet... change this!'}</p>
+    <p class="project-desc-display">{projInfo.description || 'no description yet... change this!'}</p>
   {/if}
 
   <div class="project-actions">
@@ -330,13 +328,17 @@
 .project-egg {
   height: 8%;
   position: absolute;
-  
+  z-index: 100;
 
   display: flex;
   justify-content: center;
   align-items: center;
 
-  transform: translate(var(--x), var(--y));
+  transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px ));
+}
+
+.project-egg.selected {
+  z-index: 1000;
 }
 
 .egg-img {
@@ -381,6 +383,7 @@
 
   padding: 12px;
   width: 30vw;
+  z-index: 1500;
 }
 
 .project-header {

@@ -73,8 +73,8 @@
 
                     // update this in the future, if required — specifically for egg.
                     body: JSON.stringify({
-                        name: 'New game!',
-                        description: `${eventNames[selectedEvent]?.name || selectedEvent}`,
+                        name: 'untitled game!',
+                        description: `${eventNames[selectedEvent]?.name.toLowerCase() || selectedEvent.toLowerCase()}`,
                         egg: 'projects/egg1.png'
                     })
                 });

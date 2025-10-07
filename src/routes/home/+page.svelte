@@ -13,6 +13,12 @@ let isCreateOpen = $state(false);
 let projectList = $state(data.projects || []);
 let showRoomEditPopup = $state(false);
 let showOnboarding = $state(!data.hasOnboarded);
+let selectedEggId = $state(null);
+
+// Function to handle egg selection
+function selectEgg(projectId) {
+  selectedEggId = selectedEggId === projectId ? null : projectId;
+}
 
 </script>
 
@@ -66,24 +72,31 @@ let showOnboarding = $state(!data.hasOnboarded);
 
 
 
-<div class="zlayer room">
+<div class="zlayer room" onclick={() => selectedEggId = null}>
 
   <img aria-hidden="true" class="room-bg" src="room_draft.png" />
 
   <FloorTile></FloorTile>
 
   {#if !projectList || projectList.length === 0}
-    <button class="new-project" onclick={() => { isCreateOpen = !isCreateOpen }}>you don't have any projects yet. create something new?</button>
+    <button class="new-project" onclick={(e) => { e.stopPropagation(); isCreateOpen = !isCreateOpen }}>you don't have any projects yet. create something new?</button>
   {/if}
 
   {#each projectList as project, index}
 
-    <ProjectEgg eggImg={project.egg} bind:projInfo={projectList[index]} x=100px y=80px></ProjectEgg>
+    <ProjectEgg 
+      eggImg={project.egg} 
+      bind:projInfo={projectList[index]} 
+      x={project.x} 
+      y={project.y}
+      selected={selectedEggId === project.id}
+      onSelect={() => selectEgg(project.id)}
+    ></ProjectEgg>
 
 
   {/each}
 
-  <div class="fab-container">
+  <div class="fab-container" onclick={(e) => e.stopPropagation()}>
     <ExpandableButton 
       icon="+" 
       expandedText="create new project" 
