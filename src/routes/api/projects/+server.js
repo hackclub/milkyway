@@ -24,7 +24,7 @@ export async function POST({ request, locals }) {
       locals.user.recId, {
         name: projectData.name,
         description: projectData.description || '',
-        egg: projectData.egg || 'projects/egg1.png'
+        egg: projectData.egg || 'projects/sparkle_egg1.png'
       });
     return json({ success: true, project });
 

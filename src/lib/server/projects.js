@@ -29,7 +29,7 @@ export async function getUserProjectsByEmail(userEmail) {
         promptinfo: record.fields.promptinfo || '',
         description: record.fields.description || '',
         event: 'new', // Default since you don't have this field
-        egg: record.fields.egg || 'projects/egg1.png',
+        egg: record.fields.egg || 'projects/sparkle_egg1.png',
         position: record.fields.position || '0,0',
         x: x,
         y: y,

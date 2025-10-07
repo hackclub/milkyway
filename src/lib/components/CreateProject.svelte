@@ -75,7 +75,7 @@
                     body: JSON.stringify({
                         name: 'untitled game!',
                         description: `${eventNames[selectedEvent]?.name.toLowerCase() || selectedEvent.toLowerCase()}`,
-                        egg: 'projects/egg1.png'
+                        egg: 'projects/sparkle_egg1.png'
                     })
                 });
 
@@ -116,7 +116,7 @@
 
   {#if promptChosen}
   <h1 style="color: #E6819F; font-size: 3em; margin-bottom: 8px;" transition:fade={{duration: 150}}>YOUR NEW PROJECT!</h1>
-  <img src="/projects/egg1.png" class="create-project-egg" style="width: 20%;" alt="New project egg" transition:fly={{ y: 40, duration: 300 }} />
+  <img src="/projects/sparkle_egg1.png" class="create-project-egg" style="width: 20%;" alt="New project egg" transition:fly={{ y: 40, duration: 300 }} />
   <p class="create-project-text">this is your new {selectedEvent} project.</p>
   <p class="create-project-text">take good care of it!</p>
 
