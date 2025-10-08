@@ -1,5 +1,6 @@
 <script>
   import { slide } from 'svelte/transition';
+  import Tooltip from '../Tooltip.svelte';
 
   let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup} = $props();
   let isEditing = $state(false);
@@ -311,8 +312,12 @@
       <button class="discard-btn" onclick={discardChanges} disabled={isUpdating}>Discard</button>
     {:else}
       <button class="edit-btn" onclick={startEdit}>Edit details</button>
-      <button class="add-hours-btn" onclick={addArtHours}>Create artlog</button>
-      <button class="ship-btn" onclick={shipProject}>Ship project 💫</button>
+      <Tooltip text="coming soon!">
+        <button class="add-hours-btn disabled" onclick={addArtHours}>Create artlog</button>
+      </Tooltip>
+      <Tooltip text="coming soon!">
+        <button class="ship-btn disabled" onclick={shipProject}>Ship project 💫</button>
+      </Tooltip>
     {/if}
   </div>
 
@@ -550,6 +555,21 @@ input:hover, textarea:hover {
 .ship-btn:hover {
   background: #11172A;
   border-color: #11172A;
+}
+
+/* Disabled button styles */
+.add-hours-btn.disabled, .ship-btn.disabled {
+  background: #ccc;
+  border-color: #ccc;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.add-hours-btn.disabled:hover, .ship-btn.disabled:hover {
+  background: #ccc;
+  border-color: #ccc;
+  color: #999;
 }
 
 
