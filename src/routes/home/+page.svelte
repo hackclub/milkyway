@@ -7,6 +7,7 @@ import Tooltip from '$lib/components/Tooltip.svelte';
 import ExpandableButton from '$lib/components/ExpandableButton.svelte';
 import OnboardingOverlay from '$lib/components/OnboardingOverlay.svelte';
 import FaqPopup from '$lib/components/FaqPopup.svelte';
+import PromptPopup from '$lib/components/PromptPopup.svelte';
 
 let { data } = $props();
 
@@ -16,10 +17,18 @@ let showRoomEditPopup = $state(false);
 let showOnboarding = $state(!data.hasOnboarded);
 let selectedEggId = $state(null);
 let showFaqPopup = $state(false);
+let showPromptPopup = $state(false);
+let currentPromptInfo = $state('');
 
 // Function to handle egg selection
 function selectEgg(projectId) {
   selectedEggId = selectedEggId === projectId ? null : projectId;
+}
+
+// Function to handle prompt popup
+function showPromptPopupHandler(promptInfo) {
+  currentPromptInfo = promptInfo;
+  showPromptPopup = true;
 }
 
 </script>
@@ -99,6 +108,7 @@ function selectEgg(projectId) {
       y={project.y}
       selected={selectedEggId === project.id}
       onSelect={() => selectEgg(project.id)}
+      onShowPromptPopup={showPromptPopupHandler}
     ></ProjectEgg>
 
 
@@ -144,6 +154,11 @@ function selectEgg(projectId) {
 <FaqPopup 
   showPopup={showFaqPopup} 
   onClose={() => { showFaqPopup = false }} 
+/>
+
+<PromptPopup 
+  bind:showPopup={showPromptPopup} 
+  promptInfo={currentPromptInfo}
 />
 
 </main>

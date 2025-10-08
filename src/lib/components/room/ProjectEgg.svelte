@@ -1,7 +1,7 @@
 <script>
   import { slide } from 'svelte/transition';
 
-  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect} = $props();
+  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup} = $props();
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
@@ -259,7 +259,7 @@
       <div class="project-meta">
         <span class="hours-info">{projInfo.totalHours || 0} hours</span>
         <span class="separator">·</span>
-        <span class="prompt-info">{projInfo.promptinfo}</span>
+        <button class="prompt-info-link" onclick={() => onShowPromptPopup(projInfo.promptinfo)}>{projInfo.promptinfo}</button>
       </div>
       {#if isEditing}
         <input class="project-name" bind:value={projInfo.name} placeholder="your game name..." />
@@ -405,6 +405,23 @@
 
 .hours-info {
   font-weight: normal;
+}
+
+.prompt-info-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  opacity: 0.5;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: opacity 0.2s;
+}
+
+.prompt-info-link:hover {
+  opacity: 1;
 }
 
 

@@ -2,6 +2,7 @@
     import { fly, fade } from 'svelte/transition';
     import SpinWheel from './prompts/roulette/SpinWheel.svelte';
     import Tooltip from './Tooltip.svelte';
+    import { promptData } from '$lib/data/prompt-data.js';
 
 
     let { onClose, projectList = $bindable() } = $props();
@@ -16,42 +17,8 @@
     let isCreating = $state(false);
     let errorMessage = $state(/** @type {string | null} */ (null));
 
-    /** @type {Record<string, {name: string, description: string, image: string, minHours: number, minStars: number, maxStars: number, primaryColor: string, secondaryColor: string, cta: string}>} */
-    let eventNames = {
-      "roulette": {
-        name: 'ROULETTE',
-        description: 'Spin three wheels & let fate decide the contents of your game!',
-        image: '/prompts/roulette.png',
-        minHours: 20,
-        minStars: 150,
-        maxStars: 500,
-        primaryColor: '#ED738B',
-        secondaryColor: 'black',
-        cta: 'SPIN WHEELS!'
-      },
-      "sparkle": {
-        name: 'SPARKLE',
-        description: 'Take a simple game, and make it as polished and juicy as you can!',
-        image: '/prompts/sparkle.png',
-        minHours: 5,
-        minStars: 30,
-        maxStars: 300,
-        primaryColor: '#bf9a0d',
-        secondaryColor: '#f2eac2',
-        cta: 'MAKE SPARKLES!'
-      },
-      "new": {
-        name: 'OR: MAKE YOUR OWN GAME!',
-        description: 'Make anything you want!',
-        image: '/prompts/yourown.png',
-        minHours: 10,
-        minStars: 50,
-        maxStars: 1000,
-        primaryColor: 'black',
-        secondaryColor: 'white',
-        cta: 'SOMETHING NEW!'
-      }
-    }
+    // Use the shared prompt data
+    let eventNames = promptData;
 
     // what happens once you create a project with a certain promopt
     async function handleStartProject() {
@@ -74,7 +41,7 @@
                     // update this in the future, if required — specifically for egg.
                     body: JSON.stringify({
                         name: 'untitled game!',
-                        description: `${eventNames[selectedEvent]?.name.toLowerCase() || selectedEvent.toLowerCase()}`,
+                        description: `${eventNames[selectedEvent || 'new']?.name.toLowerCase() || selectedEvent?.toLowerCase() || 'custom'}`,
                         egg: 'projects/sparkle_egg1.png'
                     })
                 });
