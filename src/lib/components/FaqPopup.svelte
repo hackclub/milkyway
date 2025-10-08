@@ -16,7 +16,7 @@
     },
     {
       question: "How many coins do I earn from submitting a project?",
-      answer: "coming soon"
+      answer: "On average, you can earn 4-10 coins per hour that you work on your project. However, it is very highly dependent on the quality of your project! Once you submit, you will also receive feedback that you can then improve upon to earn more coins. "
     }
   ];
   

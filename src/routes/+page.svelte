@@ -98,6 +98,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Milkyway</title>
+</svelte:head>
+
 <main>
 	<img class="logo-bg" src="milkyway.png" />
 
@@ -200,7 +204,7 @@
 	</div>
 
 	<div class="faq-section">
-		<h3>Frequently Asked Questions</h3>
+		<h3>Have questions? We answer them!</h3>
 		<div class="faq-list">
 			{#each faqData as item, index}
 				<div class="faq-item">
@@ -386,10 +390,10 @@
 	}
 
 	.prize-image {
-		height: 300px;
+		height: 22vw;
 		width: auto;
 		object-fit: contain;
-		margin-left: -100px;
+		margin-left: -5vw;
 		flex: 1;
 		animation: bounce 2s ease-in-out infinite;
 	}
@@ -467,7 +471,8 @@
 		justify-content: space-between;
 		align-items: center;
 		color: #2c3e50;
-		font-size: 17px;
+		font-size: 1em;
+		font-family: inherit;
 		font-weight: 600;
 		line-height: 1.4;
 	}
@@ -492,7 +497,8 @@
 		padding: 0 16px 20px 16px;
 		color: #34495e;
 		line-height: 1.6;
-		font-size: 15px;
+		font-size: 1em;
+		font-family: inherit;
 	}
 
 	.faq-answer p {

@@ -1,11 +1,11 @@
 <script>
-	import favicon from '$lib/assets/favicon.svg';
-
 	let { children } = $props();
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" href="/icon.png" type="image/png" />
+	<link rel="shortcut icon" href="/icon.png" type="image/png" />
+	<link rel="apple-touch-icon" href="/icon.png" />
 </svelte:head>
 
 {@render children?.()}
