@@ -8,6 +8,7 @@ import ExpandableButton from '$lib/components/ExpandableButton.svelte';
 import OnboardingOverlay from '$lib/components/OnboardingOverlay.svelte';
 import FaqPopup from '$lib/components/FaqPopup.svelte';
 import PromptPopup from '$lib/components/PromptPopup.svelte';
+import SpinWheel from '$lib/components/prompts/roulette/SpinWheel.svelte';
 
 let { data } = $props();
 
@@ -21,6 +22,9 @@ let showPromptPopup = $state(false);
 let currentPromptInfo = $state('');
 let currentRouletteResults = $state(null);
 let showLogoutButton = $state(false);
+let showRouletteSpinWheel = $state(false);
+let rouletteSpinProjectId = $state(null);
+let rouletteSpinProgress = $state(null);
 
 // Calculate total hours and project count
 let totalHours = $derived(Number(projectList.reduce((sum, project) => sum + (project.totalHours || project.hours || 0), 0)));
@@ -40,6 +44,52 @@ function showPromptPopupHandler(promptInfo, rouletteResults = null) {
   currentPromptInfo = promptInfo;
   currentRouletteResults = rouletteResults;
   showPromptPopup = true;
+}
+
+// Function to handle roulette spinning from ProjectEgg
+/**
+ * @param {string} projectId
+ * @param {any} existingProgress
+ */
+function openRouletteSpinHandler(projectId, existingProgress) {
+  rouletteSpinProjectId = projectId;
+  rouletteSpinProgress = existingProgress;
+  showRouletteSpinWheel = true;
+}
+
+// Function to handle roulette completion
+/**
+ * @param {any} updatedProject
+ */
+async function handleRouletteCompleted(updatedProject) {
+  // Update the project in the list
+  const index = projectList.findIndex(/** @param {any} p */ (p) => p.id === updatedProject.id);
+  if (index !== -1) {
+    projectList[index] = updatedProject;
+  }
+  showRouletteSpinWheel = false;
+}
+
+// Function to handle roulette close
+async function handleRouletteClose() {
+  // Refresh the project data
+  if (rouletteSpinProjectId) {
+    try {
+      const response = await fetch(`/api/projects?id=${rouletteSpinProjectId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.project) {
+          const index = projectList.findIndex(/** @param {any} p */ (p) => p.id === data.project.id);
+          if (index !== -1) {
+            projectList[index] = data.project;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing project:', error);
+    }
+  }
+  showRouletteSpinWheel = false;
 }
 
 // Function to handle project deletion
@@ -152,6 +202,7 @@ async function handleLogout() {
       onSelect={() => selectEgg(project.id)}
       onShowPromptPopup={showPromptPopupHandler}
       onDelete={deleteProjectHandler}
+      onOpenRouletteSpin={openRouletteSpinHandler}
       user={data.user}
     />
 
@@ -205,6 +256,17 @@ async function handleLogout() {
   promptInfo={currentPromptInfo}
   rouletteResults={currentRouletteResults}
 />
+
+{#if showRouletteSpinWheel}
+  <div class="page-level-spin-overlay">
+    <SpinWheel 
+      projectId={rouletteSpinProjectId}
+      existingProgress={rouletteSpinProgress}
+      onClose={handleRouletteClose}
+      onProjectCreated={handleRouletteCompleted}
+    />
+  </div>
+{/if}
 
 </main>
 
@@ -450,8 +512,8 @@ p.username {
 
 .fab-container {
   position: absolute;
-  bottom: 22vw;
-  left: 24vw;
+  bottom: calc(50vh - 150px);
+  left: calc(50vw - 350px);
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -551,8 +613,15 @@ p.username {
   opacity: 1;
 }
 
-
-
-
+/* Page-level spin overlay - highest z-index */
+.page-level-spin-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 99999 !important;
+  background-color: #000 !important;
+}
 
 </style>

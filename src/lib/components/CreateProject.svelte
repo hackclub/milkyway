@@ -348,13 +348,13 @@
 }
 
 .spin-wheel-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 2000;
-  background-color: rgba(0, 0, 0, 0.9);
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 99999 !important;
+  background-color: #000 !important;
 }
 
 </style>

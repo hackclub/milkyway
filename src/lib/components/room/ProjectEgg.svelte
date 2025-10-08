@@ -2,9 +2,8 @@
   import { slide } from 'svelte/transition';
   import Tooltip from '../Tooltip.svelte';
   import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
-  import SpinWheel from '../prompts/roulette/SpinWheel.svelte';
 
-  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup, onDelete, user} = $props();
+  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, user} = $props();
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
@@ -27,9 +26,6 @@
 
   // HackaTime setup popup state
   let showHackatimeSetup = $state(false);
-  
-  // Roulette spin wheel state
-  let showRouletteSpinWheel = $state(false);
   
   // Check if project is incomplete roulette
   let isIncompleteRoulette = $derived(() => {
@@ -384,34 +380,9 @@
   
   // Open roulette spin wheel to continue spinning
   function continueRouletteSpinning() {
-    showRouletteSpinWheel = true;
-  }
-  
-  // Handle roulette completion or closure
-  /**
-   * @param {any} updatedProject
-   */
-  function handleRouletteCompleted(updatedProject) {
-    // Update the local project info
-    projInfo = updatedProject;
-    showRouletteSpinWheel = false;
-  }
-  
-  // Handle spin wheel close (even if not complete)
-  async function handleSpinWheelClose() {
-    // Fetch fresh project data from server to get latest addn updates
-    try {
-      const response = await fetch(`/api/projects?id=${projInfo.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.project) {
-          projInfo = data.project;
-        }
-      }
-    } catch (error) {
-      console.error('Error refreshing project data:', error);
+    if (onOpenRouletteSpin) {
+      onOpenRouletteSpin(projInfo.id, rouletteProgress());
     }
-    showRouletteSpinWheel = false;
   }
 
 </script>
@@ -580,18 +551,6 @@
 
 <!-- HackaTime Setup Popup -->
 <HackatimeSetupPopup showPopup={showHackatimeSetup} onClose={closeHackatimeSetup} />
-
-<!-- Roulette Spin Wheel Popup -->
-{#if showRouletteSpinWheel}
-  <div class="spin-wheel-overlay">
-    <SpinWheel 
-      projectId={projInfo.id} 
-      existingProgress={rouletteProgress()}
-      onClose={handleSpinWheelClose} 
-      onProjectCreated={handleRouletteCompleted} 
-    />
-  </div>
-{/if}
 
 
 
@@ -1159,17 +1118,6 @@ input:hover, textarea:hover {
   background: #FF698A;
   border-color: #FF698A;
   transform: translateY(-2px);
-}
-
-/* Spin Wheel Overlay */
-.spin-wheel-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 2000;
-  background-color: rgba(0, 0, 0, 0.9);
 }
 
 /* Incomplete Roulette Egg Indicator */

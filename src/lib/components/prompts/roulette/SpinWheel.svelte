@@ -16,6 +16,7 @@
   let detailTitle = $state('hover on an option to see detailed explanation!');
   let detailDescription = $state('');
   let detailImages = $state([]);
+  let detailOptionName = $state(''); // The actual option name (not the formatted title)
   let limit = $state(0);
   let errorMessage = $state('');
   
@@ -31,6 +32,14 @@
     if (existingProgress) {
       // Restore previous spin results
       rouletteResults = { ...existingProgress };
+      
+      // Check if all wheels are already complete
+      if (rouletteResults.camera && rouletteResults.gameplay && rouletteResults.setting) {
+        // All wheels complete! Close immediately and finalize
+        console.log('All wheels already complete, finalizing...');
+        createRouletteProject();
+        return;
+      }
       
       // Determine which wheel to start from
       if (!rouletteResults.camera) {
@@ -119,13 +128,15 @@
   // Handle option hover
   function updateDetails(option) {
     if (isSpinning) return;
+    detailOptionName = option;
     detailTitle = option;
     detailDescription = wheelOptions[option]?.description || '';
-    detailImages = Object.keys(wheelOptions[option]?.examples || {});
+    detailImages = wheelOptions[option]?.examples ? Object.keys(wheelOptions[option].examples) : [];
   }
 
   function clearDetails() {
     if (isSpinning) return;
+    detailOptionName = '';
     detailTitle = 'hover on an option to see detailed explanation!';
     detailDescription = '';
     detailImages = [];
@@ -133,11 +144,30 @@
 
   // Spin the wheel
   async function spinWheel() {
+    const totalOptions = Object.keys(wheelOptions).length;
+    const minRequired = totalOptions - limit;
+    
+    console.log('spinWheel called with:', {
+      isSpinning,
+      selectedCount: selectedOptions.length,
+      minRequired,
+      totalOptions,
+      limit
+    });
+    
     if (isSpinning || selectedOptions.length === 0) return;
+    
+    // Validate that enough options are selected
+    if (selectedOptions.length < minRequired) {
+      errorMessage = `You must select at least ${minRequired} options (you have ${selectedOptions.length})`;
+      console.error('Not enough options selected!', { selectedCount: selectedOptions.length, minRequired });
+      return;
+    }
 
     isSpinning = true;
     showWheel = true;
     clearDetails();
+    errorMessage = '';
 
     try {
       // Prepare current addn data to send to server
@@ -194,9 +224,10 @@
   }
 
   function showWinnerDetails(winningOption) {
+    detailOptionName = winningOption;
     detailTitle = `your ${currentWheel} option: ${winningOption}`;
     detailDescription = wheelOptions[winningOption]?.description || '';
-    detailImages = Object.keys(wheelOptions[winningOption]?.examples || {});
+    detailImages = wheelOptions[winningOption]?.examples ? Object.keys(wheelOptions[winningOption].examples) : [];
   }
 
   // Create and animate the wheel (exact copy from original)
@@ -445,9 +476,12 @@
   <div class="content">
     <div class="left-panel">
       {#if !showWheel}
+        {@const totalOptions = Object.keys(wheelOptions).length}
+        {@const disabledCount = totalOptions - selectedOptions.length}
+        {@const minRequired = totalOptions - limit}
         <div class="checkboxes">
           <p>before spinning, remove options that you aren't interested in!</p>
-          <p>you can disable at most {limit} options</p>
+          <p>you can disable at most {limit} options (disabled: {disabledCount}/{limit})</p>
           {#if errorMessage}
             <p class="error">{errorMessage}</p>
           {/if}
@@ -467,7 +501,20 @@
                 name="wheelOptions" 
                 value={option} 
                 checked={selectedOptions.includes(option)}
-                onchange={() => toggleOption(option)}
+                onclick={(e) => {
+                  const isCurrentlySelected = selectedOptions.includes(option);
+                  const totalOptions = Object.keys(wheelOptions).length;
+                  const currentDisabledCount = totalOptions - selectedOptions.length;
+                  
+                  // If trying to disable (uncheck) and already at limit, prevent it
+                  if (isCurrentlySelected && currentDisabledCount >= limit) {
+                    e.preventDefault();
+                    errorMessage = `You can disable at most ${limit} options`;
+                    return;
+                  }
+                  
+                  toggleOption(option);
+                }}
               />
               <label for={option}>{option}</label>
             </div>
@@ -487,12 +534,18 @@
         <p class="detail-title">{detailTitle}</p>
         <p class="detail-description">{detailDescription}</p>
         <div class="detail-images">
-          {#each detailImages as image, i}
-            <img 
-              class="detail-img" 
-              src={wheelOptions[detailTitle]?.examples[image] || ''} 
-              alt="example {i + 1}"
-            />
+          {#each detailImages as imageName}
+            {@const imageUrl = wheelOptions[detailOptionName]?.examples?.[imageName] || ''}
+            {#if imageUrl}
+              <div class="example-item">
+                <img 
+                  class="detail-img" 
+                  src={imageUrl} 
+                  alt={imageName}
+                />
+                <p class="example-caption">{imageName}</p>
+              </div>
+            {/if}
           {/each}
         </div>
       </div>
@@ -503,10 +556,28 @@
     {#if !showWheel}
       <button 
         class="spin-button" 
-        onclick={spinWheel}
-        disabled={isSpinning || selectedOptions.length === 0}
+        onclick={() => {
+          const totalOptions = Object.keys(wheelOptions).length;
+          const minRequired = totalOptions - limit;
+          const canSpin = selectedOptions.length >= minRequired;
+          console.log('Spin button clicked:', {
+            totalOptions,
+            limit,
+            minRequired,
+            selectedCount: selectedOptions.length,
+            canSpin
+          });
+          spinWheel();
+        }}
+        disabled={isSpinning || selectedOptions.length < (Object.keys(wheelOptions).length - limit)}
       >
-        {isSpinning ? 'spinning...' : 'spin!'}
+        {#if isSpinning}
+          spinning...
+        {:else if selectedOptions.length >= (Object.keys(wheelOptions).length - limit)}
+          spin!
+        {:else}
+          select at least {Object.keys(wheelOptions).length - limit} options
+        {/if}
       </button>
     {:else if !isSpinning}
       <button class="next-button" onclick={handleNext}>
@@ -522,6 +593,7 @@
     flex-flow: column;
     justify-content: center;
     height: 100vh;
+    width: 100vw;
     padding: 40px;
     background-color: #000;
     color: #FF698A;
@@ -618,6 +690,20 @@
     position: relative;
   }
 
+  #wheel-arrow {
+    position: absolute;
+    right: calc(50% - 200px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 20px solid transparent;
+    border-bottom: 20px solid transparent;
+    border-right: 30px solid #FF698A;
+    z-index: 100;
+    filter: drop-shadow(0 0 5px rgba(255, 105, 138, 0.8));
+  }
+
   /* Wheel styles are now applied via inline CSS in createWheel function */
 
   .detail-box {
@@ -640,19 +726,32 @@
   }
 
   .detail-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .example-item {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-direction: column;
     align-items: center;
+    text-align: center;
   }
 
   .detail-img {
-    height: 150px;
-    width: auto;
-    max-width: 100%;
-    object-fit: contain;
-    display: inline-block;
-    margin: 4px;
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 2px solid #FF698A;
+    margin-bottom: 4px;
+  }
+
+  .example-caption {
+    margin: 0;
+    font-size: 0.7em;
+    color: #FF698A;
+    font-weight: bold;
   }
 
   .controls {
@@ -678,8 +777,10 @@
   }
 
   .spin-button:disabled {
-    background-color: #666;
-    cursor: not-allowed;
+    background-color: #666 !important;
+    cursor: not-allowed !important;
+    opacity: 0.5;
+    pointer-events: none;
   }
 
   main.spin .checkboxes {

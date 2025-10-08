@@ -174,7 +174,7 @@ export const choices = {
         "clicker": {
             "description": "repeat actions (usually via clicking) to progress the game",
             "examples": {
-              "cookie clicker": "https://static.wikia.nocookie.net/cookieclicker/images/4/41/Bakery.png.png/revision/latest/scale-to-width-down/1919?cb=20241105192506",
+              "cookie clicker": "https://hardlifegaming.wordpress.com/wp-content/uploads/2016/02/screenshot_63.png?w=825&h=510&crop=1",
               "egg inc": "https://i.imgur.com/dlzBtAU.jpg",
               "adventure capitalist": "https://eip.gg/wp-content/uploads/2020/01/adventure-capitalist-gameplay-screenshot-e1475648785365.jpg.webp",
               "realm grinder": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/610080/ss_4cdba2a18f906ccb1746548d6378f682de6fc34a.1920x1080.jpg?t=1592248284"

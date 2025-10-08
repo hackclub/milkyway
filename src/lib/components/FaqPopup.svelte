@@ -19,6 +19,15 @@
   // FAQ data
   const faqData = [
     {
+      question: "How do I start?",
+      answer:`
+1. Create a project and select a prompt.
+2. Begin working on your game! Make sure that you have Hackatime tracking set up for that project.
+3. You must also commit to Github every hour. 
+4. (We will soon add features for you to track art time — for now, make sure you save a timelapse of your art process!)
+5. Submit your project when you're done — coming soon too!`
+    },
+    {
       question: "What are the requirements for each project?",
       answer: `Your project must:
 1. Be a game that has at least 5 minutes of playtime. 
