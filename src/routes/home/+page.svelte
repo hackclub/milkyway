@@ -20,6 +20,10 @@ let showFaqPopup = $state(false);
 let showPromptPopup = $state(false);
 let currentPromptInfo = $state('');
 
+// Calculate total hours and project count
+let totalHours = $derived(projectList.reduce((sum, project) => sum + (project.totalHours || project.hours || 0), 0));
+let projectCount = $derived(projectList.length);
+
 // Function to handle egg selection
 function selectEgg(projectId) {
   selectedEggId = selectedEggId === projectId ? null : projectId;
@@ -68,7 +72,7 @@ function showPromptPopupHandler(promptInfo) {
     <img src="/pfp_placeholder.png" />
 
     <div class="profile-text">
-      <p class="hourinfo">xx hours · xx projects</p>
+      <p class="hourinfo">{totalHours} hours · {projectCount} projects</p>
       <p class="username">{ data.user.username }</p>
         <div class="coins-info">
 

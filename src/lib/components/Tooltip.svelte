@@ -13,10 +13,11 @@
   .tooltip-container {
     position: relative;
     display: inline-block;
-    font-size: 0.8em;
+    
   }
 
   .tooltip {
+    font-size: 0.7em;
     visibility: hidden;
     opacity: 0;
     position: absolute;
@@ -28,7 +29,6 @@
     text-align: center;
     padding: 8px 12px;
     border-radius: 6px;
-    font-size: 0.8em;
     white-space: normal;
     max-width: 350px;
     min-width: 200px;
