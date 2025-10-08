@@ -15,6 +15,44 @@
 	let otp = $state('');
 	let showCatInfo = $state(false);
 	let showStickynoteInfo = $state(false);
+	let expandedFaqItem = $state(null);
+
+	// FAQ data
+	const faqData = [
+		{
+			question: "What is Milkyway?",
+			answer: "Milkyway is a centralized shop for gamedev projects — and you can also build a little digital house! Make games to earn coins and spend in the shop to buy cool prizes."
+		},
+		{
+			question: "What is Overglade?",
+			answer: "Overglade is a game jam that is happening in Singapore, December 15-19. You can purchase a ticket to Overglade in the Milkyway shop (which includes all accommodation and food), and you can also purchase additional flight stipends. For more information, visit the Overglade website!"
+		},
+		{
+			question: "Am I eligible to participate?",
+			answer: "You are eligible to participate in Milkyway and Overglade if you are 18 years old or younger. You will need to verify your identity before being able to purchase items in the shop."
+		},
+		{
+			question: "How much does it cost?",
+			answer: "Milkyway is completely free to participate in!"
+		},
+		{
+			question: "How do I earn coins in Milkyway?",
+			answer: "Earn coins by submitting your game projects. The number of coins that you receive from each project is dependent on the number of hours and effort spent building it — after submission, you will get feedback on your project, and you can earn even more coins by working on the feedback recieved."
+		},
+		{
+			question: "Who is running this?",
+			answer: "Milkyway is a part of Hack Club, a 501(c)(3) nonprofit organization. Milkyway is mainly run by Tongyu!"
+		},
+		{
+			question: "Can I still participate if I'm a beginner?",
+			answer: "Absolutely! Feel free to ask questions in the #milkyway Slack channel, and we'll do our best to help. The various challenges in Milkyway are also designed to challenge you and improve your gamedev skills."
+		}
+	];
+
+	// Function to toggle FAQ item expansion
+	function toggleFaqItem(index) {
+		expandedFaqItem = expandedFaqItem === index ? null : index;
+	}
 
 	async function sendOTP() {
 		return new Promise((fulfil, reject) => {
@@ -149,6 +187,38 @@
 		<p class="room-text room-buildhouses">build houses</p>
 		<img src="landing/getprizes.png" class="room-getprizes" />
 		<p class="room-text room-getprizes">get prizes</p>
+	</div>
+
+	<div class="prizes-row">
+		
+		<img src="prizes/nyt.png" alt="New York Times prize" class="prize-image" />
+		<img src="prizes/switch.png" alt="Nintendo Switch prize" class="prize-image" />
+		<img src="prizes/stickers_filled.png" alt="Stickers filled prize" class="prize-image" />
+		<img src="prizes/fangamer.png" alt="Fangamer prize" class="prize-image" />
+		
+	</div>
+
+	<div class="faq-section">
+		<h3>Frequently Asked Questions</h3>
+		<div class="faq-list">
+			{#each faqData as item, index}
+				<div class="faq-item">
+					<button 
+						class="faq-question" 
+						onclick={() => toggleFaqItem(index)}
+					>
+						<span>{item.question}</span>
+						<span class="faq-arrow" class:expanded={expandedFaqItem === index}>▼</span>
+					</button>
+					
+					{#if expandedFaqItem === index}
+						<div class="faq-answer">
+							<p>{item.answer}</p>
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
 	</div>
 </main>
 
@@ -300,5 +370,132 @@
 		transform: translateX(-50%) translateY(-50%);
 		top: 86.5%;
 		left: 26.5%;
+	}
+
+	.prizes-row {
+		display: flex;
+		align-items: space-between;
+		margin-top: 40px;
+		max-width: 100vw;
+		box-sizing: border-box;
+		margin-left: calc(-50vw + 50%);
+		overflow-x: hidden;
+		padding-top: 15px;
+		padding-bottom: 15px;
+	}
+
+	.prize-image {
+		height: 300px;
+		width: auto;
+		object-fit: contain;
+		margin-left: -100px;
+		flex: 1;
+		animation: bounce 2s ease-in-out infinite;
+	}
+
+	.prize-image:first-child {
+		margin-left: 0;
+		animation-delay: 0s;
+	}
+
+	.prize-image:nth-child(2) {
+		animation-delay: 0.2s;
+	}
+
+	.prize-image:nth-child(3) {
+		animation-delay: 0.4s;
+	}
+
+	.prize-image:nth-child(4) {
+		animation-delay: 0.6s;
+	}
+
+	.prize-image:nth-child(5) {
+		animation-delay: 0.8s;
+	}
+
+	@keyframes bounce {
+		0%, 100% {
+			transform: translateY(0);
+		}
+		50% {
+			transform: translateY(-10px);
+		}
+	}
+
+	.faq-section {
+		background-color: #FBF2BF;
+		border: 4px solid #F7C881;
+		border-radius: 8px;
+		margin: 40px 20px;
+		padding: 32px;
+		text-align: center;
+	}
+
+	.faq-section h3 {
+		margin: 0 0 24px 0;
+		color: #2c3e50;
+		font-size: 24px;
+		font-weight: 700;
+		letter-spacing: -0.5px;
+	}
+
+	.faq-list {
+		text-align: left;
+		max-width: 600px;
+		margin: 0 auto;
+	}
+
+	.faq-item {
+		border-bottom: 1px solid rgba(247, 200, 129, 0.3);
+		margin-bottom: 0;
+	}
+
+	.faq-item:last-child {
+		border-bottom: none;
+	}
+
+	.faq-question {
+		width: 100%;
+		background: none;
+		border: none;
+		padding: 20px 16px;
+		text-align: left;
+		cursor: pointer;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		color: #2c3e50;
+		font-size: 17px;
+		font-weight: 600;
+		line-height: 1.4;
+	}
+
+	.faq-question:hover {
+		color: #1a252f;
+	}
+
+	.faq-arrow {
+		transition: transform 0.2s;
+		font-size: 14px;
+		color: #7f8c8d;
+		margin-left: 12px;
+		flex-shrink: 0;
+	}
+
+	.faq-arrow.expanded {
+		transform: rotate(180deg);
+	}
+
+	.faq-answer {
+		padding: 0 16px 20px 16px;
+		color: #34495e;
+		line-height: 1.6;
+		font-size: 15px;
+	}
+
+	.faq-answer p {
+		margin: 0;
+		font-weight: 400;
 	}
 </style>
