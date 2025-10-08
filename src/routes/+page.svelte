@@ -25,7 +25,7 @@
 		},
 		{
 			question: "What is Overglade?",
-			answer: "Overglade is a game jam that is happening in Singapore, December 15-19. You can purchase a ticket to Overglade in the Milkyway shop (which includes all accommodation and food), and you can also purchase additional flight stipends. For more information, visit the Overglade website!"
+			answer: "Overglade is a game jam that is happening in Singapore in December. You can purchase a ticket to Overglade in the Milkyway shop (which includes all accommodation and food), and you can also purchase additional flight stipends. For more information, visit the Overglade website!"
 		},
 		{
 			question: "Am I eligible to participate?",
@@ -197,9 +197,12 @@
 	<div class="prizes-row">
 		
 		<img src="prizes/nyt.png" alt="New York Times prize" class="prize-image" />
-		<img src="prizes/switch.png" alt="Nintendo Switch prize" class="prize-image" />
 		<img src="prizes/stickers_filled.png" alt="Stickers filled prize" class="prize-image" />
+		
+		<img src="prizes/overglade_ticket.png" alt="Tickets to Overglade" class="prize-image overglade" />
+		
 		<img src="prizes/fangamer.png" alt="Fangamer prize" class="prize-image" />
+		<img src="prizes/switch.png" alt="Nintendo Switch prize" class="prize-image" />
 		
 	</div>
 
@@ -379,7 +382,8 @@
 
 	.prizes-row {
 		display: flex;
-		align-items: space-between;
+		justify-content: space-between;
+		align-items: center;
 		margin-top: 40px;
 		max-width: 100vw;
 		box-sizing: border-box;
@@ -390,13 +394,18 @@
 	}
 
 	.prize-image {
-		height: 22vw;
+		height: 15vw;
 		width: auto;
 		object-fit: contain;
 		margin-left: -5vw;
 		flex: 1;
 		animation: bounce 2s ease-in-out infinite;
 	}
+
+	.prize-image.overglade {
+		height: 23vw;
+	}
+
 
 	.prize-image:first-child {
 		margin-left: 0;
@@ -429,9 +438,7 @@
 	}
 
 	.faq-section {
-		background-color: #FBF2BF;
-		border: 4px solid #F7C881;
-		border-radius: 8px;
+		
 		margin: 40px 20px;
 		padding: 32px;
 		text-align: center;
@@ -452,7 +459,7 @@
 	}
 
 	.faq-item {
-		border-bottom: 1px solid rgba(247, 200, 129, 0.3);
+
 		margin-bottom: 0;
 	}
 
@@ -484,7 +491,7 @@
 	.faq-arrow {
 		transition: transform 0.2s;
 		font-size: 14px;
-		color: #7f8c8d;
+		color: #435B89;
 		margin-left: 12px;
 		flex-shrink: 0;
 	}
