@@ -35,6 +35,16 @@ function showPromptPopupHandler(promptInfo) {
   showPromptPopup = true;
 }
 
+// Function to handle project deletion
+function deleteProjectHandler(projectId) {
+  // Remove the project from the list
+  projectList = projectList.filter(project => project.id !== projectId);
+  // If the deleted project was selected, clear selection
+  if (selectedEggId === projectId) {
+    selectedEggId = null;
+  }
+}
+
 </script>
 
 <svelte:head>
@@ -113,7 +123,8 @@ function showPromptPopupHandler(promptInfo) {
       selected={selectedEggId === project.id}
       onSelect={() => selectEgg(project.id)}
       onShowPromptPopup={showPromptPopupHandler}
-    ></ProjectEgg>
+      onDelete={deleteProjectHandler}
+    />
 
 
   {/each}

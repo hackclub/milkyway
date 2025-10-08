@@ -2,7 +2,7 @@
   import { slide } from 'svelte/transition';
   import Tooltip from '../Tooltip.svelte';
 
-  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup} = $props();
+  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup, onDelete} = $props();
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
@@ -15,6 +15,10 @@
   let selectedHackatimeProjects = $state(new Set());
   let isLoadingHackatime = $state(false);
   let currentHackatimeHours = $state(0);
+
+  // Delete confirmation state
+  let showDeleteConfirm = $state(false);
+  let isDeleting = $state(false);
 
 
 
@@ -123,6 +127,50 @@
   function shipProject() {
     // TODO: Implement ship project functionality
     console.log('Ship project clicked for project:', projInfo.id);
+  }
+
+  // Delete project function
+  async function deleteProject() {
+    if (!projInfo.id || !onDelete) return;
+    
+    try {
+      isDeleting = true;
+      const response = await fetch('/api/projects', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId: projInfo.id
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Call the parent's delete handler to remove from list
+        onDelete(projInfo.id);
+        showDeleteConfirm = false;
+      } else {
+        console.error('Failed to delete project:', result.error);
+        // You could add user notification here
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      // You could add user notification here
+    } finally {
+      isDeleting = false;
+    }
+  }
+
+  // Show delete confirmation
+  function confirmDelete() {
+    showDeleteConfirm = true;
+  }
+
+  // Cancel delete
+  function cancelDelete() {
+    showDeleteConfirm = false;
   }
 
   // Fetch HackaTime projects for this project
@@ -306,10 +354,15 @@
 
   <div class="project-actions">
     {#if isEditing}
-      <button class="save-btn" onclick={saveChanges} disabled={isUpdating}>
-        {isUpdating ? 'Saving...' : 'Save'}
-      </button>
-      <button class="discard-btn" onclick={discardChanges} disabled={isUpdating}>Discard</button>
+      <div class="edit-actions-left">
+        <button class="save-btn" onclick={saveChanges} disabled={isUpdating}>
+          {isUpdating ? 'Saving...' : 'Save'}
+        </button>
+        <button class="discard-btn" onclick={discardChanges} disabled={isUpdating}>Discard</button>
+      </div>
+      <div class="edit-actions-right">
+        <button class="delete-btn" onclick={confirmDelete} disabled={isUpdating || isDeleting}>Delete project</button>
+      </div>
     {:else}
       <button class="edit-btn" onclick={startEdit}>Edit details</button>
       <Tooltip text="coming soon!">
@@ -324,6 +377,22 @@
 </div>
 {/if}
 </div>
+
+<!-- Delete Confirmation Popup - Outside egg container for proper positioning -->
+{#if showDeleteConfirm}
+  <div class="delete-confirm-overlay" onclick={cancelDelete}>
+    <div class="delete-confirm-popup" onclick={(e) => e.stopPropagation()}>
+      <h3>Delete Project</h3>
+      <p>Are you sure you want to delete "{projInfo.name || 'Untitled Project'}"? This action cannot be undone.</p>
+      <div class="delete-confirm-actions">
+        <button class="cancel-delete-btn" onclick={cancelDelete} disabled={isDeleting}>Cancel</button>
+        <button class="confirm-delete-btn" onclick={deleteProject} disabled={isDeleting}>
+          {isDeleting ? 'Deleting...' : 'Delete'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 
 
@@ -443,6 +512,18 @@
   display: flex;
   gap: 8px;
   margin-top: 12px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.edit-actions-left {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-actions-right {
+  display: flex;
+  gap: 8px;
 }
 
 /* Reset margins for consistent spacing */
@@ -500,7 +581,7 @@ input:hover, textarea:hover {
 
 
 /* Button styles */
-.edit-btn, .save-btn, .discard-btn, .add-hours-btn, .ship-btn {
+.edit-btn, .save-btn, .discard-btn, .delete-btn, .add-hours-btn, .ship-btn {
   padding: 4px 8px;
   border: 2px solid var(--orange);
   border-radius: 4px;
@@ -518,7 +599,7 @@ input:hover, textarea:hover {
   color: white;
 }
 
-.save-btn:disabled, .discard-btn:disabled {
+.save-btn:disabled, .discard-btn:disabled, .delete-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -532,6 +613,17 @@ input:hover, textarea:hover {
 .discard-btn:hover:not(:disabled) {
   background: #ff5252;
   border-color: #ff5252;
+}
+
+.delete-btn {
+  background: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #c82333;
+  border-color: #c82333;
 }
 
 .add-hours-btn {
@@ -653,5 +745,87 @@ input:hover, textarea:hover {
   text-align: center;
   padding: 8px;
   font-style: italic;
+}
+
+/* Delete Confirmation Popup */
+.delete-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.delete-confirm-popup {
+  background: var(--yellow);
+  border: 4px solid var(--orange);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.delete-confirm-popup h3 {
+  margin: 0 0 12px 0;
+  color: var(--orange);
+  font-size: 1.2em;
+}
+
+.delete-confirm-popup p {
+  margin: 0 0 16px 0;
+  color: #333;
+  line-height: 1.4;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.cancel-delete-btn, .confirm-delete-btn {
+  padding: 6px 12px;
+  border: 2px solid;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-delete-btn {
+  background: var(--yellow);
+  border-color: var(--orange);
+  color: var(--orange);
+}
+
+.cancel-delete-btn:hover:not(:disabled) {
+  background: var(--orange);
+  color: white;
+}
+
+.confirm-delete-btn {
+  background: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+
+.confirm-delete-btn:hover:not(:disabled) {
+  background: #c82333;
+  border-color: #c82333;
+}
+
+.cancel-delete-btn:disabled, .confirm-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
