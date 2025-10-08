@@ -103,9 +103,10 @@
 
 	<div class="login-inputs">
 		{#if data.user}
-			<p>you're already logged in</p>
+			<p style="color: white;">you're already logged in!</p>
 			<LinkButton href="/home" showarrow>enter the milkyway</LinkButton>
 		{:else if !sendOTPPromise}
+			<p style="color: white;">join the milkyway — your digital gamedev house.</p>
 			<ShortTextInput
 				bind:value={email}
 				placeholder="enter email to begin"
@@ -114,10 +115,10 @@
 			</ShortTextInput>
 		{:else}
 			{#await sendOTPPromise}
-				<p>sending...</p>
+				<p style="color: white;">sending...</p>
 			{:then response_answer}
 				{#if !checkOTPPromise}
-					<p>otp sent, input otp</p>
+					<p style="color: white;">otp sent — check your inbox!</p>
 
 					<ShortTextInput
 						bind:value={otp}
@@ -127,9 +128,9 @@
 					</ShortTextInput>
 				{:else}
 					{#await checkOTPPromise}
-						<p>verifying...</p>
+						<p style="color: white;">verifying...</p>
 					{:then response_answer}
-						<p>you're in!</p>
+						<p style="color: white;">you're in!</p>
 					{:catch error}
 						<ShortTextInput
 							bind:value={otp}
@@ -138,7 +139,7 @@
 							>submit otp
 						</ShortTextInput>
 
-						<p>checking error occured: {error}</p>
+						<p style="color: white;">checking error occured: {error}</p>
 					{/await}
 				{/if}
 			{:catch error}
@@ -149,7 +150,7 @@
 					>send otp
 				</ShortTextInput>
 
-				<p>sending otp error occured: {error}</p>
+				<p style="color: white;">sending otp error occured: {error}</p>
 			{/await}
 		{/if}
 	</div>
@@ -164,8 +165,8 @@
 		/>
 
 		<div class="room-stickynote-info" class:visible={showStickynoteInfo}>
-			<p>hey ur game so cool!</p>
-			<p>~ anonymous</p>
+			<p style="color: white;">hey ur game so cool!</p>
+			<p style="color: white;">~ anonymous</p>
 		</div>
 
 		<img
@@ -176,9 +177,9 @@
 		/>
 
 		<div class="room-cat-info" class:visible={showCatInfo}>
-			<p>insert image</p>
-			<p>fun little game</p>
-			<p>for xx · xx hours spent</p>
+			<p style="color: white;">insert image</p>
+			<p style="color: white;">fun little game</p>
+			<p style="color: white;">for xx · xx hours spent</p>
 		</div>
 
 		<img src="landing/makegames.png" class="room-makegames" />
