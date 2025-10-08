@@ -2,7 +2,7 @@
     import { fly, fade } from 'svelte/transition';
     import SpinWheel from './prompts/roulette/SpinWheel.svelte';
     import Tooltip from './Tooltip.svelte';
-    import { promptData } from '$lib/data/prompt-data.js';
+    import { promptData, getRandomEggImage } from '$lib/data/prompt-data.js';
 
 
     let { onClose, projectList = $bindable() } = $props();
@@ -16,6 +16,7 @@
     let promptChosen = $state(false);
     let isCreating = $state(false);
     let errorMessage = $state(/** @type {string | null} */ (null));
+    let selectedEgg = $state('');
 
     // Use the shared prompt data
     let eventNames = promptData;
@@ -30,6 +31,9 @@
             isCreating = true;
             errorMessage = null;
 
+            // Select the egg once and use it consistently
+            selectedEgg = getRandomEggImage(selectedEvent || 'new');
+
             try {
                 // Create project via API
                 const response = await fetch('/api/projects', {
@@ -38,11 +42,11 @@
                         'Content-Type': 'application/json'
                     },
 
-                    // update this in the future, if required — specifically for egg.
+                    // Use the pre-selected egg
                     body: JSON.stringify({
                         name: 'untitled game!',
                         description: `${eventNames[selectedEvent || 'new']?.name.toLowerCase() || selectedEvent?.toLowerCase() || 'custom'}`,
-                        egg: 'projects/sparkle_egg1.png'
+                        egg: selectedEgg
                     })
                 });
 
@@ -83,7 +87,7 @@
 
   {#if promptChosen}
   <h1 style="color: #E6819F; font-size: 3em; margin-bottom: 8px;" transition:fade={{duration: 150}}>YOUR NEW PROJECT!</h1>
-  <img src="/projects/sparkle_egg1.png" class="create-project-egg" style="width: 20%;" alt="New project egg" transition:fly={{ y: 40, duration: 300 }} />
+  <img src={selectedEgg} class="create-project-egg" style="width: 20%;" alt="New project egg" transition:fly={{ y: 40, duration: 300 }} />
   <p class="create-project-text">this is your new {selectedEvent} project.</p>
   <p class="create-project-text">take good care of it!</p>
 
@@ -121,7 +125,7 @@
     >
       <p class="event-name">{event.name}</p>
       <p class="event-info">Min {event.minHours} hours · Earn {event.minStars}-{event.maxStars} <Tooltip text="earn coins by submitting projects. use them to buy items in the shop!">
-        <img style="height: 1.2em; width: auto; margin-bottom: -0.1em;" src="/coin.png" />
+        <img style="height: 1.2em; width: auto; margin-bottom: -0.1em;" src="/coin.png" alt="Coin" />
       </Tooltip></p>
       <img class="event-image" src={event.image} alt={event.name} />
       <p>{event.description}</p>

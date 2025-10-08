@@ -22,7 +22,7 @@ let currentPromptInfo = $state('');
 let showLogoutButton = $state(false);
 
 // Calculate total hours and project count
-let totalHours = $derived(projectList.reduce((sum, project) => sum + (project.totalHours || project.hours || 0), 0));
+let totalHours = $derived(Number(projectList.reduce((sum, project) => sum + (project.totalHours || project.hours || 0), 0)));
 let projectCount = $derived(projectList.length);
 
 // Function to handle egg selection
@@ -101,7 +101,7 @@ async function handleLogout() {
     <img src="/pfp_placeholder.png" />
 
     <div class="profile-text">
-      <p class="hourinfo">{totalHours} hours · {projectCount} projects</p>
+      <p class="hourinfo">{Number(totalHours).toFixed(2)} hours · {projectCount} projects</p>
       <p class="username">{ data.user.username }</p>
         <div class="coins-info">
 

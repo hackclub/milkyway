@@ -1,4 +1,4 @@
-/** @type {Record<string, {name: string, description: string, image: string, minHours: number, minStars: number, maxStars: number, primaryColor: string, secondaryColor: string, cta: string, markdownContent: string}>} */
+/** @type {Record<string, {name: string, description: string, image: string, minHours: number, minStars: number, maxStars: number, primaryColor: string, secondaryColor: string, cta: string, markdownContent: string, eggImages: string[]}>} */
 export const promptData = {
   "roulette": {
     name: 'ROULETTE',
@@ -10,6 +10,10 @@ export const promptData = {
     primaryColor: '#ED738B',
     secondaryColor: 'black',
     cta: 'SPIN WHEELS!',
+    eggImages: [
+      '/projects/roulette_egg1.png',
+      '/projects/roulette_egg2.png'
+    ],
     markdownContent: `
 
 **You've spun the wheels. Now, you have to follow through!
@@ -25,6 +29,10 @@ export const promptData = {
     primaryColor: '#bf9a0d',
     secondaryColor: '#f2eac2',
     cta: 'MAKE SPARKLES!',
+    eggImages: [
+      '/projects/sparkle_egg1.png',
+      '/projects/sparkle_egg2.png'
+    ],
     markdownContent: `
 
 This is a challenge that builds your gamedev skillset. Take a simple game concept and make it absolutely shine :)
@@ -66,6 +74,10 @@ Coins awarded will be based on how long your project took and how well-made it i
     primaryColor: 'black',
     secondaryColor: 'white',
     cta: 'SOMETHING NEW!',
+    eggImages: [
+      '/projects/new_egg1.png',
+      '/projects/new_egg2.png'
+    ],
     markdownContent: `
     
 This is a catch-all custom project! You can make any game you want beyond the Milkyway challenge prompts.
@@ -81,7 +93,7 @@ Need help getting started? Come say hi in the #milkyway slack channel!
 };
 
 // Helper function to get prompt data by name (case insensitive)
-export function getPromptData(promptName) {
+export function getPromptData(/** @type {string} */ promptName) {
   if (!promptName) return null;
   
   const normalizedName = promptName.toLowerCase();
@@ -100,4 +112,15 @@ export function getPromptData(promptName) {
   }
   
   return null;
+}
+
+// Helper function to get a random egg image for a prompt
+export function getRandomEggImage(/** @type {string} */ promptName) {
+  const prompt = getPromptData(promptName);
+  if (!prompt || !prompt.eggImages || prompt.eggImages.length === 0) {
+    return '/projects/sparkle_egg1.png'; // fallback
+  }
+  
+  const randomIndex = Math.floor(Math.random() * prompt.eggImages.length);
+  return prompt.eggImages[randomIndex];
 }
