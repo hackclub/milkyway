@@ -124,6 +124,7 @@ function deleteProjectHandler(projectId) {
       onSelect={() => selectEgg(project.id)}
       onShowPromptPopup={showPromptPopupHandler}
       onDelete={deleteProjectHandler}
+      user={data.user}
     />
 
 

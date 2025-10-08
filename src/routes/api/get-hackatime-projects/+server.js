@@ -16,7 +16,19 @@ export async function POST({ request }) {
 		return json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error in get-hackatime-projects API:', error);
-		return json({ error: 'Failed to fetch HackaTime projects', details: error.message }, { status: 500 });
+		
+		// Check if it's a 404 "User not found" error and preserve the original error details
+		if (error instanceof Error && error.message && error.message.includes('HTTP error! status: 404') && 
+		    error.message.includes('"error":"User not found"')) {
+			return json({ 
+				success: false, 
+				error: 'User not found', 
+				details: error.message,
+				userNotFound: true 
+			}, { status: 404 });
+		}
+		
+		return json({ error: 'Failed to fetch HackaTime projects', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
 	}
 }
 

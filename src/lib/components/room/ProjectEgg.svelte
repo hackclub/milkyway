@@ -1,8 +1,9 @@
 <script>
   import { slide } from 'svelte/transition';
   import Tooltip from '../Tooltip.svelte';
+  import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
 
-  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup, onDelete} = $props();
+  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup, onDelete, user} = $props();
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
@@ -15,10 +16,16 @@
   let selectedHackatimeProjects = $state(new Set());
   let isLoadingHackatime = $state(false);
   let currentHackatimeHours = $state(0);
+  let hackatimeUserNotFound = $state(false);
+  let hasRestoredProjects = $state(false); // Track if we've already restored projects
+  let hasAttemptedFetch = $state(false); // Track if we've attempted to fetch projects
 
   // Delete confirmation state
   let showDeleteConfirm = $state(false);
   let isDeleting = $state(false);
+
+  // HackaTime setup popup state
+  let showHackatimeSetup = $state(false);
 
 
 
@@ -101,10 +108,16 @@
     
     const success = await updateProject(projInfo.id, updates);
     if (success) {
+      // Update the local projInfo object with the saved values
+      projInfo.hackatimeProjects = selectedProjectsString;
+      projInfo.totalHours = calculatedHours;
+      
       isEditing = false;
       originalValues = {};
       // Clear the selected projects after saving
       selectedHackatimeProjects = new Set();
+      // Reset the restoration flag so next edit can restore from database
+      hasRestoredProjects = false;
     }
   }
 
@@ -116,6 +129,8 @@
     originalValues = {};
     // Clear the selected projects when discarding
     selectedHackatimeProjects = new Set();
+    // Reset the restoration flag so next edit can restore from database
+    hasRestoredProjects = false;
   }
 
   // Add art hours function (placeholder)
@@ -173,13 +188,25 @@
     showDeleteConfirm = false;
   }
 
+  // Open HackaTime setup popup
+  function openHackatimeSetup() {
+    showHackatimeSetup = true;
+  }
+
+  // Close HackaTime setup popup
+  function closeHackatimeSetup() {
+    showHackatimeSetup = false;
+  }
+
   // Fetch HackaTime projects for this project
   async function fetchHackatimeProjects() {
-    if (!projInfo.created) return;
+    if (!projInfo.created || !user?.email) return;
     
     try {
       isLoadingHackatime = true;
-      const email = "bucketfishy@gmail.com"; // You'll need to get the actual user email
+      hackatimeUserNotFound = false; // Reset the error state
+      hasAttemptedFetch = true; // Mark that we've attempted to fetch
+      const email = user.email;
       
       // Calculate start date as project creation date minus 1 week
       const projectCreatedDate = new Date(projInfo.created);
@@ -202,13 +229,24 @@
 
       const result = await response.json();
       
+      console.log('HackaTime API response status:', response.status);
+      console.log('HackaTime API response result:', result);
+      
       console.log('HackaTime API response:', {
         success: result.success,
         hasData: !!result.data,
         dataKeys: result.data ? Object.keys(result.data) : 'no data',
         error: result.error,
+        userNotFound: result.userNotFound,
         fullResult: result
       });
+      
+      // Check for 404 status or userNotFound flag
+      if (response.status === 404 || result.userNotFound === true) {
+        hackatimeUserNotFound = true;
+        hackatimeProjects = [];
+        return;
+      }
       
       if (result.success && result.data) {
         // Check if projects exist in the data (could be different structure)
@@ -220,8 +258,11 @@
             hours: Math.round(project.total_seconds / 3600 * 100) / 100 // Convert seconds to hours
           }));
           
-          // Restore selected projects from Airtable
-          restoreSelectedProjects();
+          // Restore selected projects from Airtable only if we haven't already done so
+          if (!hasRestoredProjects) {
+            restoreSelectedProjects();
+            hasRestoredProjects = true;
+          }
         } else {
           console.log('No projects array found in data:', result.data);
           hackatimeProjects = [];
@@ -231,12 +272,26 @@
           success: result.success,
           error: result.error,
           data: result.data,
-          response: result
+          response: result,
+          userNotFound: result.userNotFound
         });
+        
+        // Check if it's a "User not found" error using the new flag
+        if (result.userNotFound === true) {
+          hackatimeUserNotFound = true;
+        }
+        
         hackatimeProjects = [];
       }
     } catch (error) {
       console.error('Error fetching HackaTime projects:', error);
+      
+      // Check if it's a "User not found" error in the catch block too
+      if (error instanceof Error && error.message && error.message.includes('HTTP error! status: 404') && 
+          error.message.includes('"error":"User not found"')) {
+        hackatimeUserNotFound = true;
+      }
+      
       hackatimeProjects = [];
     } finally {
       isLoadingHackatime = false;
@@ -330,6 +385,8 @@
       </div>
       {#if isLoadingHackatime}
         <div class="hackatime-loading">loading projects...</div>
+      {:else if hackatimeUserNotFound}
+        <div class="hackatime-empty">no hackatime user found. <button class="hackatime-setup-link" onclick={openHackatimeSetup}>let's set up hackatime!</button></div>
       {:else if hackatimeProjects.length > 0}
         <div class="hackatime-projects-list">
           {#each hackatimeProjects as project}
@@ -345,11 +402,19 @@
           {/each}
         </div>
       {:else}
-        <div class="hackatime-empty">no hackatime projects found for this time. start coding!</div>
+        <div class="hackatime-empty">no hackatime projects found for this time. <button class="hackatime-setup-link" onclick={openHackatimeSetup}>start coding!</button></div>
       {/if}
     </div>
   {:else}
     <p class="project-desc-display">{projInfo.description || 'no description yet... change this!'}</p>
+    
+    <!-- HackaTime warning when no projects are associated with this project -->
+    {#if (!isEditing && (!projInfo.hackatimeProjects || (typeof projInfo.hackatimeProjects === 'string' && projInfo.hackatimeProjects.trim() === '') || (Array.isArray(projInfo.hackatimeProjects) && projInfo.hackatimeProjects.length === 0))) || (isEditing && selectedHackatimeProjects.size === 0)}
+      <div class="hackatime-warning">
+        <span class="warning-icon">⚠️</span>
+        <span class="warning-text">no hackatime projects associated!</span>
+      </div>
+    {/if}
   {/if}
 
   <div class="project-actions">
@@ -393,6 +458,9 @@
     </div>
   </div>
 {/if}
+
+<!-- HackaTime Setup Popup -->
+<HackatimeSetupPopup showPopup={showHackatimeSetup} onClose={closeHackatimeSetup} />
 
 
 
@@ -745,6 +813,46 @@ input:hover, textarea:hover {
   text-align: center;
   padding: 8px;
   font-style: italic;
+}
+
+.hackatime-setup-link {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  font-style: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s;
+  padding: 0;
+  margin: 0;
+}
+
+.hackatime-setup-link:hover {
+  color: var(--orange);
+}
+
+/* HackaTime Warning */
+.hackatime-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 6px 8px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+
+.warning-icon {
+  font-size: 0.9em;
+}
+
+.warning-text {
+  color: #856404;
+  font-weight: 500;
 }
 
 /* Delete Confirmation Popup */
