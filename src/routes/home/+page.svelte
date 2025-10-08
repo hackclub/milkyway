@@ -41,10 +41,10 @@ function showPromptPopupHandler(promptInfo) {
 
 
 <div class="zlayer bottom-buttons">
-  <a href="/friends" class="bottom-button">
+  <!-- <a href="/friends" class="bottom-button">
     <img src="/friends.png" />
     <span>friends</span>
-  </a>
+  </a> -->
 
   <a href="/shop" class="bottom-button">
     <img src="/shop.png" />
@@ -305,7 +305,7 @@ p.username {
   top: auto;
   display: flex;
   flex-flow: row;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: flex-end;
   padding: 30px;
   pointer-events: none;
