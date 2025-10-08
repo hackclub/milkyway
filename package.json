@@ -39,7 +39,7 @@
 	"dependencies": {
 		"airtable": "^0.12.2",
 		"dotenv": "^17.2.2",
-		"marked": "^14.0.0",
+		"marked": "^14.1.4",
 		"node-fetch": "^3.3.2"
 	}
 }
