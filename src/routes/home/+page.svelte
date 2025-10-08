@@ -19,6 +19,7 @@ let selectedEggId = $state(null);
 let showFaqPopup = $state(false);
 let showPromptPopup = $state(false);
 let currentPromptInfo = $state('');
+let showLogoutButton = $state(false);
 
 // Calculate total hours and project count
 let totalHours = $derived(projectList.reduce((sum, project) => sum + (project.totalHours || project.hours || 0), 0));
@@ -42,6 +43,20 @@ function deleteProjectHandler(projectId) {
   // If the deleted project was selected, clear selection
   if (selectedEggId === projectId) {
     selectedEggId = null;
+  }
+}
+
+// Function to handle logout
+async function handleLogout() {
+  try {
+    // Call the server endpoint to delete the httpOnly cookie
+    await fetch('/api/logout', { method: 'POST' });
+    // Redirect to home page
+    window.location.href = '/';
+  } catch (error) {
+    console.error('Logout failed:', error);
+    // Still redirect even if logout fails
+    window.location.href = '/';
   }
 }
 
@@ -75,7 +90,11 @@ function deleteProjectHandler(projectId) {
 
 
 
-<div class="zlayer profile-info">
+<div class="zlayer profile-info" 
+     role="button"
+     tabindex="0"
+     onmouseenter={() => showLogoutButton = true} 
+     onmouseleave={() => showLogoutButton = false}>
   <img src="https://assets.hackclub.com/flag-orpheus-left.svg" style="width: 100px; position: absolute; top: 5px; left: 0;"/>
 
   <div class="profile-box">
@@ -98,6 +117,9 @@ function deleteProjectHandler(projectId) {
         </div>
     </div>
 
+    <button class="logout-button" onclick={handleLogout} class:visible={showLogoutButton}>
+      log out
+    </button>
   </div>
 </div>
 
@@ -264,13 +286,14 @@ main {
 }
 
 .profile-box {
-  position: absolute;;
+  position: absolute;
   background-color: #FBF2BF;
   border: 4px solid #F7C881;
   padding: 8px;
   border-radius: 8px;
 
   display: flex;
+  
   box-sizing: border-box;
 
   height: 6em;
@@ -278,10 +301,15 @@ main {
 
   top: 50px;
   left: 30px;
+  transition: height 0.2s ease;
+}
+
+.profile-info:hover .profile-box {
+  height: 8em;
 }
 
 .profile-box > img {
-  height: 100%;
+  height: calc(6em - 24px);
   border-radius: 2px;
 
 }
@@ -294,6 +322,8 @@ main {
   display: flex;
   flex-flow: column;
   justify-content: center;
+  height: calc(6em - 24px);
+  box-sizing: border-box;
 }
 
 
@@ -301,6 +331,41 @@ main {
 .profile-text p {
   margin: 0;
 }
+
+
+
+.logout-button {
+  font-family: inherit;
+  font-size: inherit;
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  background-color: #F7C881;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  z-index: 20;
+  text-align: center;
+  opacity: 0;
+  transition: 0.2s;
+}
+
+.logout-button.visible {
+  opacity: 1;
+}
+
+.logout-button:hover {
+  background-color: white;
+  color: black;
+}
+
+
+
 
 
 p.hourinfo {
@@ -478,8 +543,6 @@ p.username {
 .faq-icon:hover::after {
   opacity: 1;
 }
-
-
 
 
 
