@@ -1,6 +1,5 @@
 <script>
     import { fly, fade } from 'svelte/transition';
-    import SpinWheel from './prompts/roulette/SpinWheel.svelte';
     import Tooltip from './Tooltip.svelte';
     import { promptData, getRandomEggImage } from '$lib/data/prompt-data.js';
 
@@ -24,7 +23,52 @@
     // what happens once you create a project with a certain promopt
     async function handleStartProject() {
         if (selectedEvent === 'roulette') {
-            showSpinWheel = true;
+            // For roulette, create the egg and show success popup (don't auto-open spinner)
+            isCreating = true;
+            errorMessage = null;
+            
+            selectedEgg = getRandomEggImage('roulette');
+            
+            try {
+                // Create the project with incomplete status
+                const response = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'untitled game!',
+                        description: 'roulette',
+                        egg: selectedEgg,
+                        addn: JSON.stringify({
+                            rouletteStatus: 'spinning',
+                            spins: {}
+                        })
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Add to local project list
+                    projectList.push(result.project);
+                    promptChosen = true;
+                } else {
+                    errorMessage = result.error || 'Failed to create project';
+                    console.error('Failed to create project:', result.error);
+                }
+            } catch (error) {
+                errorMessage = 'Network error. Please try again.';
+                console.error('Error creating project:', error);
+            } finally {
+                isCreating = false;
+            }
+            
+            if (!errorMessage) {
+                setTimeout(() => {
+                    onClose();
+                }, 1700);
+            }
         } else {
             // if it doesn't need custom logic before starting
             console.log('Starting project:', selectedEvent);
@@ -76,10 +120,6 @@
         }
     }
 
-    function handleSpinWheelClose() {
-        showSpinWheel = false;
-        onClose(); // Close the entire create project overlay
-    }
 
 </script>
 
@@ -88,8 +128,13 @@
   {#if promptChosen}
   <h1 style="color: #E6819F; font-size: 3em; margin-bottom: 8px;" transition:fade={{duration: 150}}>YOUR NEW PROJECT!</h1>
   <img src={selectedEgg} class="create-project-egg" style="width: 20%;" alt="New project egg" transition:fly={{ y: 40, duration: 300 }} />
-  <p class="create-project-text">this is your new {selectedEvent} project.</p>
-  <p class="create-project-text">take good care of it!</p>
+  {#if selectedEvent === 'roulette'}
+    <p class="create-project-text">this is your new {selectedEvent} project.</p>
+    <p class="create-project-text">click on the egg to spin your wheels!</p>
+  {:else}
+    <p class="create-project-text">this is your new {selectedEvent} project.</p>
+    <p class="create-project-text">take good care of it!</p>
+  {/if}
 
   <style>
     .create-project-text {
@@ -163,11 +208,6 @@
 
 </div>
 
-{#if showSpinWheel}
-  <div class="spin-wheel-overlay">
-    <SpinWheel onClose={handleSpinWheelClose} />
-  </div>
-{/if}
 
 <style>
 

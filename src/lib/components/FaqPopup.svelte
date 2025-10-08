@@ -1,23 +1,64 @@
-<script>
+<script lang="ts">
+  import { marked } from 'marked';
+
   let { showPopup, onClose } = $props();
   
-  let expandedFaqItem = $state(null);
+  let expandedFaqItem = $state<number | null>(null);
+  
+  // Configure marked to enable links
+  marked.setOptions({
+    breaks: true,
+    gfm: true
+  });
   
   // Function to toggle FAQ item expansion
-  function toggleFaqItem(index) {
+  function toggleFaqItem(index: number) {
     expandedFaqItem = expandedFaqItem === index ? null : index;
   }
   
   // FAQ data
   const faqData = [
     {
-      question: "What are stellar ships? How do I get them?",
-      answer: "After you ship a project, you can polish it even more and release it to the public to earn stellar ships. The stellar ship requirements are a combination of efforts — your project must be publicly accessible, look awesome, and hit a certain public reception requirement! Don't worry, it will not be too difficult. More information will come soon."
+      question: "What are the requirements for each project?",
+      answer: `Your project must:
+1. Be a game that has at least 5 minutes of playtime. 
+2. Have either a web export, or a Windows and Mac and Linux export (all 3!).
+3. Have open-source code on Github with commits **every hour**.
+4. Be less than 30% made with AI.
+5. Reflect the hours and work spent on the project accurately — don't commit fraud!`
+    },
+    {
+      question: "Can I use AI to help me make my game?",
+      answer: `You are allowed to use some AI in your project, but only **up to 30%** of your project may be AI. Anything over 30% may result in a significant reduction in coins earned.
+
+Don't submit AI slop — your projects may be rejected, or you may even be banned from Milkyway!`
+    },
+    {
+      question: "Can I submit my Milkyway projects to other Hack Club events?",
+      answer:"Milkyway is not double-dippable — all the projects that you submit here cannot be submitted to other events."
+    },
+    {
+      question: "What is fraud?",
+      answer:`
+Fraud is deliberately misrepresenting the work that you have done on your project. This includes (but is not limited to):
+- Using bots or placing something on your keyboard to inflate your Hackatime hours
+- Submitting projects or code that you did not make
+- Submitting projects that you have previously submitted to other events
+
+If you're found to be committing fraud, you will be banned from Milkyway. Depending on the severity, you may also be banned from Hackatime and consequentially all Hack Club events.`
     },
     {
       question: "How many coins do I earn from submitting a project?",
-      answer: "On average, you can earn 4-10 coins per hour that you work on your project. However, it is very highly dependent on the quality of your project! Once you submit, you will also receive feedback that you can then improve upon to earn more coins. "
-    }
+      answer: `On average, you can earn **4-10 coins per hour** that you work on your project. However, it is very highly dependent on the quality of your project!
+      
+  Once you submit, you will also receive feedback that you can then improve upon to earn more coins.`
+    },
+
+    {
+      question: "What are stellar ships? How do I get them?",
+      answer: "After you ship a project, you can polish it even more and release it to the public to earn stellar ships. The stellar ship requirements are a combination of efforts — your project must be publicly accessible, look awesome, and hit a certain public reception requirement! Don't worry, it will not be too difficult. More information will come soon."
+    },
+
   ];
   
   // Reset expanded item when popup closes
@@ -46,7 +87,7 @@
             
             {#if expandedFaqItem === index}
               <div class="faq-answer">
-                <p>{item.answer}</p>
+                {@html marked(item.answer)}
               </div>
             {/if}
           </div>
@@ -168,8 +209,70 @@
     font-size: 15px;
   }
 
-  .faq-answer p {
-    margin: 0;
+  .faq-answer :global(p) {
+    margin: 0 0 8px 0;
     font-weight: 400;
+  }
+
+  .faq-answer :global(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .faq-answer :global(strong) {
+    font-weight: 700;
+    color: #2c3e50;
+  }
+
+  .faq-answer :global(em) {
+    font-style: italic;
+  }
+
+  .faq-answer :global(ul),
+  .faq-answer :global(ol) {
+    margin: 8px 0;
+    padding-left: 24px;
+  }
+
+  .faq-answer :global(li) {
+    margin: 4px 0;
+  }
+
+  .faq-answer :global(code) {
+    background: rgba(0, 0, 0, 0.08);
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 14px;
+  }
+
+  .faq-answer :global(a) {
+    color: #3498db;
+    text-decoration: underline;
+    transition: opacity 0.2s;
+  }
+
+  .faq-answer :global(a:hover) {
+    opacity: 0.8;
+  }
+
+  .faq-answer :global(h1),
+  .faq-answer :global(h2),
+  .faq-answer :global(h3),
+  .faq-answer :global(h4) {
+    margin: 12px 0 8px 0;
+    font-weight: 700;
+    color: #2c3e50;
+  }
+
+  .faq-answer :global(h1) { font-size: 1.3em; }
+  .faq-answer :global(h2) { font-size: 1.2em; }
+  .faq-answer :global(h3) { font-size: 1.1em; }
+  .faq-answer :global(h4) { font-size: 1.05em; }
+
+  .faq-answer :global(blockquote) {
+    margin: 8px 0;
+    padding: 8px 12px;
+    border-left: 4px solid #f7c881;
+    background: rgba(247, 200, 129, 0.1);
   }
 </style>

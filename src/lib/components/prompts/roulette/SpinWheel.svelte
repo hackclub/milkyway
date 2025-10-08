@@ -2,8 +2,9 @@
   import { onMount } from 'svelte';
   import LinkButton from '$lib/components/LinkButton.svelte';
   import { choices } from '../../../data/wheel-options.js';
+  import { getRandomEggImage } from '$lib/data/prompt-data.js';
 
-  let { onClose } = $props();
+  let { projectId, onClose, onProjectCreated, existingProgress } = $props();
 
   // Component state
   let currentWheel = $state('camera');
@@ -17,6 +18,34 @@
   let detailImages = $state([]);
   let limit = $state(0);
   let errorMessage = $state('');
+  
+  // Store all winning results
+  let rouletteResults = $state({
+    camera: '',
+    gameplay: '',
+    setting: ''
+  });
+  
+  // On mount, restore existing progress and determine starting wheel
+  onMount(() => {
+    if (existingProgress) {
+      // Restore previous spin results
+      rouletteResults = { ...existingProgress };
+      
+      // Determine which wheel to start from
+      if (!rouletteResults.camera) {
+        currentWheel = 'camera';
+      } else if (!rouletteResults.gameplay) {
+        currentWheel = 'gameplay';
+      } else if (!rouletteResults.setting) {
+        currentWheel = 'setting';
+      }
+      
+      console.log('Resuming roulette from wheel:', currentWheel, 'with progress:', rouletteResults);
+    }
+    
+    updateWheelOptions();
+  });
 
   // Initialize selected options
   $effect(() => {
@@ -52,7 +81,7 @@
   function getNextButtonText() {
     if (currentWheel === 'camera') return 'ok nice, go next';
     if (currentWheel === 'gameplay') return 'ok nice, last one';
-    if (currentWheel === 'setting') return 'see summary';
+    if (currentWheel === 'setting') return isSpinning ? 'finishing up...' : "awesome, let's go!";
     return 'continue';
   }
 
@@ -67,16 +96,22 @@
     if (isSpinning) return;
     
     const isSelected = selectedOptions.includes(option);
-    const currentSelected = selectedOptions.filter(opt => opt !== option);
+    const totalOptions = Object.keys(wheelOptions).length;
+    const currentDisabledCount = totalOptions - selectedOptions.length;
     
     if (isSelected) {
-      selectedOptions = currentSelected;
-    } else {
-      if (currentSelected.length >= Object.keys(wheelOptions).length - limit) {
+      // Trying to DISABLE this option (uncheck it)
+      // Check if we've already disabled the maximum allowed
+      if (currentDisabledCount >= limit) {
         errorMessage = `You can disable at most ${limit} options`;
         return;
       }
-      selectedOptions = [...currentSelected, option];
+      // Remove from selected (disable it)
+      selectedOptions = selectedOptions.filter(opt => opt !== option);
+    } else {
+      // Trying to ENABLE this option (check it)
+      // No limit on enabling, always allow
+      selectedOptions = [...selectedOptions, option];
     }
     errorMessage = '';
   }
@@ -105,29 +140,22 @@
     clearDetails();
 
     try {
-      // For now, use a simple mock implementation
-      // TODO: Replace with actual API call when authentication is set up
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+      // Prepare current addn data to send to server
+      const currentAddnData = {
+        rouletteStatus: 'spinning',
+        spins: rouletteResults
+      };
       
-      // Randomly select from available options
-      const availableOptions = selectedOptions;
-      const randomIndex = Math.floor(Math.random() * availableOptions.length);
-      const result = availableOptions[randomIndex];
-      
-      winningOption = result;
-      
-      // Create and display the wheel with selected options (exact copy from original)
-      createWheel(selectedOptions, result);
-      isSpinning = false;
-      
-      /* 
-      // Uncomment this when API is ready:
-      const response = await fetch('/api/roulette/spin-wheel/spin', {
+      // Call the API to spin the wheel
+      // SERVER WILL SAVE THE RESULT TO AIRTABLE IMMEDIATELY
+      const response = await fetch('/api/roulette/spin-wheel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           selectedOptions, 
-          wheelOption: currentWheel 
+          wheelOption: currentWheel,
+          projectId: projectId,
+          currentAddn: JSON.stringify(currentAddnData)
         })
       });
 
@@ -147,12 +175,16 @@
       const data = await response.json();
       if (data.success && data.result) {
         winningOption = data.result;
-        showWinnerDetails(data.result);
+        
+        // Store the result for this wheel (already saved server-side to Airtable)
+        rouletteResults[currentWheel] = data.result;
+        
+        // Create and display the wheel with selected options
+        createWheel(selectedOptions, data.result);
         isSpinning = false;
       } else {
         throw new Error('Invalid response from server');
       }
-      */
     } catch (error) {
       console.error('Spin error:', error);
       errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -341,7 +373,7 @@
   }
 
   // Navigate to next wheel or finish
-  function handleNext() {
+  async function handleNext() {
     const nextWheel = getNextWheel();
     if (nextWheel) {
       currentWheel = nextWheel;
@@ -351,13 +383,41 @@
       winningOption = '';
       clearDetails();
     } else {
-      // All wheels completed, close the overlay
-      if (onClose) {
-        onClose();
+      // All wheels completed, create the project
+      await createRouletteProject();
+    }
+  }
+  
+  // Finalize the roulette project
+  async function createRouletteProject() {
+    try {
+      isSpinning = true;
+      errorMessage = '';
+      
+      // All spins are already saved in addn by the server
+      // Description field remains empty for user to write about their game
+      // Just fetch the final project state to get the updated addn
+      const response = await fetch(`/api/projects?id=${projectId}`);
+      const data = await response.json();
+      
+      if (data.success && data.project) {
+        // Call the parent callback with the updated project if provided
+        if (onProjectCreated) {
+          onProjectCreated(data.project);
+        }
+        
+        // Close the overlay
+        if (onClose) {
+          onClose();
+        }
       } else {
-        // Fallback to navigation if no onClose prop
-        window.location.href = '/spin';
+        throw new Error('Failed to fetch final project state');
       }
+    } catch (error) {
+      console.error('Error finalizing roulette project:', error);
+      errorMessage = error instanceof Error ? error.message : 'Failed to finalize project';
+    } finally {
+      isSpinning = false;
     }
   }
 
@@ -370,10 +430,6 @@
     selectedOptions = Object.keys(wheelOptions);
   }
 
-  // Initialize on mount
-  onMount(() => {
-    updateWheelOptions();
-  });
 </script>
 
 <main class:spin={showWheel}>

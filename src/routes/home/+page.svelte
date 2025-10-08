@@ -19,6 +19,7 @@ let selectedEggId = $state(null);
 let showFaqPopup = $state(false);
 let showPromptPopup = $state(false);
 let currentPromptInfo = $state('');
+let currentRouletteResults = $state(null);
 let showLogoutButton = $state(false);
 
 // Calculate total hours and project count
@@ -31,8 +32,13 @@ function selectEgg(projectId) {
 }
 
 // Function to handle prompt popup
-function showPromptPopupHandler(promptInfo) {
+/**
+ * @param {string} promptInfo
+ * @param {any} rouletteResults
+ */
+function showPromptPopupHandler(promptInfo, rouletteResults = null) {
   currentPromptInfo = promptInfo;
+  currentRouletteResults = rouletteResults;
   showPromptPopup = true;
 }
 
@@ -197,6 +203,7 @@ async function handleLogout() {
 <PromptPopup 
   bind:showPopup={showPromptPopup} 
   promptInfo={currentPromptInfo}
+  rouletteResults={currentRouletteResults}
 />
 
 </main>

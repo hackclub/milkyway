@@ -2,6 +2,7 @@
   import { slide } from 'svelte/transition';
   import Tooltip from '../Tooltip.svelte';
   import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
+  import SpinWheel from '../prompts/roulette/SpinWheel.svelte';
 
   let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup, onDelete, user} = $props();
   let isEditing = $state(false);
@@ -26,6 +27,42 @@
 
   // HackaTime setup popup state
   let showHackatimeSetup = $state(false);
+  
+  // Roulette spin wheel state
+  let showRouletteSpinWheel = $state(false);
+  
+  // Check if project is incomplete roulette
+  let isIncompleteRoulette = $derived(() => {
+    if (!projInfo.addn) {
+      // If no addn field but promptinfo is roulette and no description with results, it's incomplete
+      if (projInfo.promptinfo?.toLowerCase() === 'roulette' && 
+          (!projInfo.description || !projInfo.description.includes('CAMERA:'))) {
+        return true;
+      }
+      return false;
+    }
+    
+    try {
+      const addnData = JSON.parse(projInfo.addn);
+      return addnData.rouletteStatus === 'spinning';
+    } catch {
+      return false;
+    }
+  });
+  
+  // Get current roulette progress
+  let rouletteProgress = $derived(() => {
+    if (!projInfo.addn) {
+      // Return empty progress if no addn field
+      return { camera: '', gameplay: '', setting: '' };
+    }
+    try {
+      const addnData = JSON.parse(projInfo.addn);
+      return addnData.spins || { camera: '', gameplay: '', setting: '' };
+    } catch {
+      return { camera: '', gameplay: '', setting: '' };
+    }
+  });
 
 
 
@@ -344,16 +381,52 @@
     // Update hours count immediately
     updateCurrentHours();
   }
+  
+  // Open roulette spin wheel to continue spinning
+  function continueRouletteSpinning() {
+    showRouletteSpinWheel = true;
+  }
+  
+  // Handle roulette completion or closure
+  /**
+   * @param {any} updatedProject
+   */
+  function handleRouletteCompleted(updatedProject) {
+    // Update the local project info
+    projInfo = updatedProject;
+    showRouletteSpinWheel = false;
+  }
+  
+  // Handle spin wheel close (even if not complete)
+  async function handleSpinWheelClose() {
+    // Fetch fresh project data from server to get latest addn updates
+    try {
+      const response = await fetch(`/api/projects?id=${projInfo.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.project) {
+          projInfo = data.project;
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing project data:', error);
+    }
+    showRouletteSpinWheel = false;
+  }
 
 </script>
 
 
-<div class="project-egg {selected ? 'selected' : ''}" style:--x={x} style:--y={y} onclick={(e) => e.stopPropagation()}>
+<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''}" style:--x={x} style:--y={y} onclick={(e) => e.stopPropagation()}>
 <img class="egg-img" src={eggImg} alt="Project egg" />
 
 <button class="egg-svg" onclick={onSelect} aria-label="Toggle project details">
   <img src="/projects/egg_shape.svg" alt="Project egg shape" />
 </button>
+
+{#if isIncompleteRoulette()}
+  <div class="incomplete-badge">!</div>
+{/if}
 
 {#if selected}
 <div class="project-info" transition:slide={{duration: 200}}>
@@ -363,7 +436,7 @@
       <div class="project-meta">
         <span class="hours-info">{projInfo.totalHours || 0} hours</span>
         <span class="separator">·</span>
-        <button class="prompt-info-link" onclick={() => onShowPromptPopup(projInfo.promptinfo)}>{projInfo.promptinfo}</button>
+        <button class="prompt-info-link" onclick={() => onShowPromptPopup(projInfo.promptinfo, rouletteProgress())}>{projInfo.promptinfo}</button>
       </div>
       {#if isEditing}
         <input class="project-name" bind:value={projInfo.name} placeholder="your game name..." />
@@ -406,7 +479,53 @@
       {/if}
     </div>
   {:else}
-    <p class="project-desc-display">{projInfo.description || 'no description yet... change this!'}</p>
+    {#if isIncompleteRoulette()}
+      <!-- Incomplete roulette project -->
+      <div class="incomplete-roulette">
+        <p class="incomplete-roulette-title">⚡ Roulette in progress!</p>
+        <p class="incomplete-roulette-desc">Click below to spin your wheels</p>
+        
+        <div class="roulette-progress">
+          <div class="progress-item {rouletteProgress()?.camera ? 'complete' : ''}">
+            {rouletteProgress()?.camera ? '✓ ' : '○ '}Camera{rouletteProgress()?.camera ? `: ${rouletteProgress()?.camera}` : ''}
+          </div>
+          <div class="progress-item {rouletteProgress()?.gameplay ? 'complete' : ''}">
+            {rouletteProgress()?.gameplay ? '✓ ' : '○ '}Gameplay{rouletteProgress()?.gameplay ? `: ${rouletteProgress()?.gameplay}` : ''}
+          </div>
+          <div class="progress-item {rouletteProgress()?.setting ? 'complete' : ''}">
+            {rouletteProgress()?.setting ? '✓ ' : '○ '}Setting{rouletteProgress()?.setting ? `: ${rouletteProgress()?.setting}` : ''}
+          </div>
+        </div>
+        
+        <button class="continue-spinning-btn" onclick={continueRouletteSpinning}>
+          Continue Spinning
+        </button>
+      </div>
+    {:else if projInfo.promptinfo?.toLowerCase() === 'roulette' && projInfo.addn}
+      <!-- Display completed roulette results from addn (immutable) -->
+      {#if rouletteProgress()?.camera && rouletteProgress()?.gameplay && rouletteProgress()?.setting}
+        <!-- Show user's description first -->
+        <p class="project-desc-display">{projInfo.description || 'no description yet... change this!'}</p>
+        
+        <!-- Then show roulette results from immutable addn -->
+        <div class="roulette-results" style="margin-top: 12px;">
+          <div class="roulette-result-item">
+            <span class="roulette-category">CAMERA:</span>
+            <span class="roulette-value">{rouletteProgress()?.camera}</span>
+          </div>
+          <div class="roulette-result-item">
+            <span class="roulette-category">GAMEPLAY:</span>
+            <span class="roulette-value">{rouletteProgress()?.gameplay}</span>
+          </div>
+          <div class="roulette-result-item">
+            <span class="roulette-category">SETTING:</span>
+            <span class="roulette-value">{rouletteProgress()?.setting}</span>
+          </div>
+        </div>
+      {/if}
+    {:else}
+      <p class="project-desc-display">{projInfo.description || 'no description yet... change this!'}</p>
+    {/if}
     
     <!-- HackaTime warning when no projects are associated with this project -->
     {#if (!isEditing && (!projInfo.hackatimeProjects || (typeof projInfo.hackatimeProjects === 'string' && projInfo.hackatimeProjects.trim() === '') || (Array.isArray(projInfo.hackatimeProjects) && projInfo.hackatimeProjects.length === 0))) || (isEditing && selectedHackatimeProjects.size === 0)}
@@ -461,6 +580,18 @@
 
 <!-- HackaTime Setup Popup -->
 <HackatimeSetupPopup showPopup={showHackatimeSetup} onClose={closeHackatimeSetup} />
+
+<!-- Roulette Spin Wheel Popup -->
+{#if showRouletteSpinWheel}
+  <div class="spin-wheel-overlay">
+    <SpinWheel 
+      projectId={projInfo.id} 
+      existingProgress={rouletteProgress()}
+      onClose={handleSpinWheelClose} 
+      onProjectCreated={handleRouletteCompleted} 
+    />
+  </div>
+{/if}
 
 
 
@@ -935,5 +1066,152 @@ input:hover, textarea:hover {
 .cancel-delete-btn:disabled, .confirm-delete-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Roulette Results Display */
+.roulette-results {
+  margin: 12px 0;
+  padding: 12px;
+  background: rgba(237, 115, 139, 0.1);
+  border: 2px solid #ED738B;
+  border-radius: 6px;
+}
+
+.roulette-result-item {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0;
+  align-items: baseline;
+}
+
+.roulette-category {
+  font-weight: bold;
+  color: #ED738B;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  min-width: 90px;
+}
+
+.roulette-value {
+  color: #333;
+  font-size: 1em;
+  flex: 1;
+}
+
+/* Incomplete Roulette Display */
+.incomplete-roulette {
+  margin: 12px 0;
+  padding: 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 2px solid #FFC107;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.incomplete-roulette-title {
+  font-weight: bold;
+  color: #856404;
+  font-size: 1.1em;
+  margin: 0 0 4px 0;
+}
+
+.incomplete-roulette-desc {
+  color: #856404;
+  font-size: 0.85em;
+  margin: 0 0 12px 0;
+}
+
+.roulette-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.progress-item {
+  font-size: 0.85em;
+  color: #666;
+  text-align: left;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 3px;
+}
+
+.progress-item.complete {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.continue-spinning-btn {
+  padding: 8px 16px;
+  background: #ED738B;
+  color: white;
+  border: 2px solid #ED738B;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.9em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.continue-spinning-btn:hover {
+  background: #FF698A;
+  border-color: #FF698A;
+  transform: translateY(-2px);
+}
+
+/* Spin Wheel Overlay */
+.spin-wheel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2000;
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+/* Incomplete Roulette Egg Indicator */
+.incomplete-roulette-egg .egg-img {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px #FFC107) drop-shadow(0 0 10px #FFC107);
+  }
+  50% {
+    filter: drop-shadow(0 0 15px #FFC107) drop-shadow(0 0 25px #FFC107);
+  }
+}
+
+.incomplete-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 30px;
+  height: 30px;
+  background: #FFC107;
+  color: #000;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2em;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 200;
+  animation: bounce-badge 1s ease-in-out infinite;
+}
+
+@keyframes bounce-badge {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 </style>

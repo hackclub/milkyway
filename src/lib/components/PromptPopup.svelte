@@ -1,8 +1,9 @@
 <script>
   import { getPromptData } from '$lib/data/prompt-data.js';
+  import { choices } from '$lib/data/wheel-options.js';
   import { marked } from 'marked';
 
-  let { showPopup = $bindable(), promptInfo = '' } = $props();
+  let { showPopup = $bindable(), promptInfo = '', rouletteResults = null } = $props();
 
   // Configure marked to enable links
   marked.setOptions({
@@ -15,6 +16,9 @@
   
   // Render markdown content
   let renderedMarkdown = $derived(promptData?.markdownContent ? marked(promptData.markdownContent) : '');
+  
+  // Check if this is a roulette project with results
+  let isRoulette = $derived(promptInfo?.toLowerCase() === 'roulette' && rouletteResults);
 
   function closePopup() {
     showPopup = false;
@@ -48,7 +52,88 @@
       </div>
       
       <div class="popup-body">
-        {#if promptData}
+        {#if isRoulette}
+          <!-- Special roulette results display -->
+          <div class="prompt-image-container">
+            <img class="prompt-image" src={promptData.image} alt={promptData.name} />
+          </div>
+          <div class="prompt-details">
+            <p class="prompt-description">{promptData.description}</p>
+            <div class="prompt-requirements">
+              <div class="requirement-item">
+                <span class="requirement-label">Minimum Hours:</span>
+                <span class="requirement-value">{promptData.minHours} hours</span>
+              </div>
+              <div class="requirement-item">
+                <span class="requirement-label">Coin Reward:</span>
+                <span class="requirement-value">
+                  {promptData.minStars}-{promptData.maxStars}
+                  <img class="coin-icon" src="/coin.png" alt="coins" />
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Show each wheel result with details -->
+          <div class="roulette-wheels-details">
+            {#if rouletteResults.camera}
+              <div class="wheel-detail">
+                <h4 class="wheel-title">Camera: {rouletteResults.camera}</h4>
+                <p class="wheel-description">{choices.camera[rouletteResults.camera]?.description || ''}</p>
+                {#if choices.camera[rouletteResults.camera]?.examples}
+                  <div class="wheel-examples">
+                    {#each Object.entries(choices.camera[rouletteResults.camera].examples) as [gameName, imageUrl]}
+                      <div class="example-item">
+                        <img src={imageUrl} alt={gameName} class="example-image" />
+                        <p class="example-name">{gameName}</p>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+            
+            {#if rouletteResults.gameplay}
+              <div class="wheel-detail">
+                <h4 class="wheel-title">Gameplay: {rouletteResults.gameplay}</h4>
+                <p class="wheel-description">{choices.gameplay[rouletteResults.gameplay]?.description || ''}</p>
+                {#if choices.gameplay[rouletteResults.gameplay]?.examples}
+                  <div class="wheel-examples">
+                    {#each Object.entries(choices.gameplay[rouletteResults.gameplay].examples) as [gameName, imageUrl]}
+                      <div class="example-item">
+                        <img src={imageUrl} alt={gameName} class="example-image" />
+                        <p class="example-name">{gameName}</p>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+            
+            {#if rouletteResults.setting}
+              <div class="wheel-detail">
+                <h4 class="wheel-title">Setting: {rouletteResults.setting}</h4>
+                <p class="wheel-description">{choices.setting[rouletteResults.setting]?.description || ''}</p>
+                {#if choices.setting[rouletteResults.setting]?.examples}
+                  <div class="wheel-examples">
+                    {#each Object.entries(choices.setting[rouletteResults.setting].examples) as [gameName, imageUrl]}
+                      <div class="example-item">
+                        <img src={imageUrl} alt={gameName} class="example-image" />
+                        <p class="example-name">{gameName}</p>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+          
+          {#if renderedMarkdown}
+            <div class="markdown-content" class:rendered={renderedMarkdown}>
+              {@html renderedMarkdown}
+            </div>
+          {/if}
+        {:else if promptData}
           <div class="prompt-image-container">
             <img class="prompt-image" src={promptData.image} alt={promptData.name} />
           </div>
@@ -312,5 +397,65 @@
 
   .prompt-info-content p {
     margin: 0;
+  }
+
+  /* Roulette Wheels Details */
+  .roulette-wheels-details {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .wheel-detail {
+    padding: 16px;
+    border: 2px solid var(--primary-color);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .wheel-title {
+    margin: 0 0 8px 0;
+    color: var(--primary-color);
+    font-size: 1.2em;
+    font-weight: bold;
+    text-transform: capitalize;
+  }
+
+  .wheel-description {
+    margin: 0 0 12px 0;
+    color: var(--primary-color);
+    font-size: 0.95em;
+    line-height: 1.4;
+  }
+
+  .wheel-examples {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .example-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .example-image {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 2px solid var(--primary-color);
+    margin-bottom: 6px;
+  }
+
+  .example-name {
+    margin: 0;
+    font-size: 0.75em;
+    color: var(--primary-color);
+    font-weight: 600;
   }
 </style>

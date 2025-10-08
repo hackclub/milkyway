@@ -204,7 +204,7 @@
 	</div>
 
 	<div class="faq-section">
-		<h3>Have questions? We answer them!</h3>
+		<h3>Have questions? We answer them!!!</h3>
 		<div class="faq-list">
 			{#each faqData as item, index}
 				<div class="faq-item">

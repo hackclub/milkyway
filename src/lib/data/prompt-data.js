@@ -16,7 +16,11 @@ export const promptData = {
     ],
     markdownContent: `
 
-**You've spun the wheels. Now, you have to follow through!
+  You've spun the wheels. Now, you have to follow through!
+
+  Combine the results of the wheels to create a game that is wholly unique and new. Take this chance to experiment with game mechanics and ideas.
+
+  Your game does not have to be 100% true to the results of the wheels as long as you try to incorporate them as much as you can.
 `
   },
   "sparkle": {

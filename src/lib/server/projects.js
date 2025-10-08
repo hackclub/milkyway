@@ -28,6 +28,7 @@ export async function getUserProjectsByEmail(userEmail) {
         name: record.fields.projectname || 'Untitled Project',
         promptinfo: record.fields.promptinfo || '',
         description: record.fields.description || '',
+        addn: record.fields.addn || '',
         event: 'new', // Default since you don't have this field
         egg: record.fields.egg || 'projects/sparkle_egg1.png',
         position: record.fields.position || '0,0',
@@ -64,14 +65,21 @@ export async function createProject(userId, projectData) {
     const randomY = Math.random() * (220 - 80) + 80; // Range: 80 to 220
     const position = `${randomX},${randomY}`;
     
-    const record = await base('Projects').create({
+    const fieldsToCreate = {
       'user': [userId],
       'projectname': projectData.name,
       'promptinfo': projectData.description, // This stores the event type (ROULETTE, SPARKLE, etc.)
       'description': '', // Empty description field for new projects
       'egg': projectData.egg,
       'position': position
-    });
+    };
+    
+    // Add addn field if provided
+    if (projectData.addn) {
+      fieldsToCreate.addn = projectData.addn;
+    }
+    
+    const record = await base('Projects').create(fieldsToCreate);
     console.log('Created project record:', record);
 
     // Parse position for return object
@@ -85,6 +93,7 @@ export async function createProject(userId, projectData) {
       name: record.fields.projectname,
       description: record.fields.description || '', // Empty description for new projects
       promptinfo: record.fields.promptinfo,
+      addn: record.fields.addn || '',
       event: 'new', // Default since you don't have this field
       egg: record.fields.egg,
       position: record.fields.position,
@@ -121,6 +130,7 @@ export async function updateProject(projectId, updates) {
       name: record.fields.projectname,
       description: record.fields.description || '',
       promptinfo: record.fields.promptinfo,
+      addn: record.fields.addn || '',
       event: 'new', // Default since you don't have this field
       egg: record.fields.egg,
       position: record.fields.position || '0,0',
