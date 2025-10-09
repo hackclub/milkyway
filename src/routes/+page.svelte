@@ -100,6 +100,17 @@
 
 <svelte:head>
 	<title>Milkyway</title>
+	<meta property="og:title" content="Milkyway" />
+	<meta property="og:description" content="Make games, build houses, get amazing rewards like a trip to Singapore!" />
+	<meta property="og:image" content="/ogimg.png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:type" content="website" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Milkyway" />
+	<meta name="twitter:description" content="Make games, build houses, get amazing rewards like a trip to Singapore!" />
+
+	<meta name="theme-color" content="#73ACE0" />
 </svelte:head>
 
 <main>
@@ -164,8 +175,7 @@
 		<img
 			src="landing/stickynote.png"
 			class="room-stickynote"
-			onmouseenter={() => (showStickynoteInfo = true)}
-			onmouseleave={() => (showStickynoteInfo = false)}
+
 		/>
 
 		<div class="room-stickynote-info" class:visible={showStickynoteInfo}>
@@ -176,8 +186,7 @@
 		<img
 			src="landing/cat.png"
 			class="room-cat"
-			onmouseenter={() => (showCatInfo = true)}
-			onmouseleave={() => (showCatInfo = false)}
+
 		/>
 
 		<div class="room-cat-info" class:visible={showCatInfo}>
@@ -288,12 +297,7 @@
 		transition: filter 0.2s;
 	}
 
-	.room-cat:hover,
-	.room-stickynote:hover {
-		filter: drop-shadow(-1.5px -1.5px 0 var(--orange)) drop-shadow(1.5px -1.5px 0 var(--orange))
-			drop-shadow(-1.5px 1.5px 0 var(--orange)) drop-shadow(1.5px 1.5px 0 var(--orange))
-			drop-shadow(0 0 3px white);
-	}
+
 
 	.room-cat-info {
 		position: absolute;
