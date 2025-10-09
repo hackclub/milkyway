@@ -1,18 +1,25 @@
 import { fetchProjects } from '$lib/server/hackatime.js';
 import { json } from '@sveltejs/kit';
+import { isValidEmail, sanitizeErrorMessage } from '$lib/server/security.js';
 
-export async function POST({ request }) {
+export async function POST({ request, locals }) {
 	try {
-		const { email, startDate } = await request.json();
+		// Require authentication
+		if (!locals.user) {
+			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
 
-		console.log('HackaTime API request:', { email, startDate });
+		const { email, startDate } = await request.json();
 
 		if (!email) {
 			return json({ error: 'Email is required' }, { status: 400 });
 		}
 
+		if (!isValidEmail(email)) {
+			return json({ error: 'Invalid email format' }, { status: 400 });
+		}
+
 		const result = await fetchProjects(email, null, startDate);
-		console.log('HackaTime API result:', { success: true, dataKeys: result ? Object.keys(result) : 'no result' });
 		return json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error in get-hackatime-projects API:', error);
@@ -23,12 +30,14 @@ export async function POST({ request }) {
 			return json({ 
 				success: false, 
 				error: 'User not found', 
-				details: error.message,
 				userNotFound: true 
 			}, { status: 404 });
 		}
 		
-		return json({ error: 'Failed to fetch HackaTime projects', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+		return json({ 
+			error: 'Failed to fetch HackaTime projects', 
+			details: sanitizeErrorMessage(error, 'Unknown error') 
+		}, { status: 500 });
 	}
 }
 

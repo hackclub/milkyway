@@ -7,9 +7,7 @@ export async function load({ locals }) {
   }
 
   // Load shop items from Airtable
-  console.log('Loading shop items');
   const shopItems = await getListOfShopItems();
-  console.log('Loaded shop items:', shopItems);
 
   return {
     user: locals.user,

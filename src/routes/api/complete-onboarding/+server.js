@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
+import { sanitizeErrorMessage } from '$lib/server/security.js';
 
 export async function POST({ request, cookies }) {
   try {
@@ -35,7 +36,7 @@ export async function POST({ request, cookies }) {
 
   } catch (err) {
     console.error('Airtable error:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Failed to complete onboarding';
+    const errorMessage = sanitizeErrorMessage(err, 'Failed to complete onboarding');
     
     return json({
       success: false,

@@ -1,28 +1,25 @@
 /**
  * Fetches projects from HackaTime API for a given user email and date
  * @param {string} email - User's email address
- * @param {string} date - Date in YYYY-MM-DD format
- * @param {string} startDate - Start date in YYYY-MM-DD format (optional)
+ * @param {string|null} date - Date in YYYY-MM-DD format
+ * @param {string|null} startDate - Start date in YYYY-MM-DD format (optional)
  * @returns {Promise<Object>} - API response data
  */
 
 import dotenv from 'dotenv';
 dotenv.config();
 
+/**
+ * @param {string} email
+ * @param {string|null} date
+ * @param {string|null} [startDate]
+ */
 export async function fetchProjects(email, date, startDate = null) {
 	try {
 		const headers = {
 			"Rack-Attack-Bypass": process.env.HACKATIME_RATE_LIMIT_BYPASS || '',
 			"Authorization": "Bearer " + (process.env.STATS_API_KEY || ''),
 		};
-
-		// Debug logging
-		console.log('HackaTime API request:', {
-			url: `https://hackatime.hackclub.com/api/v1/users/lookup_email/${encodeURIComponent(email)}`,
-			headers: { ...headers }, // Hide the actual token
-			hasApiKey: !!process.env.STATS_API_KEY,
-			hasBypass: !!process.env.HACKATIME_RATE_LIMIT_BYPASS
-		});
 
 		const response = await fetch(`https://hackatime.hackclub.com/api/v1/users/lookup_email/${encodeURIComponent(email)}`, {
 			method: 'GET',
@@ -39,11 +36,9 @@ export async function fetchProjects(email, date, startDate = null) {
 				errorDetails = 'Could not read error response';
 			}
 			
-			console.error('HackaTime API error details:', {
+			console.error('HackaTime API error:', {
 				status: response.status,
-				statusText: response.statusText,
-				headers: Object.fromEntries(response.headers.entries()),
-				body: errorDetails
+				statusText: response.statusText
 			});
 			
 			throw new Error(`HTTP error! status: ${response.status} - ${errorDetails}`);
@@ -67,11 +62,6 @@ export async function fetchProjects(email, date, startDate = null) {
 			});
 
 			const projdata = await projectData.json();
-			console.log('HackaTime API raw response:', {
-				status: projectData.status,
-				ok: projectData.ok,
-				data: projdata
-			});
 			return projdata;
 
 		} catch (error) {

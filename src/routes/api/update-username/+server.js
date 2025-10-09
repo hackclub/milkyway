@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
+import { isValidUsername, escapeAirtableFormula, sanitizeErrorMessage } from '$lib/server/security.js';
 
 export async function POST({ request, cookies }) {
   try {
@@ -20,6 +21,14 @@ export async function POST({ request, cookies }) {
       }, { status: 400 });
     }
 
+    // Validate username format
+    if (!isValidUsername(username.trim())) {
+      return json({
+        success: false,
+        error: 'Username must be 3-30 characters and contain only letters, numbers, underscores, or hyphens'
+      }, { status: 400 });
+    }
+
     // Get user info from session
     const { getUserInfoBySessionId } = await import('$lib/server/auth.js');
     const user = await getUserInfoBySessionId(sessionId);
@@ -29,6 +38,22 @@ export async function POST({ request, cookies }) {
         success: false,
         error: 'User not found'
       }, { status: 404 });
+    }
+
+    // Check if username is already taken
+    const escapedUsername = escapeAirtableFormula(username.trim());
+    const existingRecords = await base('User')
+      .select({
+        filterByFormula: `{username} = "${escapedUsername}"`,
+        maxRecords: 1
+      })
+      .firstPage();
+
+    if (existingRecords.length > 0 && existingRecords[0].id !== user.recId) {
+      return json({
+        success: false,
+        error: 'Username is already taken'
+      }, { status: 400 });
     }
 
     // Update user's username in Airtable
@@ -43,7 +68,7 @@ export async function POST({ request, cookies }) {
 
   } catch (err) {
     console.error('Airtable error:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Failed to update username';
+    const errorMessage = sanitizeErrorMessage(err, 'Failed to update username');
     
     return json({
       success: false,

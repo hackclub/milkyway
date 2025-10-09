@@ -2,11 +2,16 @@ import crypto from 'crypto';
 import { json } from '@sveltejs/kit';
 
 import { base } from '$lib/server/db.js'
+import { escapeAirtableFormula } from '$lib/server/security.js';
 
 
+/**
+ * @param {string} sessionid
+ */
 export async function getUserRecordBySessionId(sessionid) {
+  const escapedSessionId = escapeAirtableFormula(sessionid);
   const records = await base('OTP')
-  .select({ filterByFormula: `{token} = "${sessionid}"`, maxRecords: 1 })
+  .select({ filterByFormula: `{token} = "${escapedSessionId}"`, maxRecords: 1 })
   .firstPage();
 
   if (!records.length) return null;
@@ -14,10 +19,13 @@ export async function getUserRecordBySessionId(sessionid) {
   return { user };
 }
 
+/**
+ * @param {string} sessionid
+ */
 export async function getUserInfoBySessionId(sessionid) {
-
+  const escapedSessionId = escapeAirtableFormula(sessionid);
   const records = await base('User')
-    .select({ filterByFormula: `FIND("${sessionid}", ARRAYJOIN({OTP}, ","))`, maxRecords: 1 })
+    .select({ filterByFormula: `FIND("${escapedSessionId}", ARRAYJOIN({OTP}, ","))`, maxRecords: 1 })
     .firstPage();
 
   if (!records.length) return null;
@@ -27,10 +35,15 @@ export async function getUserInfoBySessionId(sessionid) {
 }
 
 // ------- VERIFY OTP
+/**
+ * @param {string} email
+ * @param {string} otp
+ */
 export async function verifyOTPAndCreateSession(email, otp) {
+  const escapedEmail = escapeAirtableFormula(email);
   const record = await base('OTP')
   .select({
-    filterByFormula: `{email} = "${email}"`,
+    filterByFormula: `{email} = "${escapedEmail}"`,
     maxRecords: 1,
     sort: [{ field: 'Created', direction: 'desc' }]
   })
@@ -40,12 +53,23 @@ export async function verifyOTPAndCreateSession(email, otp) {
     throw new Error('OTP not found')
   }
 
+  // Check if OTP has expired
+  const expiryField = record[0].fields.expiry;
+  const expiryTime = new Date(String(expiryField));
+  const now = new Date();
+  if (now > expiryTime) {
+    throw new Error('OTP expired');
+  }
 
-  if (record[0].fields.otp != otp) {
+  // Use strict equality and parse OTP as integer
+  const storedOTP = parseInt(String(record[0].fields.otp), 10);
+  const providedOTP = parseInt(otp, 10);
+  
+  if (storedOTP !== providedOTP || isNaN(storedOTP) || isNaN(providedOTP)) {
     throw new Error('OTP invalid')
   }
 
-  return record[0].fields.token; // successful so return token
+  return String(record[0].fields.token); // successful so return token
 
 }
 
@@ -53,6 +77,9 @@ export async function verifyOTPAndCreateSession(email, otp) {
 
 
 // ------- FUNCTIONS FOR GENERATING OTP AND PASSING STUFF
+/**
+ * @param {string} email
+ */
 export async function createOTPRecord(email) {
     const otp = generateOTP();
     const token = generateToken();
@@ -88,6 +115,9 @@ export async function createOTPRecord(email) {
 
 
 
+/**
+ * @param {string} email
+ */
 async function createUserFromEmail(email) {
   const newUser = await base('User').create({
     'email': email,
@@ -98,10 +128,14 @@ async function createUserFromEmail(email) {
 
 }
 
+/**
+ * @param {string} email
+ */
 async function getUserRecordIdByEmail(email) {
+  const escapedEmail = escapeAirtableFormula(email);
   const record = await base('User')
   .select({
-    filterByFormula: `{email} = "${email}"`,
+    filterByFormula: `{email} = "${escapedEmail}"`,
     maxRecords: 1,
   })
   .firstPage();
@@ -112,10 +146,14 @@ async function getUserRecordIdByEmail(email) {
   return record[0].id; // return user info
 }
 
+/**
+ * @param {string} userId
+ */
 export async function getUserCoinsAndStellarships(userId) {
+  const escapedUserId = escapeAirtableFormula(userId);
   const record = await base('User')
     .select({
-      filterByFormula: `RECORD_ID() = "${userId}"`,
+      filterByFormula: `RECORD_ID() = "${escapedUserId}"`,
       maxRecords: 1,
     })
     .firstPage();

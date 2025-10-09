@@ -8,6 +8,7 @@ export async function handle({ event, resolve }) {
   if (sessionid) {
     const user = await getUserInfoBySessionId(sessionid);
     if (user) {
+      // @ts-ignore - getUserInfoBySessionId returns Airtable FieldSet which has dynamic fields
       event.locals.user = user;
     }
   }

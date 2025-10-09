@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { isSelectedCountOk, areSelectedOptionsValid } from '$lib/data/wheel-options.js';
-import { updateProject } from '$lib/server/projects.js';
+import { updateProject, verifyProjectOwnership } from '$lib/server/projects.js';
+import { sanitizeErrorMessage } from '$lib/server/security.js';
 
 export async function POST({ request, locals }) {
   try {
@@ -22,6 +23,12 @@ export async function POST({ request, locals }) {
     // Input validation
     if (!selectedOptions || !wheelOption || !projectId) {
       return json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Verify project ownership
+    const isOwner = await verifyProjectOwnership(projectId, locals.user.email);
+    if (!isOwner) {
+      return json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Validate wheel option
@@ -80,7 +87,7 @@ export async function POST({ request, locals }) {
   } catch (error) {
     console.error('Error spinning wheel:', error);
     return json({
-      error: error instanceof Error ? error.message : 'Failed to spin wheel'
+      error: sanitizeErrorMessage(error, 'Failed to spin wheel')
     }, { status: 500 });
   }
 }

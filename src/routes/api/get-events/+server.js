@@ -4,7 +4,6 @@
 
 import { json } from '@sveltejs/kit';
 import { getListOfEvents } from '$lib/server/events.js';
-import { createOTPRecord } from '$lib/server/auth.js';
 
 export async function GET() {
   try {

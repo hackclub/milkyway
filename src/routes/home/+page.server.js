@@ -8,14 +8,10 @@ export async function load({ locals }) {
   }
 
   // Load user's projects from Airtable
-  console.log('Loading projects for user:', locals.user.recId);
   const projects = await getUserProjectsByEmail(locals.user.email);
-  console.log('Loaded projects:', projects);
 
   // Load user's coins and stellarships from Airtable
-  console.log('Loading coins and stellarships for user:', locals.user.recId);
   const { coins, stellarships } = await getUserCoinsAndStellarships(locals.user.recId);
-  console.log('Loaded coins:', coins, 'stellarships:', stellarships);
 
   // Check if user has completed onboarding
   const hasOnboarded = locals.user.hasOnboarded || false;

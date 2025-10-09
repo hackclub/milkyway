@@ -1,4 +1,5 @@
 import { base } from '$lib/server/db.js';
+import { escapeAirtableFormula } from '$lib/server/security.js';
 
 /**
  * Get all projects for a specific user
@@ -7,14 +8,9 @@ import { base } from '$lib/server/db.js';
  */
 export async function getUserProjectsByEmail(userEmail) {
   try {
-    console.log('getUserProjects called with userId:', userEmail);
-
-
+    const escapedEmail = escapeAirtableFormula(userEmail);
     const records = await base('Projects')
-      .select({ filterByFormula: `FIND("${userEmail}", ARRAYJOIN({user}, ","))`}).all();
-
-
-    console.log('Raw records from Airtable for user:', records);
+      .select({ filterByFormula: `FIND("${escapedEmail}", ARRAYJOIN({user}, ","))`}).all();
 
     const projects = records.map(record => {
       // Parse position data
@@ -42,7 +38,6 @@ export async function getUserProjectsByEmail(userEmail) {
       };
     });
 
-    console.log('Fetched projects from Airtable:', projects);
     return projects;
   } catch (error) {
     console.error('Error fetching user projects:', error);
@@ -58,13 +53,12 @@ export async function getUserProjectsByEmail(userEmail) {
  */
 export async function createProject(userId, projectData) {
   try {
-    console.log('createProject called with userId:', userId, 'projectData:', projectData);
-    
     // Generate random position for the egg
     const randomX = Math.random() * (120 - (-120)) + (-120); // Range: -120 to 120
     const randomY = Math.random() * (220 - 80) + 80; // Range: 80 to 220
     const position = `${randomX},${randomY}`;
     
+    /** @type {any} */
     const fieldsToCreate = {
       'user': [userId],
       'projectname': projectData.name,
@@ -79,8 +73,7 @@ export async function createProject(userId, projectData) {
       fieldsToCreate.addn = projectData.addn;
     }
     
-    const record = await base('Projects').create(fieldsToCreate);
-    console.log('Created project record:', record);
+    const record = /** @type {any} */ (await base('Projects').create(fieldsToCreate));
 
     // Parse position for return object
     const positionStr = typeof record.fields.position === 'string' ? record.fields.position : '0,0';
@@ -158,5 +151,43 @@ export async function deleteProject(projectId) {
   } catch (error) {
     console.error('Error deleting project:', error);
     throw new Error('Failed to delete project');
+  }
+}
+
+/**
+ * Verify if a user owns a specific project
+ * @param {string} projectId - The project's record ID
+ * @param {string} userEmail - The user's email address
+ * @returns {Promise<boolean>} True if user owns the project
+ */
+export async function verifyProjectOwnership(projectId, userEmail) {
+  try {
+    const record = await base('Projects').find(projectId);
+    const projectUserField = record.fields.user;
+    
+    // Convert to array if it's not already
+    /** @type {string[]} */
+    const projectUserIds = Array.isArray(projectUserField) ? projectUserField : 
+                           (projectUserField ? [String(projectUserField)] : []);
+    
+    // Check if the user's email is in the project's user list
+    // Note: user field in Projects is a linked field to User table
+    // We need to fetch the actual user records to get their emails
+    if (projectUserIds.length === 0) {
+      return false;
+    }
+    
+    // Fetch user records to get emails
+    const userRecords = await base('User')
+      .select({
+        filterByFormula: `OR(${projectUserIds.map(/** @param {string} id */ id => `RECORD_ID() = "${escapeAirtableFormula(id)}"`).join(', ')})`,
+      })
+      .firstPage();
+    
+    const emails = userRecords.map(r => r.fields.email);
+    return emails.includes(userEmail);
+  } catch (error) {
+    console.error('Error verifying project ownership:', error);
+    return false;
   }
 }

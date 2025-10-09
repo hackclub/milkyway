@@ -5,10 +5,14 @@ declare global {
 		// interface Error {}
 		interface Locals {
 			user?: {
-				id: string;
-				username: string;
+				id?: string;
+				username?: string;
 				email: string;
 				recId: string;
+				hasOnboarded?: boolean;
+				coins?: number;
+				stellarships?: number;
+				[key: string]: any; // Allow other Airtable fields
 			};
 		}
 		// interface PageData {}
