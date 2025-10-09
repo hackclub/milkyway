@@ -3,7 +3,7 @@
   import Tooltip from '../Tooltip.svelte';
   import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
 
-  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, user} = $props();
+  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, user, isRoomEditing = false} = $props();
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
@@ -388,10 +388,15 @@
 </script>
 
 
-<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''}" style:--x={x} style:--y={y} onclick={(e) => e.stopPropagation()}>
+<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''}" style:--x={x} style:--y={y} onclick={(e) => e.stopPropagation()}>
 <img class="egg-img" src={eggImg} alt="Project egg" />
 
-<button class="egg-svg" onclick={onSelect} aria-label="Toggle project details">
+<button 
+  class="egg-svg" 
+  onclick={() => { if (onSelect) onSelect(); }} 
+  onmousedown={(e) => { if (isRoomEditing && onMouseDown) { e.stopPropagation(); onMouseDown(e); } }}
+  aria-label="Toggle project details"
+>
   <img src="/projects/egg_shape.svg" alt="Project egg shape" />
 </button>
 
@@ -399,7 +404,7 @@
   <div class="incomplete-badge">!</div>
 {/if}
 
-{#if selected}
+{#if selected && !isRoomEditing}
 <div class="project-info" transition:slide={{duration: 200}}>
 
   <div class="project-header">
@@ -573,6 +578,19 @@
   z-index: 1000;
 }
 
+.project-egg.editing-mode {
+  cursor: grab;
+}
+
+.project-egg.editing-mode.selected {
+  cursor: grab;
+}
+
+.project-egg.editing-mode.selected .egg-img {
+  filter: drop-shadow(-1.5px -1.5px 0 var(--orange)) drop-shadow(1.5px -1.5px 0 var(--orange)) drop-shadow(-1.5px 1.5px 0 var(--orange)) drop-shadow(1.5px 1.5px 0 var(--orange));
+  pointer-events: none;
+}
+
 .egg-img {
   height: 100%;
   position: absolute;
@@ -593,13 +611,17 @@
   cursor: pointer;
 }
 
+.project-egg.editing-mode .egg-svg {
+  cursor: move;
+}
+
 .egg-svg img {
   height: 100%;
   width: auto;
 }
 
 .project-egg:has(.egg-svg:hover) .egg-img, .project-egg.selected .egg-img {
-  filter: drop-shadow(-1.5px -1.5px 0 var(--orange)) drop-shadow(1.5px -1.5px 0 var(--orange)) drop-shadow(-1.5px 1.5px 0 var(--orange)) drop-shadow(1.5px 1.5px 0 var(--orange)) drop-shadow(0 0 3px white);
+  filter: drop-shadow(-1.5px -1.5px 0 var(--orange)) drop-shadow(1.5px -1.5px 0 var(--orange)) drop-shadow(-1.5px 1.5px 0 var(--orange)) drop-shadow(1.5px 1.5px 0 var(--orange));
 
 }
 

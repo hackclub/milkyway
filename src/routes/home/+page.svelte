@@ -1,10 +1,7 @@
 <script>
 
-import FloorTile from '$lib/components/FloorTile.svelte';
-import CreateProject from '$lib/components/CreateProject.svelte';
-import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
+import Room from '$lib/components/room/Room.svelte';
 import Tooltip from '$lib/components/Tooltip.svelte';
-import ExpandableButton from '$lib/components/ExpandableButton.svelte';
 import OnboardingOverlay from '$lib/components/OnboardingOverlay.svelte';
 import FaqPopup from '$lib/components/FaqPopup.svelte';
 import PromptPopup from '$lib/components/PromptPopup.svelte';
@@ -12,28 +9,20 @@ import SpinWheel from '$lib/components/prompts/roulette/SpinWheel.svelte';
 
 let { data } = $props();
 
-let isCreateOpen = $state(false);
 let projectList = $state(data.projects || []);
-let showRoomEditPopup = $state(false);
 let showOnboarding = $state(!data.hasOnboarded);
-let selectedEggId = $state(null);
 let showFaqPopup = $state(false);
 let showPromptPopup = $state(false);
 let currentPromptInfo = $state('');
 let currentRouletteResults = $state(null);
 let showLogoutButton = $state(false);
 let showRouletteSpinWheel = $state(false);
-let rouletteSpinProjectId = $state(null);
-let rouletteSpinProgress = $state(null);
+let rouletteSpinProjectId = $state(/** @type {string | null} */ (null));
+let rouletteSpinProgress = $state(/** @type {any} */ (null));
 
 // Calculate total hours and project count
-let totalHours = $derived(Number(projectList.reduce((sum, project) => sum + (project.totalHours || project.hours || 0), 0)));
+let totalHours = $derived(Number(projectList.reduce((/** @type {number} */ sum, /** @type {any} */ project) => sum + (project.totalHours || project.hours || 0), 0)));
 let projectCount = $derived(projectList.length);
-
-// Function to handle egg selection
-function selectEgg(projectId) {
-  selectedEggId = selectedEggId === projectId ? null : projectId;
-}
 
 // Function to handle prompt popup
 /**
@@ -90,16 +79,6 @@ async function handleRouletteClose() {
     }
   }
   showRouletteSpinWheel = false;
-}
-
-// Function to handle project deletion
-function deleteProjectHandler(projectId) {
-  // Remove the project from the list
-  projectList = projectList.filter(project => project.id !== projectId);
-  // If the deleted project was selected, clear selection
-  if (selectedEggId === projectId) {
-    selectedEggId = null;
-  }
 }
 
 // Function to handle logout
@@ -181,64 +160,13 @@ async function handleLogout() {
 
 
 
-<div class="zlayer room" onclick={() => selectedEggId = null}>
-
-  <img aria-hidden="true" class="room-bg" src="room_draft.png" />
-
-  <FloorTile></FloorTile>
-
-  {#if !projectList || projectList.length === 0}
-    <button class="new-project" onclick={(e) => { e.stopPropagation(); isCreateOpen = !isCreateOpen }}>you don't have any projects yet. create something new?</button>
-  {/if}
-
-  {#each projectList as project, index}
-
-    <ProjectEgg 
-      eggImg={project.egg} 
-      bind:projInfo={projectList[index]} 
-      x={project.x} 
-      y={project.y}
-      selected={selectedEggId === project.id}
-      onSelect={() => selectEgg(project.id)}
-      onShowPromptPopup={showPromptPopupHandler}
-      onDelete={deleteProjectHandler}
-      onOpenRouletteSpin={openRouletteSpinHandler}
-      user={data.user}
-    />
-
-
-  {/each}
-
-  <div class="fab-container" onclick={(e) => e.stopPropagation()}>
-    <ExpandableButton 
-      icon="+" 
-      expandedText="create new project" 
-      expandedWidth="165px"
-      onClick={() => { isCreateOpen = !isCreateOpen }} 
-    />
-
-    <ExpandableButton 
-      icon="✎"
-      expandedText="edit room" 
-      expandedWidth="112px"
-      onClick={() => { showRoomEditPopup = true }} 
-    />
-  </div>
-
-</div>
-
-{#if isCreateOpen}
-  <CreateProject onClose={() => { isCreateOpen = false }} bind:projectList={projectList} />
-{/if}
-
-{#if showRoomEditPopup}
-  <div class="popup-overlay" onclick={() => { showRoomEditPopup = false }}>
-    <div class="popup-content" onclick={(e) => e.stopPropagation()}>
-      <h3>room editing coming soon!</h3>
-      <button class="popup-close" onclick={() => { showRoomEditPopup = false }}>×</button>
-    </div>
-  </div>
-{/if}
+<Room 
+  bind:projectList={projectList}
+  user={data.user}
+  onShowPromptPopup={showPromptPopupHandler}
+  onOpenRouletteSpin={openRouletteSpinHandler}
+  onDeleteProject={() => {}}
+/>
 
 {#if showOnboarding}
   <OnboardingOverlay onClose={() => { showOnboarding = false }} user={data.user}>
@@ -305,48 +233,6 @@ main {
 .coins-info img {
   height: 1em;
   filter: drop-shadow(-1.5px -1.5px 0 white) drop-shadow(1.5px -1.5px 0 white) drop-shadow(-1.5px 1.5px 0 white) drop-shadow(1.5px 1.5px 0 white) drop-shadow(0 0 3px white);
-}
-
-.room {
-  z-index: 1;
-  height: 100%;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: absolute;
-}
-
-
-.room-bg {
-  position: absolute;
-  height: 700px;
-  pointer-events: none;
-  -webkit-user-select: none; /* Safari */
-  -moz-user-select: none; /* Firefox */
-  -ms-user-select: none; /* IE10+/Edge */
-  user-select: none; /* Standard */
-}
-
-.room .new-project {
-  position: absolute;
-
-  background-color: #ffffffaa;
-  border: 4px solid white;
-  border-radius: 8px;
-
-  width: 300px;
-  text-align: center;
-  padding: 10px 20px;
-  transition: 0.2s;
-  pointer-events: all;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-}
-
-.room .new-project:hover {
-  background-color: white;
 }
 
 .profile-info {
@@ -508,62 +394,6 @@ p.username {
 .bottom-button:hover {
   background-color: white;
   color: black;
-}
-
-.fab-container {
-  position: absolute;
-  bottom: calc(50vh - 150px);
-  left: calc(50vw - 350px);
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.popup-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.popup-content {
-  background-color: #FBF2BF;
-  border: 4px solid #F7C881;
-  border-radius: 8px;
-  padding: 30px;
-  position: relative;
-  max-width: 300px;
-  text-align: center;
-}
-
-.popup-content h3 {
-  margin: 0;
-  color: #333;
-  font-size: 18px;
-}
-
-.popup-close {
-  position: absolute;
-  top: 10px;
-  right: 15px;
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #333;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .faq-button {
