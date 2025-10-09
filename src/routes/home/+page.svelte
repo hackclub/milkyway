@@ -1,7 +1,8 @@
 <script>
 
 import Room from '$lib/components/room/Room.svelte';
-import Tooltip from '$lib/components/Tooltip.svelte';
+import ProfileInfo from '$lib/components/ProfileInfo.svelte';
+import NavigationButtons from '$lib/components/NavigationButtons.svelte';
 import OnboardingOverlay from '$lib/components/OnboardingOverlay.svelte';
 import FaqPopup from '$lib/components/FaqPopup.svelte';
 import PromptPopup from '$lib/components/PromptPopup.svelte';
@@ -9,16 +10,17 @@ import SpinWheel from '$lib/components/prompts/roulette/SpinWheel.svelte';
 
 let { data } = $props();
 
+// Project and UI state
 let projectList = $state(data.projects || []);
 let showOnboarding = $state(!data.hasOnboarded);
 let showFaqPopup = $state(false);
 let showPromptPopup = $state(false);
 let currentPromptInfo = $state('');
 let currentRouletteResults = $state(null);
-let showLogoutButton = $state(false);
 let showRouletteSpinWheel = $state(false);
 let rouletteSpinProjectId = $state(/** @type {string | null} */ (null));
 let rouletteSpinProgress = $state(/** @type {any} */ (null));
+
 
 // Calculate total hours and project count
 let totalHours = $derived(Number(projectList.reduce((/** @type {number} */ sum, /** @type {any} */ project) => sum + (project.totalHours || project.hours || 0), 0)));
@@ -95,6 +97,7 @@ async function handleLogout() {
   }
 }
 
+
 </script>
 
 <svelte:head>
@@ -103,74 +106,34 @@ async function handleLogout() {
 
 <main>
 
-
-<div class="zlayer bottom-buttons">
-  <!-- <a href="/friends" class="bottom-button">
-    <img src="/friends.png" />
-    <span>friends</span>
-  </a> -->
-
-  <a href="/shop" class="bottom-button">
-    <img src="/shop.png" />
-    <span>shop</span>
-  </a>
-
-</div>
-
-<div class="zlayer faq-button">
-  <button class="faq-icon" onclick={() => { showFaqPopup = true }} aria-label="Open FAQ">
-    <img src="/mimi_faq.png" alt="FAQ" />
-  </button>
-</div>
-
-
-
-<div class="zlayer profile-info" 
-     role="button"
-     tabindex="0"
-     onmouseenter={() => showLogoutButton = true} 
-     onmouseleave={() => showLogoutButton = false}>
-  <img src="https://assets.hackclub.com/flag-orpheus-left.svg" style="width: 100px; position: absolute; top: 5px; left: 0;"/>
-
-  <div class="profile-box">
-    <img src="/pfp_placeholder.png" />
-
-    <div class="profile-text">
-      <p class="hourinfo">{Number(totalHours).toFixed(2)} hours · {projectCount} projects</p>
-      <p class="username">{ data.user.username }</p>
-        <div class="coins-info">
-
-         <p>{ data.coins || 0 }</p>
-          <Tooltip text="earn coins by submitting projects. use them to buy items in the shop!">
-            <img src="/coin.png" />
-          </Tooltip>
-          <p> · </p>
-          <p>{ data.stellarships || 0 }</p>
-          <Tooltip text="earn stellar ships by polishing projects after shipping them. use them for special items in the shop!">
-            <img src="/stellarship.png" />
-          </Tooltip>
-        </div>
-    </div>
-
-    <button class="logout-button" onclick={handleLogout} class:visible={showLogoutButton}>
-      log out
-    </button>
-  </div>
-</div>
-
-
-
-<Room 
-  bind:projectList={projectList}
+<!-- Profile Info -->
+<ProfileInfo 
   user={data.user}
-  onShowPromptPopup={showPromptPopupHandler}
-  onOpenRouletteSpin={openRouletteSpinHandler}
-  onDeleteProject={() => {}}
+  {totalHours}
+  {projectCount}
+  coins={data.coins}
+  stellarships={data.stellarships}
+  onLogout={handleLogout}
 />
+
+<!-- Navigation Buttons -->
+<NavigationButtons 
+  onOpenFaq={() => { showFaqPopup = true; }}
+/>
+
+<!-- Your Room -->
+<div class="user-room">
+  <Room 
+    bind:projectList={projectList}
+    user={data.user}
+    onShowPromptPopup={showPromptPopupHandler}
+    onOpenRouletteSpin={openRouletteSpinHandler}
+    onDeleteProject={() => {}}
+  />
+</div>
 
 {#if showOnboarding}
   <OnboardingOverlay onClose={() => { showOnboarding = false }} user={data.user}>
-    <!-- Add your onboarding content here -->
   </OnboardingOverlay>
 {/if}
 
@@ -207,243 +170,16 @@ main {
   height: 100%;
   width: 100%;
   box-sizing: border-box;
-
   position: absolute;
-
   overflow: hidden;
 }
 
-.zlayer {
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-.profile-info {
-  z-index: 5;
-}
-
-.coins-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.coins-info img {
-  height: 1em;
-  filter: drop-shadow(-1.5px -1.5px 0 white) drop-shadow(1.5px -1.5px 0 white) drop-shadow(-1.5px 1.5px 0 white) drop-shadow(1.5px 1.5px 0 white) drop-shadow(0 0 3px white);
-}
-
-.profile-info {
-  position: relative;
-
-}
-
-.profile-box {
-  position: absolute;
-  background-color: #FBF2BF;
-  border: 4px solid #F7C881;
-  padding: 8px;
-  border-radius: 8px;
-
-  display: flex;
-  
-  box-sizing: border-box;
-
-  height: 6em;
-  width: auto;
-
-  top: 50px;
-  left: 30px;
-  transition: height 0.2s ease;
-}
-
-.profile-info:hover .profile-box {
-  height: 8em;
-}
-
-.profile-box > img {
-  height: calc(6em - 24px);
-  border-radius: 2px;
-
-}
-
-
-
-.profile-text {
-  padding: 0 12px;
-
-  display: flex;
-  flex-flow: column;
-  justify-content: center;
-  height: calc(6em - 24px);
-  box-sizing: border-box;
-}
-
-
-
-.profile-text p {
-  margin: 0;
-}
-
-
-
-.logout-button {
-  font-family: inherit;
-  font-size: inherit;
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  right: 8px;
-  background-color: #F7C881;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 14px;
-  color: #333;
-  cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
-  z-index: 20;
-  text-align: center;
-  opacity: 0;
-  transition: 0.2s;
-}
-
-.logout-button.visible {
-  opacity: 1;
-}
-
-.logout-button:hover {
-  background-color: white;
-  color: black;
-}
-
-
-
-
-
-p.hourinfo {
-  opacity: 50%;
-  font-size: 0.8em;
-}
-
-p.username {
-  font-size: 1.2em;
-}
-
-
-
-.bottom-buttons {
-  z-index: 10;
-  bottom: 0;
+.user-room {
+  view-transition-name: user-room;
   width: 100%;
-  top: auto;
-  display: flex;
-  flex-flow: row;
-  justify-content: flex-end;
-  align-items: flex-end;
-  padding: 30px;
-  pointer-events: none;
+  height: 100%;
 }
 
-.bottom-buttons a {
-  padding: 20px;
-
-}
-
-.bottom-button {
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  gap: 4px;
-
-  border: 2px solid white;
-  aspect-ratio: 1;
-  padding: 12px;
-  width: auto;
-  height: 6em;
-  box-sizing: border-box;
-
-  border-radius: 8px;
-  background-color: #ffffff25;
-
-  color: white;
-  text-decoration: none;
-
-  transition: 0.2s;
-
-  cursor: pointer;
-  pointer-events: all;
-}
-
-.bottom-button img {
-  height: 80%;
-}
-
-.bottom-button span {
-  margin: 0;
-  padding: 0;
-  color: inherit;
-}
-
-
-.bottom-button:hover {
-  background-color: white;
-  color: black;
-}
-
-.faq-button {
-  z-index: 10;
-  bottom: 0;
-  left: 200px;
-  top: auto;
-}
-
-.faq-icon {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  display: block;
-  line-height: 0;
-  position: relative;
-}
-
-.faq-icon img {
-  width: auto;
-  height: 100px;
-  display: block;
-}
-
-.faq-icon:hover img {
-  opacity: 0;
-}
-
-.faq-icon::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 110%;
-  background-image: url('/mimi_faq_hover.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: bottom;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.faq-icon:hover::after {
-  opacity: 1;
-}
-
-/* Page-level spin overlay - highest z-index */
 .page-level-spin-overlay {
   position: fixed !important;
   top: 0 !important;

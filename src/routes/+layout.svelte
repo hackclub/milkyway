@@ -1,5 +1,19 @@
 <script>
+	import { onNavigate } from '$app/navigation';
+	
 	let { children } = $props();
+	
+	// Enable smooth page transitions
+	onNavigate((navigation) => {
+		if (!document.startViewTransition) return;
+
+		return new Promise((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
 </script>
 
 <svelte:head>
@@ -76,6 +90,14 @@
 	font-size: 1.2em;
 }
 
+/* View Transitions for smooth page changes */
+@view-transition {
+  navigation: auto;
+}
 
+:global(::view-transition-old(root)),
+:global(::view-transition-new(root)) {
+  animation-duration: 0.6s;
+}
 
 </style>

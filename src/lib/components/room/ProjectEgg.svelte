@@ -3,7 +3,7 @@
   import Tooltip from '../Tooltip.svelte';
   import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
 
-  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, user, isRoomEditing = false} = $props();
+  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, user, isRoomEditing = false, readOnly = false} = $props();
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
@@ -459,7 +459,7 @@
       <!-- Incomplete roulette project -->
       <div class="incomplete-roulette">
         <p class="incomplete-roulette-title">⚡ Roulette in progress!</p>
-        <p class="incomplete-roulette-desc">Click below to spin your wheels</p>
+        <p class="incomplete-roulette-desc">{readOnly ? 'This project is still being spun...' : 'Click below to spin your wheels'}</p>
         
         <div class="roulette-progress">
           <div class="progress-item {rouletteProgress()?.camera ? 'complete' : ''}">
@@ -473,9 +473,11 @@
           </div>
         </div>
         
-        <button class="continue-spinning-btn" onclick={continueRouletteSpinning}>
-          Continue Spinning
-        </button>
+        {#if !readOnly}
+          <button class="continue-spinning-btn" onclick={continueRouletteSpinning}>
+            Continue Spinning
+          </button>
+        {/if}
       </div>
     {:else if projInfo.promptinfo?.toLowerCase() === 'roulette' && projInfo.addn}
       <!-- Display completed roulette results from addn (immutable) -->
@@ -503,8 +505,8 @@
       <p class="project-desc-display">{projInfo.description || 'no description yet... change this!'}</p>
     {/if}
     
-    <!-- HackaTime warning when no projects are associated with this project -->
-    {#if (!isEditing && (!projInfo.hackatimeProjects || (typeof projInfo.hackatimeProjects === 'string' && projInfo.hackatimeProjects.trim() === '') || (Array.isArray(projInfo.hackatimeProjects) && projInfo.hackatimeProjects.length === 0))) || (isEditing && selectedHackatimeProjects.size === 0)}
+    <!-- HackaTime warning when no projects are associated with this project (only show if not read-only) -->
+    {#if !readOnly && ((!isEditing && (!projInfo.hackatimeProjects || (typeof projInfo.hackatimeProjects === 'string' && projInfo.hackatimeProjects.trim() === '') || (Array.isArray(projInfo.hackatimeProjects) && projInfo.hackatimeProjects.length === 0))) || (isEditing && selectedHackatimeProjects.size === 0))}
       <div class="hackatime-warning">
         <span class="warning-icon">⚠️</span>
         <span class="warning-text">no hackatime projects associated!</span>
@@ -512,27 +514,30 @@
     {/if}
   {/if}
 
-  <div class="project-actions">
-    {#if isEditing}
-      <div class="edit-actions-left">
-        <button class="save-btn" onclick={saveChanges} disabled={isUpdating}>
-          {isUpdating ? 'Saving...' : 'Save'}
-        </button>
-        <button class="discard-btn" onclick={discardChanges} disabled={isUpdating}>Discard</button>
-      </div>
-      <div class="edit-actions-right">
-        <button class="delete-btn" onclick={confirmDelete} disabled={isUpdating || isDeleting}>Delete project</button>
-      </div>
-    {:else}
-      <button class="edit-btn" onclick={startEdit}>Edit details</button>
-      <Tooltip text="coming soon!">
-        <button class="add-hours-btn disabled" onclick={addArtHours}>Create artlog</button>
-      </Tooltip>
-      <Tooltip text="coming soon!">
-        <button class="ship-btn disabled" onclick={shipProject}>Ship project 💫</button>
-      </Tooltip>
-    {/if}
-  </div>
+  <!-- Only show action buttons if not read-only -->
+  {#if !readOnly}
+    <div class="project-actions">
+      {#if isEditing}
+        <div class="edit-actions-left">
+          <button class="save-btn" onclick={saveChanges} disabled={isUpdating}>
+            {isUpdating ? 'Saving...' : 'Save'}
+          </button>
+          <button class="discard-btn" onclick={discardChanges} disabled={isUpdating}>Discard</button>
+        </div>
+        <div class="edit-actions-right">
+          <button class="delete-btn" onclick={confirmDelete} disabled={isUpdating || isDeleting}>Delete project</button>
+        </div>
+      {:else}
+        <button class="edit-btn" onclick={startEdit}>Edit details</button>
+        <Tooltip text="coming soon!">
+          <button class="add-hours-btn disabled" onclick={addArtHours}>Create artlog</button>
+        </Tooltip>
+        <Tooltip text="coming soon!">
+          <button class="ship-btn disabled" onclick={shipProject}>Ship project 💫</button>
+        </Tooltip>
+      {/if}
+    </div>
+  {/if}
 
 </div>
 {/if}

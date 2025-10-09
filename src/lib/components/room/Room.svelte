@@ -9,13 +9,20 @@ let {
   user,
   onShowPromptPopup,
   onOpenRouletteSpin,
-  onDeleteProject
+  onDeleteProject,
+  readOnly = false,
+  selectedProjectId = null,
+  onSelectProject = null,
+  hideControls = false
 } = $props();
 
 let isCreateOpen = $state(false);
 let isEditingRoom = $state(false);
-let selectedEggId = $state(null);
 let selectedEggForMove = $state(null);
+
+// Use external selectedProjectId if provided, otherwise use local state
+let localSelectedEggId = $state(null);
+let selectedEggId = $derived(selectedProjectId !== null ? selectedProjectId : localSelectedEggId);
 let originalPositions = $state(/** @type {any[]} */ ([]));
 let isDragging = $state(false);
 let isMouseDown = $state(false);
@@ -64,7 +71,15 @@ function getAllowedXRange(y) {
  */
 function selectEggForClick(projectId) {
   if (!isEditingRoom) {
-    selectedEggId = selectedEggId === projectId ? null : projectId;
+    const newSelection = selectedEggId === projectId ? null : projectId;
+    
+    // If external handler provided, use it
+    if (onSelectProject) {
+      onSelectProject(newSelection);
+    } else {
+      // Otherwise use local state
+      localSelectedEggId = newSelection;
+    }
   }
 }
 
@@ -89,7 +104,11 @@ function deleteProjectHandler(projectId) {
   projectList = projectList.filter(project => project.id !== projectId);
   // If the deleted project was selected, clear selection
   if (selectedEggId === projectId) {
-    selectedEggId = null;
+    if (onSelectProject) {
+      onSelectProject(null);
+    } else {
+      localSelectedEggId = null;
+    }
   }
   // Call parent handler if provided
   if (onDeleteProject) {
@@ -100,7 +119,11 @@ function deleteProjectHandler(projectId) {
 // Enter room editing mode
 function enterEditMode() {
   isEditingRoom = true;
-  selectedEggId = null;
+  if (onSelectProject) {
+    onSelectProject(null);
+  } else {
+    localSelectedEggId = null;
+  }
   selectedEggForMove = null;
   // Store original positions
   originalPositions = projectList.map(project => ({
@@ -314,7 +337,15 @@ function handleMouseUp() {
 
 <div 
   class="zlayer room {isEditingRoom ? 'editing' : ''} {isDragging ? 'dragging' : ''}" 
-  onclick={() => { if (!isEditingRoom) selectedEggId = null; }}
+  onclick={() => { 
+    if (!isEditingRoom) {
+      if (onSelectProject) {
+        onSelectProject(null);
+      } else {
+        localSelectedEggId = null;
+      }
+    }
+  }}
   onmousemove={handleMouseMove}
   onmousedown={handleMouseDown}
   role="presentation"
@@ -343,36 +374,39 @@ function handleMouseUp() {
       onOpenRouletteSpin={onOpenRouletteSpin}
       user={user}
       isRoomEditing={isEditingRoom}
+      readOnly={readOnly}
     />
 
   {/each}
 
-  {#if !isEditingRoom}
-    <div class="fab-container" onclick={(e) => e.stopPropagation()}>
-      <ExpandableButton 
-        icon="+" 
-        expandedText="create new project" 
-        expandedWidth="165px"
-        onClick={() => { isCreateOpen = !isCreateOpen }} 
-      />
+  {#if !hideControls}
+    {#if !isEditingRoom}
+      <div class="fab-container" onclick={(e) => e.stopPropagation()}>
+        <ExpandableButton 
+          icon="+" 
+          expandedText="create new project" 
+          expandedWidth="165px"
+          onClick={() => { isCreateOpen = !isCreateOpen }} 
+        />
 
-      <ExpandableButton 
-        icon="✎"
-        expandedText="edit room" 
-        expandedWidth="112px"
-        onClick={enterEditMode} 
-      />
-    </div>
-  {:else}
-    <div class="edit-mode-controls" onclick={(e) => e.stopPropagation()}>
-    <p>editing your room →</p>
-      <button class="edit-mode-btn discard-edit-btn" onclick={exitEditMode} disabled={isSaving}>
-        <span class="btn-text">discard 🗑️</span>
-      </button>
-      <button class="edit-mode-btn save-edit-btn" onclick={saveRoomChanges} disabled={isSaving}>
-        <span class="btn-text">{isSaving ? 'saving...' : 'save'} 💾</span>
-      </button>
-    </div>
+        <ExpandableButton 
+          icon="✎"
+          expandedText="edit room" 
+          expandedWidth="112px"
+          onClick={enterEditMode} 
+        />
+      </div>
+    {:else}
+      <div class="edit-mode-controls" onclick={(e) => e.stopPropagation()}>
+      <p>editing your room →</p>
+        <button class="edit-mode-btn discard-edit-btn" onclick={exitEditMode} disabled={isSaving}>
+          <span class="btn-text">discard 🗑️</span>
+        </button>
+        <button class="edit-mode-btn save-edit-btn" onclick={saveRoomChanges} disabled={isSaving}>
+          <span class="btn-text">{isSaving ? 'saving...' : 'save'} 💾</span>
+        </button>
+      </div>
+    {/if}
   {/if}
 
 </div>
