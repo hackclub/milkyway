@@ -1,0 +1,14 @@
+node_modules
+.git
+.gitignore
+.svelte-kit
+build
+.env
+.env.*
+!.env.example
+*.md
+.vscode
+.idea
+.DS_Store
+pnpm-lock.yaml
+
