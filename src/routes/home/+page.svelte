@@ -1,5 +1,6 @@
 <script>
 
+import { onMount } from 'svelte';
 import Room from '$lib/components/room/Room.svelte';
 import ProfileInfo from '$lib/components/ProfileInfo.svelte';
 import NavigationButtons from '$lib/components/NavigationButtons.svelte';
@@ -121,6 +122,47 @@ async function handleAnnouncementRewards() {
     console.error('Error refreshing user data:', error);
   }
 }
+
+// Auto-update Hackatime hours in the background after page load
+async function autoUpdateHackatimeHours() {
+  try {
+    const response = await fetch('/api/auto-update-hackatime', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      
+      if (result.success && !result.skipped && result.updatedCount > 0) {
+        // Refresh project list to get updated hours
+        const projectsResponse = await fetch('/api/get-user-data');
+        if (projectsResponse.ok) {
+          const userData = await projectsResponse.json();
+          if (userData.success && userData.projects) {
+            projectList = userData.projects;
+            console.log(`Auto-updated ${result.updatedCount} project(s) with fresh Hackatime hours`);
+          }
+        }
+      } else if (result.skipped) {
+        console.log('Hackatime auto-update skipped:', result.message);
+      }
+    }
+  } catch (error) {
+    // Silently fail - this is a background operation
+    console.debug('Hackatime auto-update error (non-critical):', error);
+  }
+}
+
+// Run auto-update after page loads
+onMount(() => {
+  // Wait a bit to let the page load first, then update in background
+  setTimeout(() => {
+    autoUpdateHackatimeHours();
+  }, 2000); // 2 second delay to not interfere with initial page load
+});
 
 
 </script>

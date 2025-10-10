@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { getUserCoinsAndStellarships } from '$lib/server/auth.js';
 import { getUserFurnitureByEmail } from '$lib/server/furniture.js';
+import { getUserProjectsByEmail } from '$lib/server/projects.js';
 
 export async function GET({ locals }) {
   try {
@@ -13,13 +14,17 @@ export async function GET({ locals }) {
     
     // Get updated furniture list
     const furniture = await getUserFurnitureByEmail(locals.user.email);
+    
+    // Get updated projects list
+    const projects = await getUserProjectsByEmail(locals.user.email);
 
     return json({
       success: true,
       coins,
       stellarships,
       paintchips,
-      furniture
+      furniture,
+      projects
     });
   } catch (err) {
     console.error('Error fetching user data:', err);
