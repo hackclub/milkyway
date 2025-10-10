@@ -1,12 +1,30 @@
 <script>
+import { onMount } from 'svelte';
+
 let { data } = $props();
 
 let activeTab = $state('prizes');
+let shopItems = $state(/** @type {any[]} */ ([]));
+let isLoading = $state(true);
 
 // Filter items by type
-const prizesItems = $derived(data.shopItems.filter(item => item.type === 'prizes'));
-const furnitureItems = $derived(data.shopItems.filter(item => item.type === 'furniture'));
+const prizesItems = $derived(shopItems.filter(item => item.type === 'prizes'));
+const furnitureItems = $derived(shopItems.filter(item => item.type === 'furniture'));
 const currentItems = $derived(activeTab === 'prizes' ? prizesItems : furnitureItems);
+
+onMount(async () => {
+  try {
+    const response = await fetch('/api/get-shop-items');
+    if (response.ok) {
+      const result = await response.json();
+      shopItems = result.shopItems || [];
+    }
+  } catch (error) {
+    console.error('Error loading shop items:', error);
+  } finally {
+    isLoading = false;
+  }
+});
 </script>
 
 <svelte:head>
@@ -41,7 +59,11 @@ const currentItems = $derived(activeTab === 'prizes' ? prizesItems : furnitureIt
         </div>
     
         <div class="shop-items-container">
-            {#if currentItems.length > 0}
+            {#if isLoading}
+                <div class="loading-message">
+                    <p>Loading shop items...</p>
+                </div>
+            {:else if currentItems.length > 0}
                 {#each currentItems as item}
                     <div class="shop-item">
                         <div class="item-image">
@@ -80,14 +102,14 @@ const currentItems = $derived(activeTab === 'prizes' ? prizesItems : furnitureIt
                     </div>
                 </div>
                 {/each}
+                <div class="coming-soon-message">
+                    <p>+ more items coming soon...</p>
+                </div>
             {:else}
                 <div class="no-items-message">
                     <p>No {activeTab} available at the moment.</p>
                 </div>
             {/if}
-             <div class="coming-soon-message">
-                <p>+ more items coming soon...</p>
-             </div>
         </div>
         
     </div>
@@ -342,6 +364,33 @@ const currentItems = $derived(activeTab === 'prizes' ? prizesItems : furnitureIt
     .coming-soon-message p {
         margin: 0;
         font-size: 0.9em;
+    }
+
+    .loading-message {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 50px;
+        background-color: #ffffffaa;
+        border: 4px solid white;
+        border-radius: 8px;
+        color: #666;
+        font-family: "Futura", sans-serif;
+        font-size: 1.1em;
+        font-weight: 600;
+    }
+
+    .loading-message p {
+        margin: 0;
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 0.6;
+        }
+        50% {
+            opacity: 1;
+        }
     }
 
 </style>
