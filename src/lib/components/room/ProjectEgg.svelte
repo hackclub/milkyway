@@ -388,7 +388,7 @@
 </script>
 
 
-<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''}" style:--x={x} style:--y={y} onclick={(e) => e.stopPropagation()}>
+<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''}" style:--x={x} style:--y={y} style:--z={Math.round(y)} onclick={(e) => e.stopPropagation()}>
 <img class="egg-img" src={eggImg} alt="Project egg" />
 
 <button 
@@ -570,7 +570,7 @@
 .project-egg {
   height: 8%;
   position: absolute;
-  z-index: 100;
+  z-index: calc(100 + var(--z));
 
   display: flex;
   justify-content: center;
@@ -580,7 +580,7 @@
 }
 
 .project-egg.selected {
-  z-index: 1000;
+  z-index: calc(1000 + var(--z));
 }
 
 .project-egg.editing-mode {

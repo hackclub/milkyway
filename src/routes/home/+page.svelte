@@ -13,6 +13,7 @@ let { data } = $props();
 
 // Project and UI state
 let projectList = $state(data.projects || []);
+let furnitureList = $state(data.furniture || []);
 let showOnboarding = $state(!data.hasOnboarded);
 let showFaqPopup = $state(false);
 let showPromptPopup = $state(false);
@@ -147,6 +148,7 @@ async function handleLogout() {
 <div class="user-room">
   <Room 
     bind:projectList={projectList}
+    bind:furnitureList={furnitureList}
     bind:isCreateOpen={isCreateOpen}
     user={data.user}
     onShowPromptPopup={showPromptPopupHandler}

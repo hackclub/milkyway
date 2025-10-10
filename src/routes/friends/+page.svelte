@@ -43,6 +43,7 @@ onMount(async () => {
     {loadingFriends}
     userRoom={{
       projectList: data.projects,
+      furnitureList: data.furniture || [],
       user: data.user,
       onShowPromptPopup: () => {},
       onOpenRouletteSpin: () => {},

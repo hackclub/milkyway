@@ -70,6 +70,7 @@ function handlePanEnd() {
       {#if !loadingFriends}
         <Room 
           projectList={friend.projects}
+          furnitureList={friend.furniture || []}
           user={friend}
           onShowPromptPopup={() => {}}
           onOpenRouletteSpin={() => {}}

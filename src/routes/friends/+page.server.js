@@ -1,5 +1,6 @@
 import { redirect } from "@sveltejs/kit";
 import { getUserProjectsByEmail } from '$lib/server/projects.js';
+import { getUserFurnitureByEmail } from '$lib/server/furniture.js';
 
 export async function load({ locals }) {
   if (!locals.user) {
@@ -9,10 +10,12 @@ export async function load({ locals }) {
   // Only load user's own projects server-side for instant page load
   // Friends data will be fetched client-side for better UX
   const projects = await getUserProjectsByEmail(locals.user.email);
+  const furniture = await getUserFurnitureByEmail(locals.user.email);
 
   return {
     user: locals.user,
-    projects
+    projects,
+    furniture
   };
 }
 

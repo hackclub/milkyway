@@ -1,10 +1,12 @@
 <script>
 import FloorTile from '$lib/components/FloorTile.svelte';
 import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
+import FurnitureItem from '$lib/components/room/FurnitureItem.svelte';
 import ExpandableButton from '$lib/components/ExpandableButton.svelte';
 
 let {
   projectList = $bindable([]),
+  furnitureList = $bindable([]),
   isCreateOpen = $bindable(false),
   user,
   onShowPromptPopup,
@@ -18,11 +20,15 @@ let {
 
 let isEditingRoom = $state(false);
 let selectedEggForMove = $state(null);
+let selectedFurnitureForMove = $state(null);
 
 // Use external selectedProjectId if provided, otherwise use local state
 let localSelectedEggId = $state(null);
 let selectedEggId = $derived(selectedProjectId !== null ? selectedProjectId : localSelectedEggId);
+let localSelectedFurnitureId = $state(null);
+let selectedFurnitureId = $derived(localSelectedFurnitureId);
 let originalPositions = $state(/** @type {any[]} */ ([]));
+let originalFurniturePositions = $state(/** @type {any[]} */ ([]));
 let isDragging = $state(false);
 let isMouseDown = $state(false);
 let isSaving = $state(false);
@@ -115,6 +121,41 @@ function deleteProjectHandler(projectId) {
   }
 }
 
+// Function to handle furniture selection (for clicks, not drag)
+/**
+ * @param {any} furnitureId
+ */
+function selectFurnitureForClick(furnitureId) {
+  if (!isEditingRoom) {
+    localSelectedFurnitureId = selectedFurnitureId === furnitureId ? null : furnitureId;
+  }
+}
+
+// Function to handle furniture mouse down (for dragging in edit mode)
+/**
+ * @param {any} furnitureId
+ * @param {MouseEvent} e
+ */
+function selectFurnitureForDrag(furnitureId, e) {
+  if (isEditingRoom) {
+    selectedFurnitureForMove = furnitureId;
+    handleFurnitureMouseDown(furnitureId, e);
+  }
+}
+
+// Function to handle furniture deletion
+/**
+ * @param {any} furnitureId
+ */
+function deleteFurnitureHandler(furnitureId) {
+  // Remove the furniture from the list
+  furnitureList = furnitureList.filter(furniture => furniture.id !== furnitureId);
+  // If the deleted furniture was selected, clear selection
+  if (selectedFurnitureId === furnitureId) {
+    localSelectedFurnitureId = null;
+  }
+}
+
 // Enter room editing mode
 function enterEditMode() {
   isEditingRoom = true;
@@ -123,12 +164,19 @@ function enterEditMode() {
   } else {
     localSelectedEggId = null;
   }
+  localSelectedFurnitureId = null;
   selectedEggForMove = null;
+  selectedFurnitureForMove = null;
   // Store original positions
   originalPositions = projectList.map(project => ({
     id: project.id,
     x: project.x,
     y: project.y
+  }));
+  originalFurniturePositions = furnitureList.map(furniture => ({
+    id: furniture.id,
+    x: furniture.x,
+    y: furniture.y
   }));
 }
 
@@ -136,6 +184,7 @@ function enterEditMode() {
 function exitEditMode() {
   isEditingRoom = false;
   selectedEggForMove = null;
+  selectedFurnitureForMove = null;
   isDragging = false;
   isMouseDown = false;
   // Restore original positions
@@ -148,7 +197,17 @@ function exitEditMode() {
       return project;
     });
   }
+  if (originalFurniturePositions.length > 0) {
+    furnitureList = furnitureList.map(furniture => {
+      const original = originalFurniturePositions.find(f => f.id === furniture.id);
+      if (original) {
+        return { ...furniture, x: original.x, y: original.y };
+      }
+      return furniture;
+    });
+  }
   originalPositions = [];
+  originalFurniturePositions = [];
 }
 
 // Save room changes
@@ -161,36 +220,66 @@ async function saveRoomChanges() {
       return original && (original.x !== project.x || original.y !== project.y);
     });
     
-    if (changedProjects.length === 0) {
+    // Only update furniture that have actually changed position
+    const changedFurniture = furnitureList.filter(furniture => {
+      const original = originalFurniturePositions.find(f => f.id === furniture.id);
+      return original && (original.x !== furniture.x || original.y !== furniture.y);
+    });
+    
+    if (changedProjects.length === 0 && changedFurniture.length === 0) {
       // No changes to save
       isEditingRoom = false;
       selectedEggForMove = null;
+      selectedFurnitureForMove = null;
       originalPositions = [];
+      originalFurniturePositions = [];
       isSaving = false;
       return;
     }
     
     // Update all changed positions in parallel for better performance
-    const updatePromises = changedProjects.map(project =>
-      fetch('/api/projects', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          projectId: project.id,
-          updates: {
-            // Airtable stores position as a string "x,y"
-            position: `${Math.round(project.x)},${Math.round(project.y)}`
+    const updatePromises = [
+      ...changedProjects.map(project =>
+        fetch('/api/projects', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId: project.id,
+            updates: {
+              // Airtable stores position as a string "x,y"
+              position: `${Math.round(project.x)},${Math.round(project.y)}`
+            }
+          })
+        }).then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to update project ${project.id}`);
           }
+          return response.json();
         })
-      }).then(response => {
-        if (!response.ok) {
-          throw new Error(`Failed to update project ${project.id}`);
-        }
-        return response.json();
-      })
-    );
+      ),
+      ...changedFurniture.map(furniture =>
+        fetch('/api/furniture', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            furnitureId: furniture.id,
+            updates: {
+              // Airtable stores position as a string "x,y,flipped"
+              position: `${Math.round(furniture.x)},${Math.round(furniture.y)},${furniture.flipped ? '1' : '0'}`
+            }
+          })
+        }).then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to update furniture ${furniture.id}`);
+          }
+          return response.json();
+        })
+      )
+    ];
     
     // Wait for all updates to complete
     await Promise.all(updatePromises);
@@ -201,12 +290,20 @@ async function saveRoomChanges() {
       position: `${Math.round(project.x)},${Math.round(project.y)}`
     }));
     
-    console.log(`Successfully saved ${changedProjects.length} project position(s)`);
+    // Update the position string in furnitureList to match the saved x,y,flipped values
+    furnitureList = furnitureList.map(furniture => ({
+      ...furniture,
+      position: `${Math.round(furniture.x)},${Math.round(furniture.y)},${furniture.flipped ? '1' : '0'}`
+    }));
+    
+    console.log(`Successfully saved ${changedProjects.length} project position(s) and ${changedFurniture.length} furniture position(s)`);
     
     // Exit edit mode
     isEditingRoom = false;
     selectedEggForMove = null;
+    selectedFurnitureForMove = null;
     originalPositions = [];
+    originalFurniturePositions = [];
   } catch (error) {
     console.error('Error saving room changes:', error);
     alert('Failed to save room changes. Please try again.');
@@ -231,7 +328,7 @@ function clamp(value, min, max) {
  * @param {MouseEvent} e
  */
 function handleMouseMove(e) {
-  if (!isMouseDown || !selectedEggForMove) return;
+  if (!isMouseDown) return;
   
   // Start dragging if mouse is down and moves
   if (!isDragging) {
@@ -260,13 +357,27 @@ function handleMouseMove(e) {
   newX = clamp(newX, xRange.minX, xRange.maxX);
   
   // Find the project and update its position
-  const projectIndex = projectList.findIndex(p => p.id === selectedEggForMove);
-  if (projectIndex !== -1) {
-    projectList[projectIndex] = {
-      ...projectList[projectIndex],
-      x: newX,
-      y: newY
-    };
+  if (selectedEggForMove) {
+    const projectIndex = projectList.findIndex(p => p.id === selectedEggForMove);
+    if (projectIndex !== -1) {
+      projectList[projectIndex] = {
+        ...projectList[projectIndex],
+        x: newX,
+        y: newY
+      };
+    }
+  }
+  
+  // Find the furniture and update its position
+  if (selectedFurnitureForMove) {
+    const furnitureIndex = furnitureList.findIndex(f => f.id === selectedFurnitureForMove);
+    if (furnitureIndex !== -1) {
+      furnitureList[furnitureIndex] = {
+        ...furnitureList[furnitureIndex],
+        x: newX,
+        y: newY
+      };
+    }
   }
 }
 
@@ -305,6 +416,47 @@ function handleEggMouseDown(projectId, e) {
   
   dragStartPos = { x: mouseX, y: mouseY };
   selectedEggForMove = projectId;
+  selectedFurnitureForMove = null; // Deselect furniture when selecting egg
+  isMouseDown = true;
+  // Don't set isDragging yet - that happens in handleMouseMove
+}
+
+// Handle mouse down on furniture to prepare for dragging
+/**
+ * @param {any} furnitureId
+ * @param {MouseEvent} e
+ */
+function handleFurnitureMouseDown(furnitureId, e) {
+  if (!isEditingRoom) return;
+  
+  e.preventDefault(); // Prevent text selection while dragging
+  
+  const furniture = furnitureList.find(f => f.id === furnitureId);
+  if (!furniture) return;
+  
+  // Get the room container - traverse up to find it
+  let roomElement = e.target;
+  while (roomElement && !(roomElement instanceof HTMLElement && roomElement.classList.contains('room'))) {
+    roomElement = (/** @type {HTMLElement} */ (roomElement)).parentElement;
+  }
+  
+  if (!roomElement) return;
+  
+  const rect = roomElement.getBoundingClientRect();
+  
+  // Calculate mouse position relative to room center
+  const mouseX = e.clientX - rect.left - rect.width / 2;
+  const mouseY = e.clientY - rect.top - rect.height / 2;
+  
+  // Store the offset between mouse position and furniture position
+  dragOffset = {
+    x: mouseX - furniture.x,
+    y: mouseY - furniture.y
+  };
+  
+  dragStartPos = { x: mouseX, y: mouseY };
+  selectedFurnitureForMove = furnitureId;
+  selectedEggForMove = null; // Deselect egg when selecting furniture
   isMouseDown = true;
   // Don't set isDragging yet - that happens in handleMouseMove
 }
@@ -314,12 +466,13 @@ function handleEggMouseDown(projectId, e) {
  * @param {MouseEvent} e
  */
 function handleMouseDown(e) {
-  // Only handle if we're in edit mode and NOT clicking on an egg
+  // Only handle if we're in edit mode and NOT clicking on an egg or furniture
   if (!isEditingRoom) return;
   
   // Deselect if clicking on background
   if (e.target === e.currentTarget || (e.target instanceof HTMLElement && e.target.classList.contains('room-bg'))) {
     selectedEggForMove = null;
+    selectedFurnitureForMove = null;
     isDragging = false;
   }
 }
@@ -343,6 +496,7 @@ function handleMouseUp() {
       } else {
         localSelectedEggId = null;
       }
+      localSelectedFurnitureId = null;
     }
   }}
   onmousemove={handleMouseMove}
@@ -372,6 +526,22 @@ function handleMouseUp() {
       onDelete={deleteProjectHandler}
       onOpenRouletteSpin={onOpenRouletteSpin}
       user={user}
+      isRoomEditing={isEditingRoom}
+      readOnly={readOnly}
+    />
+
+  {/each}
+
+  {#each furnitureList as furniture, index}
+
+    <FurnitureItem 
+      bind:furnitureInfo={furnitureList[index]} 
+      x={furniture.x} 
+      y={furniture.y}
+      selected={isEditingRoom ? (selectedFurnitureForMove === furniture.id) : (selectedFurnitureId === furniture.id)}
+      onSelect={() => selectFurnitureForClick(furniture.id)}
+      onMouseDown={(/** @type {MouseEvent} */ e) => selectFurnitureForDrag(furniture.id, e)}
+      onDelete={deleteFurnitureHandler}
       isRoomEditing={isEditingRoom}
       readOnly={readOnly}
     />
