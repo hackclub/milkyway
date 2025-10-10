@@ -11,7 +11,7 @@ export async function load({ locals }) {
   const projects = await getUserProjectsByEmail(locals.user.email);
 
   // Load user's coins and stellarships from Airtable
-  const { coins, stellarships } = await getUserCoinsAndStellarships(locals.user.recId);
+  const { coins, stellarships, paintchips } = await getUserCoinsAndStellarships(locals.user.recId);
 
   // Check if user has completed onboarding
   const hasOnboarded = locals.user.hasOnboarded || false;
@@ -21,6 +21,7 @@ export async function load({ locals }) {
     projects,
     coins,
     stellarships,
+    paintchips,
     hasOnboarded
   };
 }

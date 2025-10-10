@@ -7,6 +7,7 @@ import OnboardingOverlay from '$lib/components/OnboardingOverlay.svelte';
 import FaqPopup from '$lib/components/FaqPopup.svelte';
 import PromptPopup from '$lib/components/PromptPopup.svelte';
 import SpinWheel from '$lib/components/prompts/roulette/SpinWheel.svelte';
+import CreateProject from '$lib/components/CreateProject.svelte';
 
 let { data } = $props();
 
@@ -20,6 +21,7 @@ let currentRouletteResults = $state(null);
 let showRouletteSpinWheel = $state(false);
 let rouletteSpinProjectId = $state(/** @type {string | null} */ (null));
 let rouletteSpinProgress = $state(/** @type {any} */ (null));
+let isCreateOpen = $state(false);
 
 
 // Calculate total hours and project count
@@ -106,31 +108,6 @@ async function handleLogout() {
 
 <main>
 
-<!-- Profile Info -->
-<ProfileInfo 
-  user={data.user}
-  {totalHours}
-  {projectCount}
-  coins={data.coins}
-  stellarships={data.stellarships}
-  onLogout={handleLogout}
-/>
-
-<!-- Navigation Buttons -->
-<NavigationButtons 
-  onOpenFaq={() => { showFaqPopup = true; }}
-/>
-
-<!-- Your Room -->
-<div class="user-room">
-  <Room 
-    bind:projectList={projectList}
-    user={data.user}
-    onShowPromptPopup={showPromptPopupHandler}
-    onOpenRouletteSpin={openRouletteSpinHandler}
-    onDeleteProject={() => {}}
-  />
-</div>
 
 {#if showOnboarding}
   <OnboardingOverlay onClose={() => { showOnboarding = false }} user={data.user}>
@@ -148,6 +125,36 @@ async function handleLogout() {
   rouletteResults={currentRouletteResults}
 />
 
+
+
+<!-- Profile Info -->
+<ProfileInfo 
+  user={data.user}
+  {totalHours}
+  {projectCount}
+  coins={data.coins}
+  stellarships={data.stellarships}
+  paintchips={data.paintchips}
+  onLogout={handleLogout}
+/>
+
+<!-- Navigation Buttons -->
+<NavigationButtons 
+  onOpenFaq={() => { showFaqPopup = true; }}
+/>
+
+<!-- Your Room -->
+<div class="user-room">
+  <Room 
+    bind:projectList={projectList}
+    bind:isCreateOpen={isCreateOpen}
+    user={data.user}
+    onShowPromptPopup={showPromptPopupHandler}
+    onOpenRouletteSpin={openRouletteSpinHandler}
+    onDeleteProject={() => {}}
+  />
+</div>
+
 {#if showRouletteSpinWheel}
   <div class="page-level-spin-overlay">
     <SpinWheel 
@@ -157,6 +164,10 @@ async function handleLogout() {
       onProjectCreated={handleRouletteCompleted}
     />
   </div>
+{/if}
+
+{#if isCreateOpen}
+  <CreateProject onClose={() => { isCreateOpen = false }} bind:projectList={projectList} />
 {/if}
 
 </main>
@@ -186,7 +197,7 @@ main {
   left: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  z-index: 99999 !important;
+  z-index: 200 !important;
   background-color: #000 !important;
 }
 

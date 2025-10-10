@@ -14,6 +14,7 @@ export async function getListOfShopItems() {
     name: record.fields.name,
     coins_cost: record.fields.coins_cost,
     stellarships_cost: record.fields.stellarships_cost,
+    paintchips_cost: record.fields.paintchips_cost,
     image: record.fields.image,
     description: record.fields.description,
     type: record.fields.type

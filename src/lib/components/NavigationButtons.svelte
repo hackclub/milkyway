@@ -33,7 +33,7 @@ let {
 }
 
 .bottom-buttons {
-  z-index: 10;
+  z-index: 2;
   bottom: 0;
   width: 100%;
   top: auto;
@@ -90,7 +90,7 @@ let {
 }
 
 .faq-button {
-  z-index: 10;
+  z-index: 2;
   bottom: 0;
   left: 200px;
   top: auto;

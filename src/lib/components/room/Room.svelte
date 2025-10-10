@@ -1,11 +1,11 @@
 <script>
 import FloorTile from '$lib/components/FloorTile.svelte';
-import CreateProject from '$lib/components/CreateProject.svelte';
 import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
 import ExpandableButton from '$lib/components/ExpandableButton.svelte';
 
 let {
   projectList = $bindable([]),
+  isCreateOpen = $bindable(false),
   user,
   onShowPromptPopup,
   onOpenRouletteSpin,
@@ -16,7 +16,6 @@ let {
   hideControls = false
 } = $props();
 
-let isCreateOpen = $state(false);
 let isEditingRoom = $state(false);
 let selectedEggForMove = $state(null);
 
@@ -411,10 +410,6 @@ function handleMouseUp() {
 
 </div>
 
-{#if isCreateOpen}
-  <CreateProject onClose={() => { isCreateOpen = false }} bind:projectList={projectList} />
-{/if}
-
 <style>
 .zlayer {
   position: absolute;
@@ -467,7 +462,7 @@ function handleMouseUp() {
   position: absolute;
   bottom: calc(50vh - 150px);
   left: calc(50vw - 350px);
-  z-index: 20;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -494,7 +489,7 @@ function handleMouseUp() {
   bottom: calc(50vh - 150px);
   left: calc(50vw - 310px);
   transform: translateX(-100%);
-  z-index: 20;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   gap: 16px;

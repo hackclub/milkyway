@@ -25,7 +25,9 @@
 2. Begin working on your game! Make sure that you have Hackatime tracking set up for that project.
 3. You must also commit to Github every hour. 
 4. (We will soon add features for you to track art time — for now, make sure you save a timelapse of your art process!)
-5. Submit your project when you're done — coming soon too!`
+5. Submit your project when you're done (coming soon too!)
+
+Need even more help? There will be detailed tutorials and workshops coming soon :)`
     },
     {
       question: "What are the requirements for each project?",
@@ -40,11 +42,11 @@
       question: "Can I use AI to help me make my game?",
       answer: `You are allowed to use some AI in your project, but only **up to 30%** of your project may be AI. Anything over 30% may result in a significant reduction in coins earned.
 
-Don't submit AI slop — your projects may be rejected, or you may even be banned from Milkyway!`
+Don't submit AI slop — your projects may be rejected, or you may even be banned from Milkyway.`
     },
     {
       question: "Can I submit my Milkyway projects to other Hack Club events?",
-      answer:"Milkyway is not double-dippable — all the projects that you submit here cannot be submitted to other events."
+      answer:"Milkyway is not double-dippable. All the projects that you submit here cannot be submitted to other events."
     },
     {
       question: "What is fraud?",
@@ -58,14 +60,26 @@ If you're found to be committing fraud, you will be banned from Milkyway. Depend
     },
     {
       question: "How many coins do I earn from submitting a project?",
-      answer: `On average, you can earn **4-10 coins per hour** that you work on your project. However, it is very highly dependent on the quality of your project!
+      answer: `On average, you can earn **4-10 coins per code hour** that you work on your project. However, it is very highly dependent on the quality of your project!
       
   Once you submit, you will also receive feedback that you can then improve upon to earn more coins.`
     },
+    {
+      question: "Do art hours count for coins?",
+      answer: `No, art hours do not count for coins. You can only earn coins by submitting Hackatime-tracked coding hours — do not use Hackatime to track any asset-creation hours!
 
+Art hours do count for paint chips, however, and you can convert some paint chips into coins :)`
+    },
+    
     {
       question: "What are stellar ships? How do I get them?",
       answer: "After you ship a project, you can polish it even more and release it to the public to earn stellar ships. The stellar ship requirements are a combination of efforts — your project must be publicly accessible, look awesome, and hit a certain public reception requirement! Don't worry, it will not be too difficult. More information will come soon."
+    },
+    {
+      question: "What are paint chips? How do I get them?",
+      answer: `You can earn 10 paint chips for each art hour logged in a project that you have shipped.
+
+You can also buy coins with paint chips — be careful, though, as the price increases after you buy too many 😵‍💫`
     },
 
   ];
@@ -117,7 +131,7 @@ If you're found to be committing fraud, you will be banned from Milkyway. Depend
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 100;
   }
 
   .popup-content {

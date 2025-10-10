@@ -21,7 +21,7 @@
     user?.username ? "i'm mimi — it seems like you've been here before!" : "i'm mimi, a local resident here. what's your name?",
     "milkyway is your little digital home for gamedev projects and challenges.",
     "you can make games to earn COINS, which you can then use to buy items from the shop, like gift cards!",
-    "look, this is your room! coins can also be used to buy furniture to level-up your room. pretty cool, right?",
+    "look, this is your room! when you submit art hours in your game, you earn PAINT CHIPS to buy furniture to level-up your room. pretty cool, right?",
     "after you've made a game, you can polish it even more to earn stellar ships, which are useful for buying special items in the shop...",
     "like the ticket to OVERGLADE, our singapore game jam hackathon in december!",
     "the shop is down at the right. go check it out when you have time.",
@@ -264,7 +264,7 @@
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 9999;
+    z-index: 150;
     display: flex;
     align-items: center;
     justify-content: center;

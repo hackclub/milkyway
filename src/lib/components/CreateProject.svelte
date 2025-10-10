@@ -148,10 +148,7 @@
 
   <div class="create-project-content"  onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="0" onkeydown={(e) => e.key === 'Escape' && onClose()}>
 
-    <!-- {#await promise}
-      <p>Loading…</p>
-    {:then data}
-      {#if data && data.events && data.events.length} -->
+
 
   <div class="events-row" style:--event-count=2>
 
@@ -180,6 +177,8 @@
 
   </div>
 
+  <img src="/prompts/axolotl.png" class="create-project-axolotl" alt="Axolotl mascot" transition:fly={{ y: 40, duration: 150 }} />
+
   <div style="display: flex; flex-direction: column; align-items: center;" transition:fade={{duration: 150}}>
     {#if errorMessage}
       <p class="error-message">{errorMessage}</p>
@@ -204,7 +203,6 @@
 
   </div>
   {/if}
-  <img src="/prompts/axolotl.png" class="create-project-axolotl" alt="Axolotl mascot" transition:fly={{ y: 40, duration: 150 }} />
 
 </div>
 
@@ -225,11 +223,13 @@
     transition: 0.2s;
     text-align: center;
     cursor: pointer;
+    z-index: 99;
 
   }
 
   .start-button:disabled {
-    opacity: 50%;
+    color: #885861;
+    background-color: #8F7F7B;
   }
 
   .start-button:hover:not(:disabled) {
@@ -323,7 +323,7 @@
   width: 100vw;
   height: 100vh;
   background-color: rgba(0, 0, 0, 0.7);
-  z-index: 1000;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -337,7 +337,6 @@
   left: 50%;
   transform: translateX(-50%);
   height: 25vh;
-  z-index: 1100;
   pointer-events: none;
 }
 
@@ -345,16 +344,6 @@
   max-width: 90vw;
   max-height: 90vh;
   overflow: auto;
-}
-
-.spin-wheel-overlay {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  z-index: 99999 !important;
-  background-color: #000 !important;
 }
 
 </style>

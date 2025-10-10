@@ -7,6 +7,7 @@ let {
   projectCount,
   coins,
   stellarships,
+  paintchips,
   onLogout
 } = $props();
 
@@ -37,6 +38,11 @@ let showLogoutButton = $state(false);
         <Tooltip text="earn stellar ships by polishing projects after shipping them. use them for special items in the shop!">
           <img src="/stellarship.png" alt="Stellar ships" />
         </Tooltip>
+        <p> · </p>
+        <p>{paintchips || 0}</p>
+        <Tooltip text="earn paint chips when you submit a project that has art hours logged. use them to decorate your room!">
+          <img src="/paintchip.png" alt="Paint chips" />
+        </Tooltip>
       </div>
     </div>
 
@@ -54,7 +60,7 @@ let showLogoutButton = $state(false);
 }
 
 .profile-info {
-  z-index: 5;
+  z-index: 2;
   position: relative;
 }
 

@@ -165,7 +165,8 @@ export async function getUserCoinsAndStellarships(userId) {
   const fields = record[0].fields;
   return {
     coins: fields.coins || 0,
-    stellarships: fields.stellarships || 0
+    stellarships: fields.stellarships || 0,
+    paintchips: fields.paintchips || 0
   };
 }
 

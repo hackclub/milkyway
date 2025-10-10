@@ -67,6 +67,12 @@ const currentItems = $derived(activeTab === 'prizes' ? prizesItems : furnitureIt
                                     {item.stellarships_cost}
                                 </span>
                             {/if}
+                            {#if item.paintchips_cost}
+                                <span class="price paintchips">
+                                    <img src="/paintchip.png" alt="paintchip" class="currency-icon" />
+                                    {item.paintchips_cost}
+                                </span>
+                            {/if}
                         </div>
                         <button class="shop-button" disabled>
                             shop coming soon!
@@ -280,6 +286,12 @@ const currentItems = $derived(activeTab === 'prizes' ? prizesItems : furnitureIt
         background-color: #73ACE0;
         color: #191970;
         border-color: #5A9BD4;
+    }
+
+    .price.paintchips {
+        background-color: #FFD1DC;
+        color: #8B008B;
+        border-color: #FFB6C1;
     }
 
     .shop-button {
