@@ -60,7 +60,7 @@ If you're found to be committing fraud, you will be banned from Milkyway. Depend
     },
     {
       question: "How many coins do I earn from submitting a project?",
-      answer: `On average, you can earn **4-10 coins per code hour** that you work on your project. However, it is very highly dependent on the quality of your project!
+      answer: `You can earn **4-10 coins per code hour** that you work on your project. However, it is very highly dependent on the quality of your project. As long as your projects function well, you can expect to earn 8-10 coins per hour on average.
       
   Once you submit, you will also receive feedback that you can then improve upon to earn more coins.`
     },
@@ -174,7 +174,7 @@ You can also buy coins with paint chips — be careful, though, as the price inc
   }
 
   .faq-popup {
-    width: 500px;
+    width: min(700px, 90vw);
     max-height: 80vh;
     overflow-y: auto;
     text-align: left;

@@ -8,12 +8,16 @@ import FaqPopup from '$lib/components/FaqPopup.svelte';
 import PromptPopup from '$lib/components/PromptPopup.svelte';
 import SpinWheel from '$lib/components/prompts/roulette/SpinWheel.svelte';
 import CreateProject from '$lib/components/CreateProject.svelte';
+import Announcements from '$lib/components/Announcements.svelte';
 
 let { data } = $props();
 
 // Project and UI state
 let projectList = $state(data.projects || []);
 let furnitureList = $state(data.furniture || []);
+let coins = $state(data.coins || 0);
+let stellarships = $state(data.stellarships || 0);
+let paintchips = $state(data.paintchips || 0);
 let showOnboarding = $state(!data.hasOnboarded);
 let showFaqPopup = $state(false);
 let showPromptPopup = $state(false);
@@ -100,6 +104,24 @@ async function handleLogout() {
   }
 }
 
+// Function to refresh user data after announcement rewards
+async function handleAnnouncementRewards() {
+  try {
+    const response = await fetch('/api/get-user-data');
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success) {
+        coins = result.coins;
+        stellarships = result.stellarships;
+        paintchips = result.paintchips;
+        furnitureList = result.furniture;
+      }
+    }
+  } catch (error) {
+    console.error('Error refreshing user data:', error);
+  }
+}
+
 
 </script>
 
@@ -127,17 +149,24 @@ async function handleLogout() {
 />
 
 
+<Announcements onRewardsClaimed={handleAnnouncementRewards} />
 
 <!-- Profile Info -->
 <ProfileInfo 
   user={data.user}
   {totalHours}
   {projectCount}
-  coins={data.coins}
-  stellarships={data.stellarships}
-  paintchips={data.paintchips}
+  {coins}
+  {stellarships}
+  {paintchips}
   onLogout={handleLogout}
 />
+
+
+
+
+
+
 
 <!-- Navigation Buttons -->
 <NavigationButtons 
