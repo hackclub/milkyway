@@ -20,7 +20,14 @@ onMount(async () => {
         if (response.ok) {
             const result = await response.json();
             if (result.success) {
-                announcements = result.announcements || [];
+                const allAnnouncements = result.announcements || [];
+                // Filter out expired announcements
+                const now = new Date();
+                announcements = allAnnouncements.filter(/** @param {any} announcement */ (announcement) => {
+                    if (!announcement.expiry) return true; // No expiry date means it doesn't expire
+                    const expiryDate = new Date(announcement.expiry);
+                    return expiryDate > now; // Only include if expiry is in the future
+                });
             }
         }
     } catch (error) {

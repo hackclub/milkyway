@@ -15,20 +15,29 @@ export async function getVisibleAnnouncements(userId) {
     // Get all announcements
     const records = await base('Announcements').select().all();
     
-    // Filter announcements that are past their date and not seen by the user
+    // Filter announcements that are past their date, not expired, and not seen by the user
     const now = new Date();
     const visibleAnnouncements = records
       .filter(record => {
         const announcementDate = new Date(record.fields.date);
         const isAfterDate = now >= announcementDate;
         const notSeen = !seenAnnouncementIds.includes(record.id);
-        return isAfterDate && notSeen;
+        
+        // Check if announcement has expired
+        let notExpired = true;
+        if (record.fields.expiry) {
+          const expiryDate = new Date(record.fields.expiry);
+          notExpired = now < expiryDate;
+        }
+        
+        return isAfterDate && notSeen && notExpired;
       })
       .map(record => ({
         id: record.id,
         description: record.fields.description,
         prize: record.fields.prize || '',
-        date: record.fields.date
+        date: record.fields.date,
+        expiry: record.fields.expiry
       }));
     
     return visibleAnnouncements;
