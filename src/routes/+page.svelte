@@ -2,6 +2,7 @@
 	// import { redirect } from '@sveltejs/kit';
 
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 
 	import LinkButton from '$lib/components/LinkButton.svelte';
 	import ShortTextInput from '$lib/components/ShortTextInput.svelte';
@@ -15,7 +16,58 @@
 	let otp = $state('');
 	let showCatInfo = $state(false);
 	let showStickynoteInfo = $state(false);
-	let expandedFaqItem = $state(null);
+	let expandedFaqItem = $state(/** @type {number | null} */ (null));
+
+	// Intro sequence state
+	let introStage = $state('none'); // 'none', 'black-screen', 'video', 'fade-out', 'complete'
+	let isDesktop = $state(false);
+	let videoElement = $state(/** @type {HTMLVideoElement | null} */ (null));
+
+	onMount(() => {
+		// Check if desktop (width > 768px)
+		isDesktop = window.innerWidth > 768;
+		
+		// Check if user has seen intro before
+		const hasSeenIntro = localStorage.getItem('milkyway_intro_seen');
+		
+		if (isDesktop && !hasSeenIntro) {
+			introStage = 'black-screen';
+		} else {
+			introStage = 'complete';
+		}
+	});
+
+	function handleBlackScreenClick() {
+		if (introStage === 'black-screen') {
+			// Mark as seen when user clicks to start video
+			localStorage.setItem('milkyway_intro_seen', 'true');
+			introStage = 'video';
+			// Wait a bit for fade, then play video
+			setTimeout(() => {
+				if (videoElement) {
+					videoElement.play();
+				}
+			}, 300);
+		}
+	}
+
+	function handleVideoEnd() {
+		introStage = 'fade-out';
+		// After fade completes, show main content
+		setTimeout(() => {
+			introStage = 'complete';
+		}, 1000);
+	}
+
+	function replayIntro() {
+		localStorage.removeItem('milkyway_intro_seen');
+		introStage = 'black-screen';
+	}
+
+	function skipIntro() {
+		localStorage.setItem('milkyway_intro_seen', 'true');
+		introStage = 'complete';
+	}
 
 	// FAQ data
 	const faqData = [
@@ -50,6 +102,9 @@
 	];
 
 	// Function to toggle FAQ item expansion
+	/**
+	 * @param {number} index
+	 */
 	function toggleFaqItem(index) {
 		expandedFaqItem = expandedFaqItem === index ? null : index;
 	}
@@ -112,6 +167,38 @@
 
 	<meta name="theme-color" content="#73ACE0" />
 </svelte:head>
+
+<!-- Intro Sequence -->
+{#if introStage !== 'complete'}
+	<!-- Black screen with blinking text -->
+	{#if introStage === 'black-screen'}
+		<div 
+			class="intro-overlay black-screen" 
+			onclick={handleBlackScreenClick}
+			onkeydown={(e) => e.key === 'Enter' && handleBlackScreenClick()}
+			role="button"
+			tabindex="0"
+		>
+			<div class="blinking-text">milkyway?</div>
+			<button class="skip-intro-button" onclick={(e) => { e.stopPropagation(); skipIntro(); }}>skip intro</button>
+		</div>
+	{/if}
+
+	<!-- Video screen -->
+	{#if introStage === 'video' || introStage === 'fade-out'}
+		<div class="intro-overlay video-screen" class:fading-out={introStage === 'fade-out'}>
+			<video
+				bind:this={videoElement}
+				src="/landing/intro.webm"
+				class="intro-video"
+				onended={handleVideoEnd}
+				muted={false}
+				playsinline
+			></video>
+			<button class="skip-intro-button" onclick={skipIntro}>skip intro</button>
+		</div>
+	{/if}
+{/if}
 
 <main>
 	<img class="logo-bg" src="milkyway.png" />
@@ -237,9 +324,127 @@
 			{/each}
 		</div>
 	</div>
+
+	<footer>
+		<p>made with ❤️ by tongyu</p>
+		<p>with help from: cisco (intro animation audio), jay (additional programming), kai ling (overglade ticket art)</p>
+		<p><button class="replay-intro-button" onclick={replayIntro}>wanna re-watch the intro?</button></p>
+	</footer>
 </main>
 
 <style>
+
+	footer {
+		width: 100%;
+		text-align: center;
+		padding: 20px;
+	}
+
+	footer p {
+		margin: 4px 0;
+	}
+
+	.replay-intro-button {
+		background: none;
+		border: none;
+		color: inherit;
+		font-family: inherit;
+		font-size: inherit;
+		text-decoration: underline;
+		cursor: pointer;
+		padding: 0;
+	}
+
+	.replay-intro-button:hover {
+		opacity: 0.7;
+	}
+
+	/* Intro Overlay Styles */
+	.intro-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100vw;
+		height: 100vh;
+		z-index: 9999;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.skip-intro-button {
+		position: absolute;
+		bottom: 20px;
+		right: 20px;
+		background: none;
+		border: none;
+		color: white;
+		font-family: inherit;
+		font-size: 0.9rem;
+		cursor: pointer;
+		padding: 8px 12px;
+		opacity: 0.7;
+		transition: opacity 0.2s;
+		z-index: 10000;
+	}
+
+	.skip-intro-button:hover {
+		opacity: 1;
+	}
+
+	.intro-overlay.black-screen {
+		background-color: black;
+		cursor: pointer;
+	}
+
+	.blinking-text {
+		color: white;
+		font-size: 1rem;
+		font-weight: normal;
+		animation: blink 1.2s infinite;
+	}
+
+	@keyframes blink {
+		0%, 75% {
+			opacity: 1;
+		}
+		76%, 100% {
+			opacity: 0;
+		}
+	}
+
+	.intro-overlay.video-screen {
+		background-color: black;
+	}
+
+	.intro-overlay.video-screen.fading-out {
+		animation: fadeOut 1s ease-out forwards;
+	}
+
+	.intro-video {
+		width: 100vw;
+		height: 100vh;
+		object-fit: contain;
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	@keyframes fadeOut {
+		from {
+			opacity: 1;
+		}
+		to {
+			opacity: 0;
+		}
+	}
+
 	main {
 		width: 100%;
 		background-color: #74ade1;
