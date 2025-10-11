@@ -213,6 +213,7 @@
 				bind:value={email}
 				placeholder="enter email to begin"
 				onclick={() => (sendOTPPromise = sendOTP())}
+				onkeydown={(e) => e.key === 'Enter' && (sendOTPPromise = sendOTP())}
 				>send otp
 			</ShortTextInput>
 		{:else}
@@ -226,6 +227,7 @@
 						bind:value={otp}
 						placeholder="input otp (check email!)"
 						onclick={() => (checkOTPPromise = checkOTP())}
+						onkeydown={(e) => e.key === 'Enter' && (sendOTPPromise = sendOTP())}
 						>submit otp
 					</ShortTextInput>
 				{:else}
@@ -238,6 +240,7 @@
 							bind:value={otp}
 							placeholder="input otp (check email!)"
 							onclick={() => (checkOTPPromise = checkOTP())}
+							onkeydown={(e) => e.key === 'Enter' && (sendOTPPromise = sendOTP())}
 							>submit otp
 						</ShortTextInput>
 
@@ -720,5 +723,9 @@
 	.faq-answer p {
 		margin: 0;
 		font-weight: 400;
+	}
+
+	.login-inputs :global(button) {
+    	cursor: pointer;
 	}
 </style>
