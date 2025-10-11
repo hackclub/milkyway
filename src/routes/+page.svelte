@@ -77,7 +77,7 @@
 		},
 		{
 			question: "What is Overglade?",
-			answer: "Overglade is a game jam that is happening in Singapore in December. You can purchase a ticket to Overglade in the Milkyway shop (which includes all accommodation and food), and you can also purchase additional flight stipends. For more information, visit the Overglade website!"
+			answer: "Overglade is a game jam in a game that is happening in Singapore in January. You can purchase a ticket to Overglade in the Milkyway shop (which includes all accommodation and food), and you can also purchase additional flight stipends. For more information, visit the Overglade website at overglade.hackclub.com!"
 		},
 		{
 			question: "Am I eligible to participate?",
