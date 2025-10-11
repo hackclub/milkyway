@@ -18,11 +18,32 @@ export async function POST({ request, locals }) {
       return json({ error: 'Invalid action' }, { status: 400 });
     }
 
+    // SECURITY: Validate userId format (Airtable record IDs start with 'rec')
+    if (!/^rec[a-zA-Z0-9]{14}$/.test(userId)) {
+      return json({ error: 'Invalid user ID format' }, { status: 400 });
+    }
+
     const currentUserRecId = locals.user.recId;
+
+    // SECURITY: Prevent users from following themselves
+    if (userId === currentUserRecId) {
+      return json({ error: 'Cannot follow yourself' }, { status: 400 });
+    }
+
+    // SECURITY: Verify the target user exists before following
+    try {
+      await base('User').find(userId);
+    } catch (error) {
+      return json({ error: 'User not found' }, { status: 404 });
+    }
 
     // Get current user's following list
     const userRecord = await base('User').find(currentUserRecId);
-    const currentFollowing = userRecord.fields.following || [];
+    const followingField = userRecord.fields.following;
+    
+    // Ensure currentFollowing is always an array
+    /** @type {string[]} */
+    const currentFollowing = Array.isArray(followingField) ? followingField : [];
 
     let newFollowing;
     if (action === 'follow') {
@@ -34,7 +55,7 @@ export async function POST({ request, locals }) {
       }
     } else {
       // Remove from following list
-      newFollowing = currentFollowing.filter(id => id !== userId);
+      newFollowing = currentFollowing.filter(/** @param {string} id */ (id) => id !== userId);
     }
 
     // Update the user record

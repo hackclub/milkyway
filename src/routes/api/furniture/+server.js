@@ -8,12 +8,44 @@ export async function POST({ request, locals }) {
       return json({ success: false, error: 'Not authenticated' }, { status: 401 });
     }
 
-    const { type } = await request.json();
+    // SECURITY: Disable direct furniture creation until shop is live
+    // Users should only be able to acquire furniture through:
+    // 1. Shop purchases (via /api/shop/purchase endpoint - see below)
+    // 2. Announcement rewards (handled in /api/redeem-announcement)
+    // 3. Other reward systems (to be implemented)
+    return json({ 
+      success: false, 
+      error: 'Direct furniture creation is disabled. Furniture can only be acquired through the shop or special events.' 
+    }, { status: 403 });
 
-    // Create furniture using user's record ID
-    const furniture = await createFurniture(locals.user.recId, { type });
-
-    return json({ success: true, furniture });
+    /* TODO: When shop goes live, DELETE this POST endpoint entirely and use /api/shop/purchase instead
+     * 
+     * Create a new endpoint at /api/shop/purchase with this secure implementation:
+     * 
+     * import { getShopItem, deductCurrency } from '$lib/server/shop.js';
+     * import { createFurniture } from '$lib/server/furniture.js';
+     * 
+     * export async function POST({ request, locals }) {
+     *   if (!locals.user) return json({ error: 'Not authenticated' }, { status: 401 });
+     *   
+     *   const { shopItemId } = await request.json();
+     *   
+     *   // 1. Get shop item from database (SERVER-SIDE - never trust client prices!)
+     *   const shopItem = await getShopItem(shopItemId);
+     *   
+     *   // 2. Verify sufficient currency and deduct (atomic operation)
+     *   const newCurrency = await deductCurrency(locals.user.recId, {
+     *     coins_cost: shopItem.coins_cost,
+     *     stellarships_cost: shopItem.stellarships_cost,
+     *     paintchips_cost: shopItem.paintchips_cost
+     *   });
+     *   
+     *   // 3. Create furniture/item for user
+     *   const item = await createFurniture(locals.user.recId, { type: shopItem.type });
+     *   
+     *   return json({ success: true, item, currency: newCurrency });
+     * }
+     */
   } catch (error) {
     console.error('Error in furniture POST:', error);
     return json({ success: false, error: 'Failed to create furniture' }, { status: 500 });

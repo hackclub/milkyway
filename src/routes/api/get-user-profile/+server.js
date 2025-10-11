@@ -15,11 +15,12 @@ export async function GET({ url, locals }) {
     const escapedUsername = escapeAirtableFormula(username);
 
     // Fetch user by username
+    // SECURITY: Only fetch fields needed for public profile - DO NOT fetch email
     const userRecords = await base('User')
       .select({
         filterByFormula: `{username} = "${escapedUsername}"`,
         maxRecords: 1,
-        fields: ['email', 'username', 'coins', 'stellarships', 'paintchips', 'following']
+        fields: ['username', 'coins', 'stellarships', 'paintchips', 'following']
       })
       .all();
 
@@ -28,7 +29,11 @@ export async function GET({ url, locals }) {
     }
 
     const userRecord = userRecords[0];
-    const email = String(userRecord.fields.email || '');
+    
+    // SECURITY: Get email from a separate query to avoid any accidental exposure
+    // Email is needed internally to fetch projects/furniture but NEVER returned to client
+    const userRecordWithEmail = await base('User').find(userRecord.id);
+    const email = String(userRecordWithEmail.fields.email || '');
 
     // Fetch user's projects and furniture
     const projects = await getUserProjectsByEmail(email);
