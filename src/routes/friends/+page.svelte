@@ -17,16 +17,26 @@ onMount(async () => {
     projects: []
   }));
 
-  // Fetch actual friends data
+  // Fetch actual friends data progressively
   try {
     const response = await fetch('/api/get-friends?count=6');
+    
     if (response.ok) {
       const result = await response.json();
-      friendsRooms = result.friends || [];
-      loadingFriends = false;
+      
+      // Clear placeholders and show friends one by one as they load
+      friendsRooms = [];
+      
+      if (result.friends && result.friends.length > 0) {
+        // Show all friends at once
+        friendsRooms = result.friends;
+      }
+    } else {
+      console.error('Failed to fetch friends:', response.status);
     }
   } catch (error) {
     console.error('Error fetching friends:', error);
+  } finally {
     loadingFriends = false;
   }
 });
@@ -49,7 +59,7 @@ onMount(async () => {
       onOpenRouletteSpin: () => {},
       onDeleteProject: () => {}
     }}
-    userName={data.user.username}
+    userName={data.user?.username || 'You'}
     bind:selectedProjectId
     onSelectProject={(/** @type {string | null} */ id) => { selectedProjectId = id; }}
   />

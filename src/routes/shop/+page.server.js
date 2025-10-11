@@ -1,4 +1,5 @@
 import { redirect } from "@sveltejs/kit";
+import { sanitizeUserForFrontend } from '$lib/server/auth.js';
 
 export async function load({ locals }) {
   if (!locals.user) {
@@ -6,6 +7,6 @@ export async function load({ locals }) {
   }
 
   return {
-    user: locals.user
+    user: sanitizeUserForFrontend(locals.user) // Sanitize user data before sending to frontend
   };
 }

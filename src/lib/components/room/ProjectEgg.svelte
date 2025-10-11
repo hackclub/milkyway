@@ -233,13 +233,12 @@
 
   // Fetch HackaTime projects for this project
   async function fetchHackatimeProjects() {
-    if (!projInfo.created || !user?.email) return;
+    if (!projInfo.created) return;
     
     try {
       isLoadingHackatime = true;
       hackatimeUserNotFound = false; // Reset the error state
       hasAttemptedFetch = true; // Mark that we've attempted to fetch
-      const email = user.email;
       
       // Calculate start date as project creation date minus 1 week
       const projectCreatedDate = new Date(projInfo.created);
@@ -252,12 +251,13 @@
         startDate: startDate
       });
       
+      // SECURITY: Don't send email from frontend, API uses authenticated user's email
       const response = await fetch('/api/get-hackatime-projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, startDate })
+        body: JSON.stringify({ startDate })
       });
 
       const result = await response.json();

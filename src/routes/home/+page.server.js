@@ -1,7 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import { getUserProjectsByEmail } from '$lib/server/projects.js';
 import { getUserFurnitureByEmail } from '$lib/server/furniture.js';
-import { getUserCoinsAndStellarships } from '$lib/server/auth.js';
+import { getUserCoinsAndStellarships, sanitizeUserForFrontend } from '$lib/server/auth.js';
 
 export async function load({ locals }) {
   if (!locals.user) {
@@ -21,7 +21,7 @@ export async function load({ locals }) {
   const hasOnboarded = locals.user.hasOnboarded || false;
 
   return {
-    user: locals.user,
+    user: sanitizeUserForFrontend(locals.user), // Sanitize user data before sending to frontend
     projects,
     furniture,
     coins,

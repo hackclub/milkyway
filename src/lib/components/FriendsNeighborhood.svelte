@@ -10,6 +10,9 @@ let {
   onSelectProject
 } = $props();
 
+// Derive a reactive computed value to ensure updates
+let showRooms = $derived(!loadingFriends && friendsRooms.length > 0);
+
 // Pan state
 let isPanning = $state(false);
 let panOffset = $state({ x: 0, y: 0 });
@@ -66,27 +69,33 @@ function handlePanEnd() {
 
   <!-- Friends' rooms in hexagonal pattern -->
   {#each friendsRooms as friend, index (friend.id)}
-    <div class="room-wrapper friend-room friend-room-{index}" class:loading={loadingFriends}>
-      {#if !loadingFriends}
-        <Room 
-          projectList={friend.projects}
-          furnitureList={friend.furniture || []}
-          user={friend}
-          onShowPromptPopup={() => {}}
-          onOpenRouletteSpin={() => {}}
-          onDeleteProject={() => {}}
-          readOnly={true}
-          hideControls={true}
-          {selectedProjectId}
-          {onSelectProject}
-        />
+    <div class="room-wrapper friend-room friend-room-{index}" class:loading={!showRooms}>
+      {#if showRooms}
+        {#if friend.projects && friend.projects.length > 0}
+          <Room 
+            projectList={friend.projects}
+            furnitureList={friend.furniture || []}
+            user={friend}
+            onShowPromptPopup={() => {}}
+            onOpenRouletteSpin={() => {}}
+            onDeleteProject={() => {}}
+            readOnly={true}
+            hideControls={true}
+            {selectedProjectId}
+            {onSelectProject}
+          />
+        {:else}
+          <div class="room-placeholder">
+            <div class="placeholder-room-bg"></div>
+          </div>
+        {/if}
       {:else}
         <!-- Loading placeholder -->
         <div class="room-placeholder">
           <div class="placeholder-room-bg"></div>
         </div>
       {/if}
-      <div class="room-label" class:loading={loadingFriends}>{friend.username}</div>
+      <div class="room-label" class:loading={!showRooms}>{friend.username}</div>
     </div>
   {/each}
 </div>

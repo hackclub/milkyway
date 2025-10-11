@@ -21,6 +21,9 @@ export async function getUserRecordBySessionId(sessionid) {
 
 /**
  * @param {string} sessionid
+ * Get FULL user info by session ID - SERVER SIDE ONLY
+ * This returns ALL fields including email for server-side operations
+ * NEVER pass this directly to the frontend
  */
 export async function getUserInfoBySessionId(sessionid) {
   const escapedSessionId = escapeAirtableFormula(sessionid);
@@ -29,9 +32,37 @@ export async function getUserInfoBySessionId(sessionid) {
     .firstPage();
 
   if (!records.length) return null;
-  const user = records[0].fields;
-  user.recId = records[0].id; // Add the record ID
-  return user;
+  const fields = records[0].fields;
+  
+  // Return full user object with email for server-side use
+  // Mark with __serverOnly flag as a reminder not to expose to frontend
+  return {
+    recId: records[0].id,
+    email: fields.email, // SERVER SIDE ONLY - do not pass to frontend
+    username: fields.username,
+    hasOnboarded: fields.hasOnboarded,
+    coins: fields.coins,
+    stellarships: fields.stellarships,
+    paintchips: fields.paintchips,
+    lastHackatimeUpdate: fields.lastHackatimeUpdate,
+    __serverOnly: true, // Flag to indicate this should not be sent to frontend
+  };
+}
+
+/**
+ * @param {any} serverUser
+ * Sanitize user object for safe frontend exposure
+ * Removes email and other sensitive fields
+ */
+export function sanitizeUserForFrontend(serverUser) {
+  if (!serverUser) return null;
+  
+  return {
+    recId: serverUser.recId,
+    username: serverUser.username,
+    hasOnboarded: serverUser.hasOnboarded,
+    // DO NOT include: email, lastHackatimeUpdate, __serverOnly, or other internal fields
+  };
 }
 
 // ------- VERIFY OTP

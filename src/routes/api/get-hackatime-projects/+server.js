@@ -9,14 +9,13 @@ export async function POST({ request, locals }) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
 		}
 
-		const { email, startDate } = await request.json();
+		const { startDate } = await request.json();
+
+		// SECURITY: Always use the authenticated user's email, never trust client input
+		const email = locals.user.email;
 
 		if (!email) {
-			return json({ error: 'Email is required' }, { status: 400 });
-		}
-
-		if (!isValidEmail(email)) {
-			return json({ error: 'Invalid email format' }, { status: 400 });
+			return json({ error: 'User email not found' }, { status: 400 });
 		}
 
 		const result = await fetchProjects(email, null, startDate);

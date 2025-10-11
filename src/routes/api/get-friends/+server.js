@@ -13,39 +13,44 @@ export async function GET({ url, locals }) {
     const count = parseInt(url.searchParams.get('count') || '6', 10);
     const escapedEmail = escapeAirtableFormula(locals.user.email);
 
-    // Fetch all users except current user
+    // Step 1: Fetch ONLY users with usernames (lightweight - just username field)
     const userRecords = await base('User')
       .select({
-        filterByFormula: `{email} != "${escapedEmail}"`,
-        fields: ['email', 'username']
+        filterByFormula: `AND({email} != "${escapedEmail}", {username} != "")`,
+        fields: ['email', 'username'],
+        // Try to get more than we need to account for users without projects
+        maxRecords: count * 4
       })
       .all();
 
-    // Filter out users without usernames
-    const usersWithUsernames = userRecords.filter(record => record.fields.username);
+    if (userRecords.length === 0) {
+      return json({ success: true, friends: [] });
+    }
 
-    // Fetch projects and furniture for ALL users first
-    const allUsersWithProjects = await Promise.all(
-      usersWithUsernames.map(async (userRecord) => {
-        const email = String(userRecord.fields.email || '');
-        const projects = await getUserProjectsByEmail(email);
+    // Step 2: Shuffle and pick random users FIRST (before fetching heavy data)
+    const shuffled = userRecords.sort(() => 0.5 - Math.random());
+    
+    // Step 3: Fetch projects/furniture ONLY for selected users (one at a time until we have enough)
+    const selectedFriends = [];
+    
+    for (const userRecord of shuffled) {
+      if (selectedFriends.length >= count) break;
+      
+      const email = String(userRecord.fields.email || '');
+      const projects = await getUserProjectsByEmail(email);
+      
+      // Only include users who have projects
+      if (projects.length > 0) {
         const furniture = await getUserFurnitureByEmail(email);
-        return {
+        selectedFriends.push({
           id: userRecord.id,
-          email: email,
+          // DO NOT expose email to frontend - privacy concern
           username: String(userRecord.fields.username || ''),
           projects: projects,
           furniture: furniture
-        };
-      })
-    );
-
-    // Filter to only users WITH projects
-    const friendsWithProjects = allUsersWithProjects.filter(user => user.projects.length > 0);
-
-    // Shuffle and pick random count
-    const shuffled = friendsWithProjects.sort(() => 0.5 - Math.random());
-    const selectedFriends = shuffled.slice(0, count);
+        });
+      }
+    }
 
     return json({
       success: true,
