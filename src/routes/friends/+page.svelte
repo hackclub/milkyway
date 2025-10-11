@@ -60,6 +60,7 @@ onMount(async () => {
       onDeleteProject: () => {}
     }}
     userName={data.user?.username || 'You'}
+    currentUserId={data.user?.recId || null}
     bind:selectedProjectId
     onSelectProject={(/** @type {string | null} */ id) => { selectedProjectId = id; }}
   />

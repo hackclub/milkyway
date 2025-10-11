@@ -504,11 +504,11 @@ function handleMouseUp() {
   role="presentation"
 >
 
-  <img aria-hidden="true" class="room-bg" src="room_draft.png" />
+  <img aria-hidden="true" class="room-bg" src="/room_draft.png" />
 
   <FloorTile></FloorTile>
 
-  {#if !projectList || projectList.length === 0}
+  {#if (!projectList || projectList.length === 0) && !readOnly}
     <button class="new-project" onclick={(e) => { e.stopPropagation(); isCreateOpen = !isCreateOpen }}>you don't have any projects yet. create something new?</button>
   {/if}
 

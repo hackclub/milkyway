@@ -7,7 +7,8 @@ let {
   userRoom,
   userName,
   selectedProjectId = $bindable(null),
-  onSelectProject
+  onSelectProject,
+  currentUserId = null
 } = $props();
 
 // Derive a reactive computed value to ensure updates
@@ -17,6 +18,10 @@ let showRooms = $derived(!loadingFriends && friendsRooms.length > 0);
 let isPanning = $state(false);
 let panOffset = $state({ x: 0, y: 0 });
 let panStart = $state({ x: 0, y: 0 });
+
+// Hover dropdown state
+let hoveredFriendIndex = $state(/** @type {number | null} */ (null));
+let dropdownPosition = $state({ x: 0, y: 0 });
 
 /**
  * Pan handlers for navigation
@@ -44,6 +49,74 @@ function handlePanEnd() {
   isPanning = false;
 }
 
+/**
+ * Handle hover on friend name
+ * @param {number} index
+ * @param {MouseEvent} e
+ */
+function handleFriendNameHover(index, e) {
+  if (isPanning) return;
+  hoveredFriendIndex = index;
+  const target = e.currentTarget;
+  if (target instanceof HTMLElement) {
+    const rect = target.getBoundingClientRect();
+    dropdownPosition = {
+      x: rect.left + rect.width / 2,
+      y: rect.bottom + 5
+    };
+  }
+}
+
+/**
+ * Handle mouse leave from friend name
+ */
+function handleFriendNameLeave() {
+  // Use a small delay to allow clicking on dropdown
+  setTimeout(() => {
+    if (hoveredFriendIndex !== null && !document.querySelector('.friend-dropdown:hover')) {
+      hoveredFriendIndex = null;
+    }
+  }, 100);
+}
+
+/**
+ * Navigate to user profile
+ * @param {string} username
+ */
+function viewUserProfile(username) {
+  window.location.href = `/u/${username}`;
+}
+
+/**
+ * Follow/unfollow a user
+ * @param {string} userId
+ * @param {boolean} isFollowing
+ */
+async function toggleFollow(userId, isFollowing) {
+  try {
+    const response = await fetch('/api/follow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, action: isFollowing ? 'unfollow' : 'follow' })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      // Update the local state
+      const friendIndex = friendsRooms.findIndex(f => f.id === userId);
+      if (friendIndex !== -1) {
+        // Create a new array to trigger reactivity
+        friendsRooms = friendsRooms.map((friend, idx) => 
+          idx === friendIndex ? { ...friend, isFollowing: result.isFollowing } : friend
+        );
+      }
+    }
+  } catch (error) {
+    console.error('Error toggling follow:', error);
+  }
+  hoveredFriendIndex = null;
+}
+
 </script>
 
 <svelte:window onmouseup={handlePanEnd} onmousemove={handlePanMove} />
@@ -64,7 +137,18 @@ function handlePanEnd() {
   <!-- User's room in the center -->
   <div class="room-wrapper center-room">
     <Room {...userRoom} {selectedProjectId} {onSelectProject} hideControls={true} readOnly={false} />
-    <div class="room-label">{userName} (you)</div>
+    <div 
+      class="room-label hoverable"
+      onclick={(e) => {
+        e.stopPropagation();
+        viewUserProfile(userName);
+      }}
+      onmousedown={(e) => e.stopPropagation()}
+      role="button"
+      tabindex="0"
+    >
+      {userName} (you)
+    </div>
   </div>
 
   <!-- Friends' rooms in hexagonal pattern -->
@@ -95,10 +179,53 @@ function handlePanEnd() {
           <div class="placeholder-room-bg"></div>
         </div>
       {/if}
-      <div class="room-label" class:loading={!showRooms}>{friend.username}</div>
+      <div 
+        class="room-label" 
+        class:loading={!showRooms}
+        class:hoverable={showRooms}
+        onmouseenter={(e) => showRooms && handleFriendNameHover(index, e)}
+        onmouseleave={handleFriendNameLeave}
+        onmousedown={(e) => e.stopPropagation()}
+        role="button"
+        tabindex="0"
+      >
+        {#if friend.isFollowing}
+          <span class="following-star">💫</span>
+        {/if}
+        {friend.username}
+      </div>
     </div>
   {/each}
 </div>
+
+<!-- Dropdown menu - OUTSIDE the scaled container so clicks work -->
+{#if hoveredFriendIndex !== null && showRooms}
+  {@const friend = friendsRooms[hoveredFriendIndex]}
+  <div 
+    class="friend-dropdown"
+    style:left="{dropdownPosition.x}px"
+    style:top="{dropdownPosition.y}px"
+    onmouseenter={() => {}}
+    onmouseleave={handleFriendNameLeave}
+    role="menu"
+    tabindex="-1"
+  >
+    <button 
+      class="dropdown-item"
+      onclick={() => viewUserProfile(friend.username)}
+      role="menuitem"
+    >
+      View Profile
+    </button>
+    <button 
+      class="dropdown-item"
+      onclick={() => toggleFollow(friend.id, friend.isFollowing || false)}
+      role="menuitem"
+    >
+      {friend.isFollowing ? 'Unfollow' : 'Follow'}
+    </button>
+  </div>
+{/if}
 
 <style>
 /* Rooms container with zoom effect */
@@ -216,6 +343,68 @@ function handlePanEnd() {
   white-space: nowrap;
   z-index: 10;
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-label.hoverable {
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.room-label.hoverable:hover {
+  background-color: rgba(255, 248, 220, 1);
+  border-color: #F5B041;
+  transform: translateX(-50%) scale(1.05);
+}
+
+.following-star {
+  font-size: 0.8em;
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+/* Dropdown menu */
+.friend-dropdown {
+  position: fixed;
+  transform: translateX(-50%);
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 3px solid #F7C881;
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 10000;
+  pointer-events: auto !important;
+  min-width: 150px;
+}
+
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  font-size: 1em;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  pointer-events: auto !important;
+}
+
+.dropdown-item:hover {
+  background-color: rgba(251, 242, 191, 0.6);
+}
+
+.dropdown-item:not(:last-child) {
+  border-bottom: 1px solid rgba(247, 200, 129, 0.3);
 }
 
 /* Loading placeholders */
