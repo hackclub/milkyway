@@ -15,6 +15,8 @@
   var showBigCoin = $state(false);
   var showBigRoom = $state(false);
   var showStellarShip = $state(false);
+  
+  let typewriterTimer = null; // Store the timer reference to clear it if needed
 
   const dialogues = [
     "welcome to milkyway! (click to continue)",
@@ -23,12 +25,17 @@
     "you can make games to earn COINS, which you can then use to buy items from the shop, like gift cards!",
     "look, this is your room! when you submit art hours in your game, you earn PAINT CHIPS to buy furniture to level-up your room. pretty cool, right?",
     "after you've made a game, you can polish it even more to earn stellar ships, which are useful for buying special items in the shop...",
-    "like the ticket to OVERGLADE, our singapore game jam hackathon in december!",
+    "like the ticket to OVERGLADE, our singapore game jam hackathon in january!",
     "the shop is down at the right. go check it out when you have time.",
     "i'll let you look around for now. if you ever need me, i'll be just here at the bottom left — and definitely head to <a href='https://hackclub.slack.com/archives/C09EZSEMB16' target='_blank'>#milkyway on slack</a> for more questions!"
   ];
 
   function typeWriter(text, speed = 20) {
+    // Clear any existing timer to prevent multiple animations running at once
+    if (typewriterTimer) {
+      clearInterval(typewriterTimer);
+    }
+    
     displayedText = '';
     isTyping = true;
     let i = 0;
@@ -54,7 +61,7 @@
 
 
     
-    const timer = setInterval(() => {
+    typewriterTimer = setInterval(() => {
       if (i < text.length) {
         // Check if we're inside an HTML tag
         if (text.charAt(i) === '<') {
@@ -74,7 +81,8 @@
           i++;
         }
       } else {
-        clearInterval(timer);
+        clearInterval(typewriterTimer);
+        typewriterTimer = null;
         isTyping = false;
         
         // Show popup when "what's your name?" completes (only if user doesn't have username)
