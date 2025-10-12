@@ -113,11 +113,11 @@ async function handleDismiss() {
         <h3>what's new?</h3>
         <p class="announcement-description">{currentAnnouncement.description}</p>
         {#if hasPrizes}
-            <button class="redeem-button" onclick={handleRedeem} disabled={isRedeeming}>
+            <button type="button" class="redeem-button" onclick={handleRedeem} disabled={isRedeeming}>
                 {isRedeeming ? 'redeeming...' : 'redeem'}
             </button>
         {:else}
-            <button class="dismiss-button" onclick={handleDismiss} disabled={isRedeeming}>
+            <button type="button" class="dismiss-button" onclick={handleDismiss} disabled={isRedeeming}>
                 {isRedeeming ? 'dismissing...' : 'dismiss'}
             </button>
         {/if}
@@ -134,7 +134,7 @@ async function handleDismiss() {
         position: absolute;
         top: 140px;
         /* left: 20px; */
-        z-index: 1;
+        z-index: 15;
     }
     .announcements-container img {
         position: absolute;
