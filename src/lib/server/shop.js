@@ -121,6 +121,48 @@ export async function deductCurrency(userId, costs) {
 }
 
 /**
+ * Rollback currency deduction (add back the costs)
+ * Used when purchase recording fails to restore user's money
+ * @param {string} userId - The user's record ID
+ * @param {any} costs - Object with coins_cost, stellarships_cost, paintchips_cost
+ * @returns {Promise<any>} Restored currency values
+ */
+export async function rollbackCurrency(userId, costs) {
+  try {
+    const coinsCost = Number(costs.coins_cost || 0);
+    const stellarshipsCost = Number(costs.stellarships_cost || 0);
+    const paintchipsCost = Number(costs.paintchips_cost || 0);
+    
+    // Get current user currency
+    const userRecord = await base('User').find(userId);
+    const currentCoins = Number(userRecord.fields.coins || 0);
+    const currentStellarships = Number(userRecord.fields.stellarships || 0);
+    const currentPaintchips = Number(userRecord.fields.paintchips || 0);
+    
+    // Add back the costs (restore currency)
+    const restoredCoins = currentCoins + coinsCost;
+    const restoredStellarships = currentStellarships + stellarshipsCost;
+    const restoredPaintchips = currentPaintchips + paintchipsCost;
+    
+    // Update user's currency (restore it)
+    await base('User').update(userId, {
+      coins: restoredCoins,
+      stellarships: restoredStellarships,
+      paintchips: restoredPaintchips
+    });
+    
+    return {
+      coins: restoredCoins,
+      stellarships: restoredStellarships,
+      paintchips: restoredPaintchips
+    };
+  } catch (error) {
+    console.error('Error rolling back currency:', error);
+    throw error;
+  }
+}
+
+/**
  * Get user's current currency
  * @param {string} userId - The user's record ID
  * @returns {Promise<any>} User's current currency
@@ -148,9 +190,26 @@ export async function getUserCurrency(userId) {
  */
 export async function createPurchase(userEmail, itemId, costs) {
   try {
+    // Get user record ID from email
+    const userRecords = await base('User').select({
+      filterByFormula: `{email} = "${userEmail}"`,
+      maxRecords: 1
+    }).firstPage();
+    
+    if (userRecords.length === 0) {
+      throw new Error('User not found');
+    }
+    
+    const userRecordId = userRecords[0].id;
+    
+    // Get shop item record ID
+    /** @type {any} */
+    const shopItem = await getShopItem(itemId);
+    const actualRecordId = shopItem.id;
+    
     const purchaseRecord = await base('Purchases').create({
-      by: userEmail,
-      item: [itemId],
+      by: [userRecordId], // User record ID in array format
+      item: [actualRecordId], // Shop item record ID in array format
       coins_price: Number(costs.coins_cost || 0),
       stellarships_price: Number(costs.stellarships_cost || 0),
       paintchips_price: Number(costs.paintchips_cost || 0),
@@ -240,7 +299,7 @@ async function checkDuplicatePurchase(userEmail, itemId) {
     
     const records = await base('Purchases')
       .select({
-        filterByFormula: `AND({by} = "${escapedEmail}", {item} = "${escapedItemId}", {Created} > "${thirtySecondsAgo}")`,
+        filterByFormula: `AND({by} = "${escapedEmail}", FIND("${escapedItemId}", ARRAYJOIN({item}, ",")) > 0, {Created} > "${thirtySecondsAgo}")`,
         maxRecords: 1
       })
       .firstPage();
@@ -266,7 +325,7 @@ async function checkOneTimePurchase(userEmail, itemId) {
     
     const records = await base('Purchases')
       .select({
-        filterByFormula: `AND({by} = "${escapedEmail}", {item} = "${escapedItemId}")`,
+        filterByFormula: `AND({by} = "${escapedEmail}", FIND("${escapedItemId}", ARRAYJOIN({item}, ",")) > 0)`,
         maxRecords: 1
       })
       .firstPage();
@@ -329,18 +388,35 @@ export async function completePurchase(userId, userEmail, itemId) {
       throw new Error('Insufficient currency');
     }
     
-    // SECURITY: Atomic transaction - deduct currency and record purchase
+    // SECURITY: Atomic transaction - deduct currency first, then record purchase
+    // If purchase recording fails, we'll rollback the currency
     const updatedCurrency = await deductCurrency(userId, costs);
     
-    // Record purchase
-    const purchase = await createPurchase(userEmail, itemId, costs);
-    
-    return {
-      success: true,
-      purchase,
-      currency: updatedCurrency,
-      item: shopItem
-    };
+    try {
+      // Record purchase
+      const purchase = await createPurchase(userEmail, itemId, costs);
+      
+      return {
+        success: true,
+        purchase,
+        currency: updatedCurrency,
+        item: shopItem
+      };
+    } catch (purchaseError) {
+      // ROLLBACK: If purchase recording fails, restore the user's currency
+      console.error('Purchase recording failed, rolling back currency:', purchaseError);
+      
+      try {
+        await rollbackCurrency(userId, costs);
+        console.log('Currency rollback successful');
+      } catch (rollbackError) {
+        console.error('CRITICAL: Currency rollback failed:', rollbackError);
+        // This is a critical error - user lost money but purchase wasn't recorded
+        // In production, you'd want to alert administrators
+      }
+      
+      throw purchaseError; // Re-throw the original error
+    }
   } catch (error) {
     console.error('Error completing purchase:', error);
     throw error;

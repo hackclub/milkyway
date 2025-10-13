@@ -10,6 +10,9 @@ let isLoading = $state(true);
 let isPurchasing = $state(false);
 let purchaseConfirmation = $state(/** @type {{item: any, message: string, canAfford: boolean} | null} */ (null));
 
+// Check if user is logged in
+let isLoggedIn = $state(!!data.user);
+
 // Filter items by type
 const prizesItems = $derived(shopItems.filter(item => item.type === 'prizes'));
 const furnitureItems = $derived(shopItems.filter(item => item.type === 'furniture'));
@@ -25,8 +28,8 @@ async function loadShopData() {
       shopItems = shopResult.shopItems || [];
     }
 
-    // Get user currency from server-side data
-    if (data.user) {
+    // Get user currency only if logged in
+    if (isLoggedIn && data.user) {
       userCurrency = {
         coins: data.user.coins || 0,
         stellarships: data.user.stellarships || 0,
@@ -41,6 +44,7 @@ async function loadShopData() {
 }
 
 function canAfford(/** @type {any} */ item) {
+  if (!isLoggedIn) return false; // Can't afford anything if not logged in
   return (userCurrency.coins >= (item.coins_cost || 0)) &&
          (userCurrency.stellarships >= (item.stellarships_cost || 0)) &&
          (userCurrency.paintchips >= (item.paintchips_cost || 0));
@@ -51,6 +55,12 @@ function isOneTimeItem(/** @type {any} */ item) {
 }
 
 function showPurchaseConfirmation(/** @type {any} */ item) {
+  if (!isLoggedIn) {
+    // Redirect to login page
+    window.location.href = '/';
+    return;
+  }
+  
   const totalCost = [];
   if (item.coins_cost) totalCost.push(`${item.coins_cost} coins`);
   if (item.stellarships_cost) totalCost.push(`${item.stellarships_cost} stellarships`);
@@ -117,25 +127,31 @@ onMount(loadShopData);
         <a class="back-button" href="/home">← back</a>
         <div class="shop-title">
             <h1>welcome to the shop!</h1>
-            <div class="shop-header-controls">
-                <div class="user-currency">
-                    <div class="currency-item">
-                        <img src="/coin.png" alt="coin" class="currency-icon" />
-                        <span>{userCurrency.coins}</span>
+            {#if isLoggedIn}
+                <div class="shop-header-controls">
+                    <div class="user-currency">
+                        <div class="currency-item">
+                            <img src="/coin.png" alt="coin" class="currency-icon" />
+                            <span>{userCurrency.coins}</span>
+                        </div>
+                        <div class="currency-item">
+                            <img src="/stellarship.png" alt="stellarship" class="currency-icon" />
+                            <span>{userCurrency.stellarships}</span>
+                        </div>
+                        <div class="currency-item">
+                            <img src="/paintchip.png" alt="paintchip" class="currency-icon" />
+                            <span>{userCurrency.paintchips}</span>
+                        </div>
                     </div>
-                    <div class="currency-item">
-                        <img src="/stellarship.png" alt="stellarship" class="currency-icon" />
-                        <span>{userCurrency.stellarships}</span>
-                    </div>
-                    <div class="currency-item">
-                        <img src="/paintchip.png" alt="paintchip" class="currency-icon" />
-                        <span>{userCurrency.paintchips}</span>
-                    </div>
+                    <a href="/cart" class="cart-button">
+                        📦 order history
+                    </a>
                 </div>
-                <a href="/cart" class="cart-button">
-                    📦 order history
-                </a>
-            </div>
+            {:else}
+                <div class="login-prompt">
+                    <p class="login-message">🔒 <a href="/">Log in</a> to purchase items and view your currency</p>
+                </div>
+            {/if}
         </div>
     
         <!-- Tab Navigation -->
@@ -199,7 +215,14 @@ onMount(loadShopData);
                                 </span>
                             {/if}
                         </div>
-                        {#if canAfford(item)}
+                        {#if !isLoggedIn}
+                            <button 
+                                class="shop-button login-button" 
+                                onclick={() => window.location.href = '/'}
+                            >
+                                log in to purchase
+                            </button>
+                        {:else if canAfford(item)}
                             <button 
                                 class="shop-button purchase-button" 
                                 onclick={() => showPurchaseConfirmation(item)}
@@ -374,6 +397,33 @@ onMount(loadShopData);
         background-color: #5A9BD4;
         border-color: #4A8BC4;
         transform: translateY(-1px);
+    }
+
+    .login-prompt {
+        margin-top: 16px;
+        text-align: center;
+    }
+
+    .login-message {
+        background-color: #FFF9E6;
+        border: 2px solid #F7C881;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 0;
+        font-family: "Futura", sans-serif;
+        font-weight: 600;
+        color: #8B5A3C;
+        font-size: 0.95em;
+    }
+
+    .login-message a {
+        color: #E6819F;
+        text-decoration: none;
+        font-weight: 800;
+    }
+
+    .login-message a:hover {
+        text-decoration: underline;
     }
 
     .tab-navigation {
@@ -575,6 +625,18 @@ onMount(loadShopData);
         color: #999;
         cursor: not-allowed;
         opacity: 0.6;
+    }
+
+    .login-button {
+        border: 4px solid #F7C881;
+        background-color: #FFF9E6;
+        color: #8B5A3C;
+    }
+
+    .login-button:hover {
+        background-color: #F7C881;
+        color: white;
+        transform: translateY(-1px);
     }
 
     .disabled-button:hover {

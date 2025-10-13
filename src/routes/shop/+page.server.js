@@ -1,21 +1,22 @@
-import { redirect } from "@sveltejs/kit";
 import { sanitizeUserForFrontend, getUserCoinsAndStellarships } from '$lib/server/auth.js';
 
 export async function load({ locals }) {
-  if (!locals.user) {
-    throw redirect(302, '/');
+  let userData = null;
+  
+  // If user is logged in, get their currency data
+  if (locals.user) {
+    const currency = await getUserCoinsAndStellarships(locals.user.recId);
+    
+    // Combine user data with currency
+    const userWithCurrency = {
+      ...locals.user,
+      ...currency
+    };
+
+    userData = sanitizeUserForFrontend(userWithCurrency);
   }
 
-  // Get user currency data
-  const currency = await getUserCoinsAndStellarships(locals.user.recId);
-  
-  // Combine user data with currency
-  const userWithCurrency = {
-    ...locals.user,
-    ...currency
-  };
-
   return {
-    user: sanitizeUserForFrontend(userWithCurrency) // Sanitize user data before sending to frontend
+    user: userData // Will be null if not logged in
   };
 }
