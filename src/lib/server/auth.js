@@ -61,6 +61,9 @@ export function sanitizeUserForFrontend(serverUser) {
     recId: serverUser.recId,
     username: serverUser.username,
     hasOnboarded: serverUser.hasOnboarded,
+    coins: serverUser.coins || 0,
+    stellarships: serverUser.stellarships || 0,
+    paintchips: serverUser.paintchips || 0,
     // DO NOT include: email, lastHackatimeUpdate, __serverOnly, or other internal fields
   };
 }

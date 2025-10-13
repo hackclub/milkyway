@@ -5,26 +5,103 @@ let { data } = $props();
 
 let activeTab = $state('prizes');
 let shopItems = $state(/** @type {any[]} */ ([]));
+let userCurrency = $state({ coins: 0, stellarships: 0, paintchips: 0 });
 let isLoading = $state(true);
+let isPurchasing = $state(false);
+let purchaseConfirmation = $state(/** @type {{item: any, message: string, canAfford: boolean} | null} */ (null));
 
 // Filter items by type
 const prizesItems = $derived(shopItems.filter(item => item.type === 'prizes'));
 const furnitureItems = $derived(shopItems.filter(item => item.type === 'furniture'));
 const currentItems = $derived(activeTab === 'prizes' ? prizesItems : furnitureItems);
 
-onMount(async () => {
+async function loadShopData() {
   try {
-    const response = await fetch('/api/get-shop-items');
-    if (response.ok) {
-      const result = await response.json();
-      shopItems = result.shopItems || [];
+    // Load shop items
+    const shopResponse = await fetch('/api/get-shop-items');
+    
+    if (shopResponse.ok) {
+      const shopResult = await shopResponse.json();
+      shopItems = shopResult.shopItems || [];
+    }
+
+    // Get user currency from server-side data
+    if (data.user) {
+      userCurrency = {
+        coins: data.user.coins || 0,
+        stellarships: data.user.stellarships || 0,
+        paintchips: data.user.paintchips || 0
+      };
     }
   } catch (error) {
-    console.error('Error loading shop items:', error);
+    console.error('Error loading shop data:', error);
   } finally {
     isLoading = false;
   }
-});
+}
+
+function canAfford(/** @type {any} */ item) {
+  return (userCurrency.coins >= (item.coins_cost || 0)) &&
+         (userCurrency.stellarships >= (item.stellarships_cost || 0)) &&
+         (userCurrency.paintchips >= (item.paintchips_cost || 0));
+}
+
+function isOneTimeItem(/** @type {any} */ item) {
+  return Boolean(item.one_time);
+}
+
+function showPurchaseConfirmation(/** @type {any} */ item) {
+  const totalCost = [];
+  if (item.coins_cost) totalCost.push(`${item.coins_cost} coins`);
+  if (item.stellarships_cost) totalCost.push(`${item.stellarships_cost} stellarships`);
+  if (item.paintchips_cost) totalCost.push(`${item.paintchips_cost} paintchips`);
+  
+  purchaseConfirmation = {
+    item,
+    message: `Are you sure you want to spend ${totalCost.join(', ')} on ${item.name}?`,
+    canAfford: canAfford(item)
+  };
+}
+
+function hidePurchaseConfirmation() {
+  purchaseConfirmation = null;
+}
+
+async function confirmPurchase() {
+  if (!purchaseConfirmation || !purchaseConfirmation.canAfford) return;
+  
+  isPurchasing = true;
+  try {
+    const response = await fetch('/api/purchase-item', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        itemId: purchaseConfirmation.item.id
+      })
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      // Update user currency
+      userCurrency = result.currency;
+      // Show success message (you could add a toast notification here)
+      alert(`Successfully purchased ${purchaseConfirmation.item.name}!`);
+    } else {
+      alert(`Purchase failed: ${result.error.message}`);
+    }
+  } catch (error) {
+    console.error('Purchase error:', error);
+    alert('Purchase failed. Please try again.');
+  } finally {
+    isPurchasing = false;
+    hidePurchaseConfirmation();
+  }
+}
+
+onMount(loadShopData);
 </script>
 
 <svelte:head>
@@ -38,7 +115,28 @@ onMount(async () => {
     <div class="axolotl-container">
         <img class="axolotl-top" src="/prompts/axolotl.png" alt="axolotl up top"/>
         <a class="back-button" href="/home">← back</a>
-        <h1 class="shop-title">welcome to the shop!</h1>
+        <div class="shop-title">
+            <h1>welcome to the shop!</h1>
+            <div class="shop-header-controls">
+                <div class="user-currency">
+                    <div class="currency-item">
+                        <img src="/coin.png" alt="coin" class="currency-icon" />
+                        <span>{userCurrency.coins}</span>
+                    </div>
+                    <div class="currency-item">
+                        <img src="/stellarship.png" alt="stellarship" class="currency-icon" />
+                        <span>{userCurrency.stellarships}</span>
+                    </div>
+                    <div class="currency-item">
+                        <img src="/paintchip.png" alt="paintchip" class="currency-icon" />
+                        <span>{userCurrency.paintchips}</span>
+                    </div>
+                </div>
+                <a href="/cart" class="cart-button">
+                    📦 order history
+                </a>
+            </div>
+        </div>
     
         <!-- Tab Navigation -->
         <div class="tab-navigation">
@@ -74,7 +172,12 @@ onMount(async () => {
                             {/if}
                         </div>
                         <div class="item-info">
-                            <h3 class="item-name">{item.name}</h3>
+                            <div class="item-header">
+                                <h3 class="item-name">{item.name}</h3>
+                        {#if isOneTimeItem(item)}
+                            <div class="one-time-badge" role="img" aria-label="One-time purchase item">one-time only</div>
+                        {/if}
+                            </div>
                             <p class="item-description">{item.description}</p>
                         <div class="item-pricing">
                             {#if item.coins_cost}
@@ -96,9 +199,18 @@ onMount(async () => {
                                 </span>
                             {/if}
                         </div>
-                        <button class="shop-button" disabled>
-                            shop coming soon!
-                        </button>
+                        {#if canAfford(item)}
+                            <button 
+                                class="shop-button purchase-button" 
+                                onclick={() => showPurchaseConfirmation(item)}
+                            >
+                                purchase
+                            </button>
+                        {:else}
+                            <button class="shop-button disabled-button" disabled>
+                                insufficient funds
+                            </button>
+                        {/if}
                     </div>
                 </div>
                 {/each}
@@ -113,6 +225,48 @@ onMount(async () => {
         </div>
         
     </div>
+
+    <!-- Purchase Confirmation Modal -->
+    {#if purchaseConfirmation}
+        <div 
+            class="modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+            tabindex="-1"
+            onclick={hidePurchaseConfirmation}
+            onkeydown={(e) => e.key === 'Escape' && hidePurchaseConfirmation()}
+            style="cursor: pointer;"
+        >
+            <div 
+                class="modal-content" 
+                role="document"
+                onclick={(e) => e.stopPropagation()}
+            >
+                <h3 id="modal-title">Confirm Purchase</h3>
+                <p>{purchaseConfirmation.message}</p>
+                {#if !purchaseConfirmation.canAfford}
+                    <p class="insufficient-funds">You don't have enough currency for this purchase.</p>
+                {/if}
+                <div class="modal-buttons">
+                    <button 
+                        class="modal-button cancel-button" 
+                        onclick={hidePurchaseConfirmation}
+                        disabled={isPurchasing}
+                    >
+                        cancel
+                    </button>
+                    <button 
+                        class="modal-button confirm-button" 
+                        onclick={confirmPurchase}
+                        disabled={!purchaseConfirmation.canAfford || isPurchasing}
+                    >
+                        {isPurchasing ? 'purchasing...' : 'confirm'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    {/if}
   
 </main>
 
@@ -161,6 +315,65 @@ onMount(async () => {
         border-radius: 8px;
         width: 80%;
         text-align: center;
+    }
+
+    .shop-title h1 {
+        margin: 0 0 16px 0;
+        font-family: "Futura", sans-serif;
+        color: #333;
+    }
+
+    .shop-header-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 16px;
+        gap: 20px;
+    }
+
+    .user-currency {
+        display: flex;
+        gap: 20px;
+    }
+
+    .currency-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background-color: white;
+        border: 2px solid #E6819F;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-family: "Futura", sans-serif;
+        font-weight: 800;
+        color: #333;
+    }
+
+    .currency-item .currency-icon {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+        filter: drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px 1px 0 white) drop-shadow(1px 1px 0 white);
+    }
+
+    .cart-button {
+        padding: 8px 16px;
+        background-color: #73ACE0;
+        color: white;
+        border: 2px solid #5A9BD4;
+        border-radius: 6px;
+        text-decoration: none;
+        font-family: "Futura", sans-serif;
+        font-weight: 800;
+        font-size: 0.9em;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+
+    .cart-button:hover {
+        background-color: #5A9BD4;
+        border-color: #4A8BC4;
+        transform: translateY(-1px);
     }
 
     .tab-navigation {
@@ -255,12 +468,29 @@ onMount(async () => {
         font-size: 0.9em;
     }
 
+    .item-header {
+        margin-bottom: 8px;
+    }
+
     .item-name {
-        margin: 0 0 8px 0;
+        margin: 0 0 4px 0;
         color: #333;
         font-size: 1.1em;
         font-weight: 800;
         font-family: "Futura", sans-serif;
+        line-height: 1.2;
+    }
+
+    .one-time-badge {
+        background-color: #E6819F;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7em;
+        font-weight: 800;
+        font-family: "Futura", sans-serif;
+        display: inline-block;
+        margin-top: 4px;
     }
 
     .item-description {
@@ -319,20 +549,37 @@ onMount(async () => {
     .shop-button {
         margin-top: 12px;
         padding: 8px 16px;
-        border: 4px solid #ccc;
-        background-color: #f0f0f0;
         border-radius: 8px;
-        color: #999;
         font-family: "Futura", sans-serif;
         font-weight: 800;
         font-size: 0.8em;
-        cursor: not-allowed;
         width: 100%;
-        transition: none;
+        transition: all 0.2s ease;
+        cursor: pointer;
     }
 
-    .shop-button:disabled {
+    .purchase-button {
+        border: 4px solid #E6819F;
+        background-color: #EED4D4;
+        color: #333;
+    }
+
+    .purchase-button:hover {
+        background-color: white;
+        transform: translateY(-1px);
+    }
+
+    .disabled-button {
+        border: 4px solid #ccc;
+        background-color: #f0f0f0;
+        color: #999;
+        cursor: not-allowed;
         opacity: 0.6;
+    }
+
+    .disabled-button:hover {
+        transform: none;
+        background-color: #f0f0f0;
     }
 
     .no-items-message {
@@ -390,6 +637,142 @@ onMount(async () => {
         }
         50% {
             opacity: 1;
+        }
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background-color: #FBF2BF;
+        border: 4px solid #F7C881;
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 400px;
+        width: 90%;
+        text-align: center;
+        font-family: "Futura", sans-serif;
+    }
+
+    .modal-content h3 {
+        margin: 0 0 16px 0;
+        color: #333;
+        font-size: 1.2em;
+        font-weight: 800;
+    }
+
+    .modal-content p {
+        margin: 0 0 20px 0;
+        color: #666;
+        line-height: 1.4;
+    }
+
+    .insufficient-funds {
+        color: #E6819F !important;
+        font-weight: 600;
+        margin-bottom: 20px !important;
+    }
+
+    .modal-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
+
+    .modal-button {
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-family: "Futura", sans-serif;
+        font-weight: 800;
+        font-size: 0.9em;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 4px solid;
+        min-width: 80px;
+    }
+
+    .cancel-button {
+        background-color: #f0f0f0;
+        border-color: #ccc;
+        color: #666;
+    }
+
+    .cancel-button:hover:not(:disabled) {
+        background-color: white;
+        transform: translateY(-1px);
+    }
+
+    .confirm-button {
+        background-color: #E6819F;
+        border-color: #E6819F;
+        color: white;
+    }
+
+    .confirm-button:hover:not(:disabled) {
+        background-color: #D4708F;
+        border-color: #D4708F;
+        transform: translateY(-1px);
+    }
+
+    .modal-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .axolotl-top {
+            height: 35vw;
+        }
+
+        .back-button {
+            left: 5vw;
+            top: 30vw;
+        }
+
+        .shop-title {
+            width: 90%;
+            padding: 20px;
+        }
+
+        .shop-header-controls {
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .user-currency {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .shop-items-container {
+            width: 95%;
+            grid-template-columns: 1fr;
+        }
+
+        .modal-content {
+            width: 95%;
+            padding: 20px;
+        }
+
+        .one-time-badge {
+            font-size: 0.65em;
+            padding: 1px 4px;
+            margin-top: 2px;
         }
     }
 
