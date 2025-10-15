@@ -46,7 +46,7 @@ Don't submit AI slop — your projects may be rejected, or you may even be banne
     },
     {
       question: "Can I submit my Milkyway projects to other Hack Club events?",
-      answer:"Milkyway is not double-dippable. All the projects that you submit here cannot be submitted to other events."
+      answer:"Milkyway is not double-dippable. All the projects that you submit here cannot be submitted to other events — except for Athena Award. You may submit Milkyway projects to Athena Award for hours, but not artefacts."
     },
     {
       question: "What is fraud?",
