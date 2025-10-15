@@ -8,8 +8,12 @@
   let isUpdating = $state(false);
   
   // Store original values for discard functionality
-  /** @type {{name?: string, description?: string}} */
+  /** @type {{name?: string, description?: string, shipURL?: string, githubURL?: string, projectImage?: string}} */
   let originalValues = $state({});
+  
+  // Image upload state
+  let projectImage = $state('');
+  let isUploadingImage = $state(false);
 
   // HackaTime projects state
   let hackatimeProjects = $state([]);
@@ -98,8 +102,13 @@
   function startEdit() {
     originalValues = {
       name: projInfo.name,
-      description: projInfo.description
+      description: projInfo.description,
+      shipURL: projInfo.shipURL,
+      githubURL: projInfo.githubURL,
+      projectImage: projInfo.projectImage
     };
+    // Initialize project image from existing data
+    projectImage = projInfo.projectImage || '';
     isEditing = true;
     // Fetch HackaTime projects when editing starts
     fetchHackatimeProjects();
@@ -130,6 +139,9 @@
     const updates = {
       projectname: projInfo.name,
       description: projInfo.description,
+      shipURL: projInfo.shipURL,
+      githubURL: projInfo.githubURL,
+      projectImage: projInfo.projectImage,
       hackatimeProjects: selectedProjectsString,
       hackatimeHours: calculatedHours
     };
@@ -158,12 +170,60 @@
   function discardChanges() {
     projInfo.name = originalValues.name || '';
     projInfo.description = originalValues.description || '';
+    projInfo.shipURL = originalValues.shipURL || '';
+    projInfo.githubURL = originalValues.githubURL || '';
+    projInfo.projectImage = originalValues.projectImage || '';
+    projectImage = originalValues.projectImage || '';
     isEditing = false;
     originalValues = {};
     // Clear the selected projects when discarding
     selectedHackatimeProjects = new Set();
     // Reset the restoration flag so next edit can restore from database
     hasRestoredProjects = false;
+  }
+
+  // Handle image file selection
+  function handleImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image file is too large. Please select an image smaller than 5MB.');
+      return;
+    }
+
+    isUploadingImage = true;
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const base64String = e.target?.result;
+      if (base64String) {
+        projectImage = base64String;
+        projInfo.projectImage = base64String;
+      }
+      isUploadingImage = false;
+    };
+    reader.onerror = function() {
+      alert('Error reading image file');
+      isUploadingImage = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Trigger file input click
+  function selectImage() {
+    const fileInput = document.getElementById('project-image-input');
+    if (fileInput) {
+      fileInput.click();
+    }
   }
 
   // Add art hours function (placeholder)
@@ -420,11 +480,41 @@
         <div class="project-name-display">{projInfo.name || 'Untitled Project'}</div>
       {/if}
     </div>
-    <img class="project-avatar" src="/pfp_placeholder.png" alt="Project avatar" />
+    {#if isEditing}
+      <button class="project-avatar-btn" onclick={selectImage} disabled={isUploadingImage} title="Click to change project image">
+        <img class="project-avatar" src={projectImage || "/pfp_placeholder.png"} alt="Project avatar" />
+        {#if isUploadingImage}
+          <div class="upload-overlay">Uploading...</div>
+        {/if}
+      </button>
+    {:else}
+      <img class="project-avatar" src={projInfo.projectImage || "/pfp_placeholder.png"} alt="Project avatar" />
+    {/if}
   </div>
+
+  <!-- Hidden file input for image upload -->
+  <input 
+    id="project-image-input" 
+    type="file" 
+    accept="image/*" 
+    onchange={handleImageSelect}
+    style="display: none;"
+  />
 
   {#if isEditing}
     <textarea class="project-desc" bind:value={projInfo.description} placeholder="what's your game about?"></textarea>
+    
+    <!-- URL Fields -->
+    <div class="url-fields">
+      <div class="url-field-group">
+        <label class="url-label">ship url</label>
+        <input class="url-input" bind:value={projInfo.shipURL} placeholder="ship url - eg. itch.io link" type="url" />
+      </div>
+      <div class="url-field-group">
+        <label class="url-label">github url</label>
+        <input class="url-input" bind:value={projInfo.githubURL} placeholder="github url for your source code" type="url" />
+      </div>
+    </div>
     
     <!-- HackaTime Projects Section -->
     <div class="hackatime-section">
@@ -503,6 +593,22 @@
       {/if}
     {:else}
       <p class="project-desc-display">{projInfo.description || 'no description yet... change this!'}</p>
+      
+      <!-- Display URLs if they exist -->
+      <!-- {#if projInfo.shipURL || projInfo.githubURL}
+        <div class="project-urls">
+          {#if projInfo.shipURL}
+            <a href={projInfo.shipURL} target="_blank" rel="noopener noreferrer" class="project-url-link">
+              🚀 Ship Project
+            </a>
+          {/if}
+          {#if projInfo.githubURL}
+            <a href={projInfo.githubURL} target="_blank" rel="noopener noreferrer" class="project-url-link">
+              📁 GitHub
+            </a>
+          {/if}
+        </div>
+      {/if} -->
     {/if}
     
     <!-- HackaTime warning when no projects are associated with this project (only show if not read-only) -->
@@ -693,6 +799,43 @@
   flex-shrink: 0;
 }
 
+.project-avatar-btn {
+  position: relative;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.project-avatar-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.project-avatar-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7em;
+  font-weight: bold;
+  border-radius: 8px;
+}
+
 .project-actions {
   display: flex;
   gap: 8px;
@@ -750,6 +893,58 @@ input:hover, textarea:hover {
   margin-bottom: 12px;
 }
 
+/* URL Fields */
+.url-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.url-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.url-label {
+  font-size: 0.7em;
+  color: #666;
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  opacity: 0.7;
+  text-transform: lowercase;
+}
+
+.url-input {
+  font-size: 1em;
+  line-height: 1.4;
+  color: #333;
+  min-height: 40px;
+  max-height: 120px;
+  background-color: transparent;
+  outline: none;
+  border: none;
+  padding: 0;
+  border-bottom: 4px solid transparent;
+  font-family: inherit;
+  font-weight: normal;
+  transition: border-bottom 0.2s;
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+}
+
+.url-input:hover {
+  border-bottom: 4px solid var(--orange);
+}
+
+.url-input:focus {
+  border-bottom: 4px solid var(--orange);
+  outline: none;
+}
+
 .project-name-display {
   font-size: 1.2em;
   margin: 0 0 4px 0;
@@ -762,6 +957,35 @@ input:hover, textarea:hover {
   line-height: 1.4;
   color: #333;
   min-height: 40px;
+}
+
+/* Project URLs Display */
+.project-urls {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 12px 0;
+  flex-wrap: wrap;
+}
+
+.project-url-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--orange);
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: 2px solid var(--orange);
+}
+
+.project-url-link:hover {
+  background: white;
+  color: var(--orange);
+  transform: translateY(-1px);
 }
 
 

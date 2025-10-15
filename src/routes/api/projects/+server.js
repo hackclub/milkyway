@@ -46,6 +46,8 @@ export async function GET({ url, locals, request, cookies }) {
       name: record.fields.projectname || 'Untitled Project',
       promptinfo: record.fields.promptinfo || '',
       description: record.fields.description || '',
+      shipURL: record.fields.shipURL || '',
+      githubURL: record.fields.githubURL || '',
       addn: record.fields.addn || '',
       event: 'new',
       egg: record.fields.egg || 'projects/sparkle_egg1.png',
@@ -149,7 +151,7 @@ export async function PUT({ request, locals, cookies }) {
     }
 
     // SECURITY: Field whitelist - only allow specific fields to be updated by client
-    const allowedFields = ['projectname', 'description', 'position', 'egg', 'hackatimeProjects'];
+    const allowedFields = ['projectname', 'description', 'shipURL', 'githubURL', 'position', 'egg', 'hackatimeProjects'];
     const safeUpdates = /** @type {any} */ ({});
     
     // Copy only whitelisted fields

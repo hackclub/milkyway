@@ -24,6 +24,8 @@ export async function getUserProjectsByEmail(userEmail) {
         name: record.fields.projectname || 'Untitled Project',
         promptinfo: record.fields.promptinfo || '',
         description: record.fields.description || '',
+        shipURL: record.fields.shipURL || '',
+        githubURL: record.fields.githubURL || '',
         addn: record.fields.addn || '',
         event: 'new', // Default since you don't have this field
         egg: record.fields.egg || 'projects/sparkle_egg1.png',
@@ -122,6 +124,8 @@ export async function updateProject(projectId, updates) {
       id: record.id,
       name: record.fields.projectname,
       description: record.fields.description || '',
+      shipURL: record.fields.shipURL || '',
+      githubURL: record.fields.githubURL || '',
       promptinfo: record.fields.promptinfo,
       addn: record.fields.addn || '',
       event: 'new', // Default since you don't have this field
