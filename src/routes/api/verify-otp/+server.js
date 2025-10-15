@@ -48,7 +48,7 @@ export async function POST({ request, cookies }) {
     return json(
       {
         success: false,
-        error: { message: sanitizeErrorMessage(err, 'Verification failed') }
+        error: { message: sanitizeErrorMessage(err instanceof Error ? err : new Error(String(err)), 'Verification failed') }
       },
       { status: 500 });
 

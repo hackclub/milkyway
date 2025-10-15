@@ -30,7 +30,7 @@ export async function POST({ request, cookies }) {
   } catch (err) {
 
     console.error('Airtable error:', err);
-    const errorMessage = sanitizeErrorMessage(err, 'Failed to create OTP record');
+    const errorMessage = sanitizeErrorMessage(err instanceof Error ? err : new Error(String(err)), 'Failed to create OTP record');
 
     // return json with failure
     return json({

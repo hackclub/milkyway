@@ -1,10 +1,23 @@
 
 <script>
   let { value = $bindable(), placeholder, onclick} = $props();
+  
+  // Normalize email input to lowercase
+  /**
+   * @param {Event} event
+   */
+  function handleInput(event) {
+    const target = /** @type {HTMLInputElement} */ (event.target);
+    if (placeholder && placeholder.toLowerCase().includes('email')) {
+      value = target.value.toLowerCase().trim();
+    } else {
+      value = target.value;
+    }
+  }
 </script>
 
 <div class="text-input">
-  <input bind:value={value} {placeholder}/>
+  <input bind:value={value} {placeholder} oninput={handleInput}/>
   <button {onclick}><slot></slot></button>
 </div>
 
@@ -49,8 +62,6 @@
   background-color: var(--orange)
 }
 
-.text-input button:hover {
-}
 
 
 
