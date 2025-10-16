@@ -21,6 +21,7 @@ let coins = $state(data.coins || 0);
 let stellarships = $state(data.stellarships || 0);
 let paintchips = $state(data.paintchips || 0);
 let showOnboarding = $state(!data.hasOnboarded);
+let user = $state(data.user); // Create separate state for user data
 let showFaqPopup = $state(false);
 let showPromptPopup = $state(false);
 let currentPromptInfo = $state('');
@@ -162,6 +163,22 @@ async function handleAnnouncementRewards() {
   }
 }
 
+// Function to refresh user data when profile is updated
+async function handleUserUpdate() {
+  try {
+    const response = await fetch('/api/get-user-profile');
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success) {
+        // Update the user state
+        user = result.user;
+      }
+    }
+  } catch (error) {
+    console.error('Error refreshing user data:', error);
+  }
+}
+
 // Auto-update Hackatime hours in the background after page load
 async function autoUpdateHackatimeHours() {
   try {
@@ -214,7 +231,7 @@ onMount(() => {
 
 
 {#if showOnboarding}
-  <OnboardingOverlay onClose={() => { showOnboarding = false }} user={data.user}>
+  <OnboardingOverlay onClose={() => { showOnboarding = false }} {user}>
   </OnboardingOverlay>
 {/if}
 
@@ -234,13 +251,14 @@ onMount(() => {
 
 <!-- Profile Info -->
 <ProfileInfo 
-  user={data.user}
+  {user}
   {totalHours}
   {projectCount}
   {coins}
   {stellarships}
   {paintchips}
   onLogout={handleLogout}
+  onUserUpdate={handleUserUpdate}
 />
 
 
@@ -260,7 +278,7 @@ onMount(() => {
     bind:projectList={projectList}
     bind:furnitureList={furnitureList}
     bind:isCreateOpen={isCreateOpen}
-    user={data.user}
+    {user}
     onShowPromptPopup={showPromptPopupHandler}
     onOpenRouletteSpin={openRouletteSpinHandler}
     onDeleteProject={() => {}}
@@ -289,6 +307,7 @@ onMount(() => {
     onClose={closeShipOverlay}
     projectInfo={shipProjectInfo}
     onShip={handleShipProjectCompleted}
+    {user}
   />
 {/if}
 

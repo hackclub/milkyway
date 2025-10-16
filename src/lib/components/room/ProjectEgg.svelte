@@ -303,6 +303,21 @@
       missing.push('custom image');
     }
     
+    // Check user profile requirements
+    const hasGitHubUsername = user?.githubUsername && user.githubUsername.trim() !== '';
+    // Check if user has an address record ID (linked field in Airtable)
+    // The address field in User table is a linked field, so it's an array of record IDs
+    const hasAddress = user?.address && Array.isArray(user.address) && user.address.length > 0;
+    
+    // Check new required profile fields
+    const hasHowDidYouHear = user?.howDidYouHear && user.howDidYouHear.trim() !== '';
+    const hasDoingWell = user?.doingWell && user.doingWell.trim() !== '';
+    const hasImprove = user?.improve && user.improve.trim() !== '';
+    
+    if (!hasGitHubUsername || !hasAddress || !hasHowDidYouHear || !hasDoingWell || !hasImprove) {
+      missing.push('profile information');
+    }
+    
     return {
       canShip: missing.length === 0,
       missingFields: missing
@@ -527,7 +542,7 @@
 </script>
 
 
-<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''}" style:--x={x} style:--y={y} style:--z={Math.round(y)} onclick={(e) => e.stopPropagation()}>
+<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''} {projInfo.status === 'submitted' ? 'hatched' : ''}" style:--x={x} style:--y={y} style:--z={Math.round(y)} onclick={(e) => e.stopPropagation()}>
 <img class="egg-img" src={projInfo.egg} alt="Project egg" />
 
 <button 
@@ -819,7 +834,11 @@
 
 .project-egg:has(.egg-svg:hover) .egg-img, .project-egg.selected .egg-img {
   filter: drop-shadow(-1.5px -1.5px 0 var(--orange)) drop-shadow(1.5px -1.5px 0 var(--orange)) drop-shadow(-1.5px 1.5px 0 var(--orange)) drop-shadow(1.5px 1.5px 0 var(--orange));
+}
 
+/* Hatched creature styling - subtle glow to show it's special */
+.project-egg.hatched .egg-img {
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
 }
 
 .project-info {

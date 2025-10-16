@@ -136,6 +136,36 @@ export async function POST({ request, cookies }) {
       }, { status: 400 });
     }
 
+    // Validate that all required profile fields are filled before shipping
+    if (shipProject) {
+      const missingFields = [];
+      
+      if (!userInfo.username || userInfo.username.trim() === '') {
+        missingFields.push('username');
+      }
+      if (!userInfo.githubUsername || userInfo.githubUsername.trim() === '') {
+        missingFields.push('GitHub username');
+      }
+      if (!userInfo.howDidYouHear || userInfo.howDidYouHear.trim() === '') {
+        missingFields.push('how you heard about this');
+      }
+      if (!userInfo.doingWell || userInfo.doingWell.trim() === '') {
+        missingFields.push('what we are doing well');
+      }
+      if (!userInfo.improve || userInfo.improve.trim() === '') {
+        missingFields.push('how we can improve');
+      }
+
+      if (missingFields.length > 0) {
+        return json({ 
+          success: false, 
+          error: { 
+            message: `Please complete your profile before shipping. Missing: ${missingFields.join(', ')}. Go to your profile settings to fill these out.` 
+          } 
+        }, { status: 400 });
+      }
+    }
+
     // Ship the project by updating the shipped status
     if (shipProject) {
       await projectsTable.update(projectRecord.id, {

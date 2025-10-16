@@ -45,6 +45,12 @@ export async function getUserInfoBySessionId(sessionid) {
     stellarships: fields.stellarships,
     paintchips: fields.paintchips,
     lastHackatimeUpdate: fields.lastHackatimeUpdate,
+    githubUsername: fields.githubUsername,
+    howDidYouHear: fields.howDidYouHear,
+    doingWell: fields.doingWell,
+    improve: fields.improve,
+    address: fields.address,
+    idv: fields.idv,
     __serverOnly: true, // Flag to indicate this should not be sent to frontend
   };
 }
@@ -64,6 +70,12 @@ export function sanitizeUserForFrontend(serverUser) {
     coins: serverUser.coins || 0,
     stellarships: serverUser.stellarships || 0,
     paintchips: serverUser.paintchips || 0,
+    githubUsername: serverUser.githubUsername || '',
+    howDidYouHear: serverUser.howDidYouHear || '',
+    doingWell: serverUser.doingWell || '',
+    improve: serverUser.improve || '',
+    address: serverUser.address || null,
+    idv: serverUser.idv || null,
     // DO NOT include: email, lastHackatimeUpdate, __serverOnly, or other internal fields
   };
 }

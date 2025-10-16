@@ -3,7 +3,8 @@
   import { onMount } from 'svelte';
   import confetti from 'canvas-confetti';
 
-  let { showPopup, onClose, projectInfo, onShip } = $props();
+  let { showPopup, onClose, projectInfo, onShip, user } = $props();
+  
   
   let isShipping = $state(false);
   let shippingError = $state('');
@@ -77,17 +78,27 @@
     }
   }
 
-  // Validation for form fields
+  // Validation for form fields and profile completeness
   let canProceed = $derived(() => {
-    const valid = notMadeByYou.trim() !== '' && 
-                  howToPlay.trim() !== '' && 
-                  additionalComments.trim() !== '';
-    console.log('Validation check:', {
-      notMadeByYou: notMadeByYou.trim(),
-      howToPlay: howToPlay.trim(),
-      additionalComments: additionalComments.trim(),
-      valid: valid
-    });
+    // Check form fields
+    const formValid = notMadeByYou.trim() !== '' && 
+                      howToPlay.trim() !== '' && 
+                      additionalComments.trim() !== '';
+    
+    // Check profile completeness - be explicit about each field
+    const profileValid = user && 
+                        user.username && typeof user.username === 'string' && user.username.trim() !== '' &&
+                        user.githubUsername && typeof user.githubUsername === 'string' && user.githubUsername.trim() !== '' &&
+                        user.howDidYouHear && typeof user.howDidYouHear === 'string' && user.howDidYouHear.trim() !== '' &&
+                        user.doingWell && typeof user.doingWell === 'string' && user.doingWell.trim() !== '' &&
+                        user.improve && typeof user.improve === 'string' && user.improve.trim() !== '';
+    
+    
+    const valid = formValid && profileValid;
+    
+    // Temporary debug: Force validation to false to test button state
+    // const valid = false;
+    
     return valid;
   });
 
@@ -373,9 +384,9 @@
           
           {#if showCreature}
             <!-- Show creature with dramatic entrance -->
-            <div class="creature-celebration" class:fade-out={isFadingOut} transition:slide={{duration: 800, axis: 'y'}}>
+            <div class="creature-celebration" class:fade-out={isFadingOut} transition:slide={{duration: 800, axis: 'y'}} style="pointer-events: none;">
               <div class="creature-container" transition:scale={{duration: 1000, start: 0.3}}>
-                <img class="hatched-creature" src="/projects/new_creature1.png" alt="Hatched creature" />
+                <img class="hatched-creature" src="/projects/new_creature1.png" alt="Hatched creature" style="pointer-events: none; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;" />
               </div>
               <p class="celebration-text" transition:fade={{duration: 600, delay: 300}}>🎉 your egg has hatched! 🎉</p>
             </div>
@@ -417,9 +428,11 @@
         <div class="ship-actions">
           <button class="back-btn" onclick={handleBack} disabled={isShipping}>Back</button>
           <button class="cancel-btn" onclick={handleClose} disabled={isShipping}>Cancel</button>
-          <button class="ship-confirm-btn" onclick={handleShipProject} disabled={isShipping}>
+          <button class="ship-confirm-btn" onclick={handleShipProject} disabled={isShipping || !canProceed()}>
             {#if isShipping}
               Shipping...
+            {:else if !canProceed()}
+              Complete Profile & Form
             {:else}
               Ship Project 💫
             {/if}
@@ -666,6 +679,11 @@
     justify-content: center;
     min-height: 400px;
     transition: opacity 1s ease-out;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
   }
 
   .creature-celebration.fade-out {
@@ -682,6 +700,13 @@
     height: auto;
     filter: drop-shadow(0 0 40px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 80px rgba(255, 255, 255, 0.4));
     animation: creature-glow 2s ease-in-out infinite alternate;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .celebration-text {
