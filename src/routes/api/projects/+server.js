@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { createProject, updateProject, deleteProject, verifyProjectOwnership } from '$lib/server/projects.js';
 import { sanitizeErrorMessage, checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
+import { getFirstAttachment, getAttachmentUrl } from '$lib/server/attachments.js';
 
 // GET - Get a single project by ID (used for refreshing project data)
 export async function GET({ url, locals, request, cookies }) {
@@ -41,6 +42,10 @@ export async function GET({ url, locals, request, cookies }) {
     const x = parseFloat(positionParts[0]) || 0;
     const y = parseFloat(positionParts[1]) || 0;
     
+    // Handle image attachment - get URL from first attachment if available
+    const imageAttachment = getFirstAttachment(record.fields.image);
+    const imageUrl = imageAttachment ? getAttachmentUrl(imageAttachment) : '';
+    
     const project = {
       id: record.id,
       name: record.fields.projectname || 'Untitled Project',
@@ -48,17 +53,23 @@ export async function GET({ url, locals, request, cookies }) {
       description: record.fields.description || '',
       shipURL: record.fields.shipURL || '',
       githubURL: record.fields.githubURL || '',
+      projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
+      image: imageUrl, // Store the attachment URL
       addn: record.fields.addn || '',
       event: 'new',
       egg: record.fields.egg || 'projects/sparkle_egg1.png',
       position: record.fields.position || '0,0',
       x: x,
       y: y,
-      status: 'active',
+      status: record.fields.status || 'active',
       hours: record.fields.hours || 0,
       totalHours: record.fields.totalHours || 0,
       hackatimeProjects: record.fields.hackatimeProjects || [],
-      created: record.fields.Created
+      created: record.fields.Created,
+      // Form fields for shipping
+      notMadeBy: record.fields.notMadeBy || '',
+      howToPlay: record.fields.howToPlay || '',
+      addnComments: record.fields.addnComments || ''
     };
 
     return json({ success: true, project });
@@ -154,12 +165,13 @@ export async function PUT({ request, locals, cookies }) {
     const allowedFields = ['projectname', 'description', 'shipURL', 'githubURL', 'position', 'egg', 'hackatimeProjects'];
     const safeUpdates = /** @type {any} */ ({});
     
-    // Copy only whitelisted fields
+    // Copy only whitelisted fields (excluding image - handled separately)
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
         safeUpdates[field] = updates[field];
       }
     }
+    
 
     // SECURITY: Server-side HackaTime hours calculation
     // Never trust client-provided hours - always calculate on server

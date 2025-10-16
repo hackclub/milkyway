@@ -12,6 +12,7 @@ let {
   onShowPromptPopup,
   onOpenRouletteSpin,
   onDeleteProject,
+  onShipProject,
   readOnly = false,
   selectedProjectId = null,
   onSelectProject = null,
@@ -515,7 +516,6 @@ function handleMouseUp() {
   {#each projectList as project, index}
 
     <ProjectEgg 
-      eggImg={project.egg} 
       bind:projInfo={projectList[index]} 
       x={project.x} 
       y={project.y}
@@ -525,6 +525,7 @@ function handleMouseUp() {
       onShowPromptPopup={onShowPromptPopup}
       onDelete={deleteProjectHandler}
       onOpenRouletteSpin={onOpenRouletteSpin}
+      onShipProject={onShipProject}
       user={user}
       isRoomEditing={isEditingRoom}
       readOnly={readOnly}

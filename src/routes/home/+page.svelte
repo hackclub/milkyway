@@ -9,6 +9,7 @@ import FaqPopup from '$lib/components/FaqPopup.svelte';
 import PromptPopup from '$lib/components/PromptPopup.svelte';
 import SpinWheel from '$lib/components/prompts/roulette/SpinWheel.svelte';
 import CreateProject from '$lib/components/CreateProject.svelte';
+import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 import Announcements from '$lib/components/Announcements.svelte';
 
 let { data } = $props();
@@ -28,6 +29,8 @@ let showRouletteSpinWheel = $state(false);
 let rouletteSpinProjectId = $state(/** @type {string | null} */ (null));
 let rouletteSpinProgress = $state(/** @type {any} */ (null));
 let isCreateOpen = $state(false);
+let showShipOverlay = $state(false);
+let shipProjectInfo = $state(/** @type {any} */ (null));
 
 
 // Calculate total hours and project count
@@ -89,6 +92,42 @@ async function handleRouletteClose() {
     }
   }
   showRouletteSpinWheel = false;
+}
+
+// Function to handle ship project
+function handleShipProject(projectInfo) {
+  shipProjectInfo = projectInfo;
+  showShipOverlay = true;
+}
+
+// Function to handle ship project completion
+async function handleShipProjectCompleted(projectData) {
+  console.log('Updating project with data:', projectData);
+  // Update the project in the list
+  const index = projectList.findIndex(/** @param {any} p */ (p) => p.id === projectData.id);
+  if (index !== -1) {
+    const updatedProject = { 
+      ...projectList[index], 
+      shipped: true, 
+      shippedDate: new Date().toISOString(),
+      egg: projectData.egg || projectList[index].egg,
+      status: projectData.status || projectList[index].status
+    };
+    console.log('Updating project at index', index, 'with egg:', updatedProject.egg);
+    projectList[index] = updatedProject;
+    // Force reactivity update
+    projectList = [...projectList];
+  } else {
+    console.log('Project not found in list:', projectData.id);
+  }
+  showShipOverlay = false;
+  shipProjectInfo = null;
+}
+
+// Function to close ship overlay
+function closeShipOverlay() {
+  showShipOverlay = false;
+  shipProjectInfo = null;
 }
 
 // Function to handle logout
@@ -225,6 +264,7 @@ onMount(() => {
     onShowPromptPopup={showPromptPopupHandler}
     onOpenRouletteSpin={openRouletteSpinHandler}
     onDeleteProject={() => {}}
+    onShipProject={handleShipProject}
   />
 </div>
 
@@ -241,6 +281,15 @@ onMount(() => {
 
 {#if isCreateOpen}
   <CreateProject onClose={() => { isCreateOpen = false }} bind:projectList={projectList} />
+{/if}
+
+{#if showShipOverlay}
+  <ShipProjectOverlay 
+    showPopup={showShipOverlay} 
+    onClose={closeShipOverlay}
+    projectInfo={shipProjectInfo}
+    onShip={handleShipProjectCompleted}
+  />
 {/if}
 
 </main>

@@ -3,7 +3,7 @@
   import Tooltip from '../Tooltip.svelte';
   import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
 
-  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, user, isRoomEditing = false, readOnly = false} = $props();
+  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, user, isRoomEditing = false, readOnly = false} = $props();
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
@@ -98,6 +98,37 @@
     }
   }
 
+  // Function to upload project image using Airtable's uploadAttachment API
+  async function uploadProjectImage(projectId, imageData) {
+    try {
+      const response = await fetch('/api/upload-project-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId,
+          imageData,
+          filename: `project-image-${Date.now()}.jpg`,
+          contentType: 'image/jpeg'
+        })
+      });
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.error('Failed to upload project image:', result.error);
+        return false;
+      }
+      
+      console.log('Image uploaded successfully:', result.attachment);
+      return true;
+    } catch (error) {
+      console.error('Error uploading project image:', error);
+      return false;
+    }
+  }
+
   // Start edit mode
   function startEdit() {
     originalValues = {
@@ -107,8 +138,8 @@
       githubURL: projInfo.githubURL,
       projectImage: projInfo.projectImage
     };
-    // Initialize project image from existing data
-    projectImage = projInfo.projectImage || '';
+    // Initialize project image from existing data (check both projectImage and image fields)
+    projectImage = projInfo.projectImage || projInfo.image || '';
     isEditing = true;
     // Fetch HackaTime projects when editing starts
     fetchHackatimeProjects();
@@ -136,23 +167,31 @@
     // Use the current hours count (already calculated)
     const calculatedHours = currentHackatimeHours;
     
+    /** @type {any} */
     const updates = {
       projectname: projInfo.name,
       description: projInfo.description,
       shipURL: projInfo.shipURL,
       githubURL: projInfo.githubURL,
-      projectImage: projInfo.projectImage,
       hackatimeProjects: selectedProjectsString,
       hackatimeHours: calculatedHours
     };
     
-    console.log('Saving HackaTime data:', {
+    console.log('Saving project data:', {
       selectedProjects: selectedProjectsString,
       calculatedHours: calculatedHours
     });
     
-    const success = await updateProject(projInfo.id, updates);
-    if (success) {
+    // Upload image separately if it has changed
+    let imageUploadSuccess = true;
+    if (projInfo.projectImage && projInfo.projectImage !== originalValues.projectImage) {
+      imageUploadSuccess = await uploadProjectImage(projInfo.id, projInfo.projectImage);
+    }
+    
+    // Update project data (only if image upload succeeded or wasn't needed)
+    const projectUpdateSuccess = await updateProject(projInfo.id, updates);
+    
+    if (projectUpdateSuccess && imageUploadSuccess) {
       // Update the local projInfo object with the saved values
       projInfo.hackatimeProjects = selectedProjectsString;
       projInfo.totalHours = calculatedHours;
@@ -163,6 +202,10 @@
       selectedHackatimeProjects = new Set();
       // Reset the restoration flag so next edit can restore from database
       hasRestoredProjects = false;
+    } else if (!imageUploadSuccess) {
+      alert('Failed to upload image. Please try again.');
+    } else if (!projectUpdateSuccess) {
+      alert('Failed to save project changes. Please try again.');
     }
   }
 
@@ -205,7 +248,7 @@
     const reader = new FileReader();
     reader.onload = function(e) {
       const base64String = e.target?.result;
-      if (base64String) {
+      if (base64String && typeof base64String === 'string') {
         projectImage = base64String;
         projInfo.projectImage = base64String;
       }
@@ -232,9 +275,45 @@
     console.log('Add art hours clicked for project:', projInfo.id);
   }
 
+  // Ship project validation
+  let shipProjectValidation = $derived(() => {
+    const missing = [];
+    
+    if (!projInfo.name || projInfo.name === 'untitled game!' || projInfo.name.trim() === '') {
+      missing.push('project name');
+    }
+    
+    if (!projInfo.description || projInfo.description.trim() === '') {
+      missing.push('game description');
+    }
+    
+    if (!projInfo.shipURL || projInfo.shipURL.trim() === '') {
+      missing.push('ship url');
+    }
+    
+    if (!projInfo.githubURL || projInfo.githubURL.trim() === '') {
+      missing.push('github url');
+    }
+    
+    if (!projInfo.totalHours || projInfo.totalHours <= 0) {
+      missing.push('hackatime hours');
+    }
+    
+    if (!projInfo.projectImage && !projInfo.image) {
+      missing.push('custom image');
+    }
+    
+    return {
+      canShip: missing.length === 0,
+      missingFields: missing
+    };
+  });
+
   function shipProject() {
-    // TODO: Implement ship project functionality
-    console.log('Ship project clicked for project:', projInfo.id);
+    const validation = shipProjectValidation();
+    if (validation.canShip && onShipProject) {
+      onShipProject(projInfo);
+    }
   }
 
   // Delete project function
@@ -449,7 +528,7 @@
 
 
 <div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''}" style:--x={x} style:--y={y} style:--z={Math.round(y)} onclick={(e) => e.stopPropagation()}>
-<img class="egg-img" src={eggImg} alt="Project egg" />
+<img class="egg-img" src={projInfo.egg} alt="Project egg" />
 
 <button 
   class="egg-svg" 
@@ -483,12 +562,15 @@
     {#if isEditing}
       <button class="project-avatar-btn" onclick={selectImage} disabled={isUploadingImage} title="Click to change project image">
         <img class="project-avatar" src={projectImage || "/pfp_placeholder.png"} alt="Project avatar" />
+        <div class="replace-img-overlay">
+          <span class="replace-img-text">✎ replace</span>
+        </div>
         {#if isUploadingImage}
           <div class="upload-overlay">Uploading...</div>
         {/if}
       </button>
     {:else}
-      <img class="project-avatar" src={projInfo.projectImage || "/pfp_placeholder.png"} alt="Project avatar" />
+      <img class="project-avatar" src={projInfo.projectImage || projInfo.image || "/pfp_placeholder.png"} alt="Project avatar" />
     {/if}
   </div>
 
@@ -638,9 +720,13 @@
         <Tooltip text="coming soon!">
           <button class="add-hours-btn disabled" onclick={addArtHours}>Create artlog</button>
         </Tooltip>
-        <Tooltip text="coming soon!">
-          <button class="ship-btn disabled" onclick={shipProject}>Ship project 💫</button>
-        </Tooltip>
+        {#if shipProjectValidation().canShip}
+          <button class="ship-btn" onclick={shipProject}>Ship project 💫</button>
+        {:else}
+          <Tooltip text="Fill in: {shipProjectValidation().missingFields.join(', ')} before you can ship!">
+            <button class="ship-btn disabled" onclick={shipProject}>Ship project 💫</button>
+          </Tooltip>
+        {/if}
       {/if}
     </div>
   {/if}
@@ -820,6 +906,36 @@
   opacity: 0.7;
 }
 
+.replace-img-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7em;
+  font-weight: bold;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.project-avatar-btn:hover .replace-img-overlay {
+  opacity: 1;
+}
+
+.replace-img-text {
+  /* font-size: 0.8em; */
+  font-weight: 500;
+  text-align: center;
+  
+}
+
 .upload-overlay {
   position: absolute;
   top: 0;
@@ -834,6 +950,7 @@
   font-size: 0.7em;
   font-weight: bold;
   border-radius: 8px;
+  z-index: 10;
 }
 
 .project-actions {
@@ -1053,9 +1170,9 @@ input:hover, textarea:hover {
   color: white;
 } 
 
-.ship-btn:hover {
-  background: #11172A;
-  border-color: #11172A;
+.ship-btn:hover:not(.disabled) {
+  background: #5a8bc4;
+  border-color: #5a8bc4;
 }
 
 /* Disabled button styles */
