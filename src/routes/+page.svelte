@@ -3,6 +3,7 @@
 
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 
 	import LinkButton from '$lib/components/LinkButton.svelte';
 	import ShortTextInput from '$lib/components/ShortTextInput.svelte';
@@ -33,6 +34,14 @@
 			introStage = 'black-screen';
 		} else {
 			introStage = 'complete';
+		}
+
+		// Parse referral parameter from URL
+		const urlParams = new URLSearchParams($page.url.search);
+		const referrerUsername = urlParams.get('from');
+		if (referrerUsername) {
+			// Store referrer in localStorage to persist through the signup flow
+			localStorage.setItem('milkyway_referrer', referrerUsername);
 		}
 	});
 
@@ -110,14 +119,22 @@
 
 	async function sendOTP() {
 		return new Promise((fulfil, reject) => {
+			// Get referrer from localStorage if available
+			const referrerUsername = localStorage.getItem('milkyway_referrer');
+			
 			fetch('/api/send-otp', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email })
+				body: JSON.stringify({ 
+					email,
+					referrer: referrerUsername // Include referrer in the request
+				})
 			})
 				.then((res) => res.json())
 				.then((data) => {
 					if (data.success) {
+						// Clear referrer from localStorage after successful OTP send
+						localStorage.removeItem('milkyway_referrer');
 						fulfil(data);
 						return;
 					}

@@ -8,7 +8,7 @@ import { isValidEmail, checkRateLimit, getClientIdentifier, sanitizeErrorMessage
 
 export async function POST({ request, cookies }) {
 
-  const { email } = await request.json();
+  const { email, referrer } = await request.json();
   
   // Input validation
   if (!email) return json({ error: 'Email required' }, { status: 400 });
@@ -24,7 +24,7 @@ export async function POST({ request, cookies }) {
   }
 
   try {
-    await createOTPRecord(email);
+    await createOTPRecord(email, referrer);
     return json({ success: true }); // success!!
 
   } catch (err) {

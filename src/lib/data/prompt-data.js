@@ -139,8 +139,8 @@ export function getCreatureImageFromEgg(/** @type {string} */ eggImagePath) {
     '/projects/new_egg2.png': '/projects/new_creature2.png',
     '/projects/sparkle_egg1.png': '/projects/sparkle_creature1.png',
     '/projects/sparkle_egg2.png': '/projects/sparkle_creature2.png',
-    '/projects/roulette_egg1.png': '/projects/new_creature1.png', // Temporary fallback until roulette creatures are ready
-    '/projects/roulette_egg2.png': '/projects/new_creature2.png'  // Temporary fallback until roulette creatures are ready
+    '/projects/roulette_egg1.png': '/projects/roulette_creature1.png', // Temporary fallback until roulette creatures are ready
+    '/projects/roulette_egg2.png': '/projects/roulette_creature2.png'  // Temporary fallback until roulette creatures are ready
   });
   
   // Also handle cases where the path might not start with '/projects/'
@@ -158,7 +158,9 @@ export function getCreatureShapeFromCreature(/** @type {string} */ creatureImage
     '/projects/new_creature1.png': '/projects/new_creature_shape.svg',
     '/projects/new_creature2.png': '/projects/new_creature_shape.svg',
     '/projects/sparkle_creature1.png': '/projects/sparkle_creature_shape.svg',
-    '/projects/sparkle_creature2.png': '/projects/sparkle_creature_shape.svg'
+    '/projects/sparkle_creature2.png': '/projects/sparkle_creature_shape.svg',
+    '/projects/roulette_creature1.png': '/projects/roulette_creature_shape.svg',
+    '/projects/roulette_creature2.png': '/projects/roulette_creature_shape.svg'
   });
   
   // Also handle cases where the path might not start with '/projects/'
