@@ -73,22 +73,25 @@ export async function POST({ request, cookies }) {
       validationErrors.push('GitHub URL is required');
     }
     
-    // Check hours requirement based on whether project has been shipped before
-    const shippedHours = projectData.hoursShipped || 0;
-    const currentHours = projectData.hackatimeHours || 0;
-    
-    if (currentHours < 5) {
-      // First time shipping - need at least 5 hours
-      validationErrors.push('At least 5 hackatime hours are required to ship');
-    } else if (shippedHours > 0 && currentHours < shippedHours + 5) {
-      // Re-shipping - need 5 more hours since last shipment
-      const hoursNeeded = shippedHours + 5;
-      const hoursMore = hoursNeeded - currentHours;
-      validationErrors.push(`Need ${Math.round(hoursNeeded * 100) / 100} total hours to re-ship (currently at ${Math.round(currentHours * 100) / 100}, need ${Math.round(hoursMore * 100) / 100} more)`);
-    }
+    // Hours validation will be moved to shipProject block
     
     if (!projectData.projectImage && !projectData.image) {
       validationErrors.push('Custom project image is required');
+    }
+    
+    // Check if this is a roulette project that needs wheel spinning
+    if (projectData.promptinfo === 'roulette') {
+      try {
+        const addnData = projectData.addn ? JSON.parse(projectData.addn) : {};
+        const rouletteStatus = addnData.rouletteStatus;
+        
+        if (rouletteStatus !== 'complete') {
+          validationErrors.push('All roulette wheels must be spun before shipping');
+        }
+      } catch (error) {
+        // If addn data is invalid, treat as incomplete roulette
+        validationErrors.push('All roulette wheels must be spun before shipping');
+      }
     }
 
     if (validationErrors.length > 0) {
@@ -170,6 +173,30 @@ export async function POST({ request, cookies }) {
           success: false, 
           error: { 
             message: `Please complete your profile before shipping. Missing: ${missingFields.join(', ')}. Go to your profile settings to fill these out.` 
+          } 
+        }, { status: 400 });
+      }
+
+      // Check hours requirement based on whether project has been shipped before
+      const shippedHours = projectData.hoursShipped || 0;
+      const currentHours = projectData.hackatimeHours || 0;
+      
+      console.log('Hours validation debug (shipProject only):', { shippedHours, currentHours, projectData });
+      
+      if (currentHours < 5) {
+        // First time shipping - need at least 5 hours
+        return json({ 
+          success: false, 
+          error: { message: 'At least 5 hackatime hours are required to ship' } 
+        }, { status: 400 });
+      } else if (shippedHours > 0 && currentHours < shippedHours + 5) {
+        // Re-shipping - need 5 more hours since last shipment
+        const hoursNeeded = shippedHours + 5;
+        const hoursMore = hoursNeeded - currentHours;
+        return json({ 
+          success: false, 
+          error: { 
+            message: `Need ${Math.round(hoursNeeded * 100) / 100} total hours to re-ship (currently at ${Math.round(currentHours * 100) / 100}, need ${Math.round(hoursMore * 100) / 100} more)` 
           } 
         }, { status: 400 });
       }

@@ -148,3 +148,21 @@ export function getCreatureImageFromEgg(/** @type {string} */ eggImagePath) {
   
   return eggToCreatureMap[normalizedPath] || '/projects/new_creature1.png'; // fallback
 }
+
+// Helper function to get the appropriate SVG shape based on the creature image
+export function getCreatureShapeFromCreature(/** @type {string} */ creatureImagePath) {
+  if (!creatureImagePath) return '/projects/egg_shape.svg'; // fallback
+  
+  // Map creature images to their corresponding SVG shapes
+  const creatureToShapeMap = /** @type {Record<string, string>} */ ({
+    '/projects/new_creature1.png': '/projects/new_creature_shape.svg',
+    '/projects/new_creature2.png': '/projects/new_creature_shape.svg',
+    '/projects/sparkle_creature1.png': '/projects/sparkle_creature_shape.svg',
+    '/projects/sparkle_creature2.png': '/projects/sparkle_creature_shape.svg'
+  });
+  
+  // Also handle cases where the path might not start with '/projects/'
+  const normalizedPath = creatureImagePath.startsWith('/projects/') ? creatureImagePath : `/projects/${creatureImagePath}`;
+  
+  return creatureToShapeMap[normalizedPath] || '/projects/egg_shape.svg'; // fallback
+}

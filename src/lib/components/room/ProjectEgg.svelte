@@ -2,6 +2,7 @@
   import { slide } from 'svelte/transition';
   import Tooltip from '../Tooltip.svelte';
   import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
+  import { getCreatureShapeFromCreature } from '$lib/data/prompt-data.js';
 
   let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, user, isRoomEditing = false, readOnly = false} = $props();
   
@@ -317,6 +318,21 @@
       missing.push('profile information');
     }
     
+    // Check if this is a roulette project that needs wheel spinning
+    if (projInfo.promptinfo === 'roulette') {
+      try {
+        const addnData = projInfo.addn ? JSON.parse(projInfo.addn) : {};
+        const rouletteStatus = addnData.rouletteStatus;
+        
+        if (rouletteStatus !== 'complete') {
+          missing.push('roulette wheels to be spun');
+        }
+      } catch (error) {
+        // If addn data is invalid, treat as incomplete roulette
+        missing.push('roulette wheels to be spun');
+      }
+    }
+    
     // Separate hours validation from other requirements
     const hasHoursIssue = (() => {
       // Handle shippedHours - it might be an array/object from Airtable
@@ -336,7 +352,14 @@
       
       const currentHours = projInfo.totalHours || 0;
       
-      console.log('Hours validation:', { currentHours, shippedHours, rawShippedHours: projInfo.hoursShipped });
+      console.log('Frontend hours validation:', { 
+        shippedHours, 
+        currentHours, 
+        hoursShippedRaw: projInfo.hoursShipped || 0,
+        totalHours: projInfo.totalHours,
+        hackatimeHours: projInfo.hackatimeHours,
+        projInfo 
+      });
       
       if (currentHours < 5) {
         return true; // First time shipping - need at least 5 hours
@@ -346,20 +369,11 @@
       return false;
     })();
 
-    const result = {
+    return {
       canShip: missing.length === 0 && !hasHoursIssue,
       missingFields: missing,
       hasHoursIssue: hasHoursIssue
     };
-
-    console.log('=== SHIP VALIDATION DEBUG ===');
-    console.log('Project hours:', { currentHours: projInfo.totalHours, shippedHours: projInfo.hoursShipped });
-    console.log('Missing fields:', missing);
-    console.log('Has hours issue:', hasHoursIssue);
-    console.log('Can ship:', result.canShip);
-    console.log('=============================');
-
-    return result;
   });
 
   function shipProject() {
@@ -588,7 +602,7 @@
   onmousedown={(e) => { if (isRoomEditing && onMouseDown) { e.stopPropagation(); onMouseDown(e); } }}
   aria-label="Toggle project details"
 >
-  <img src="/projects/egg_shape.svg" alt="Project egg shape" />
+  <img src={projInfo.status === 'submitted' ? getCreatureShapeFromCreature(projInfo.egg) : "/projects/egg_shape.svg"} alt="Project shape" />
 </button>
 
 {#if isIncompleteRoulette()}
@@ -817,10 +831,8 @@
               })()
             : `You need: ${validation.missingFields.join(', ')} before you can ship!`
           }
-          {@const debugInfo = `Button DEBUG: canShip=${validation.canShip}, hasHoursIssue=${validation.hasHoursIssue}, missingFields=${validation.missingFields.length}`}
-          {console.log('BUTTON RENDER:', debugInfo)}
           <Tooltip text={tooltipText}>
-            <button class="ship-btn disabled" disabled title={debugInfo}>Ship project 💫</button>
+            <button class="ship-btn disabled" disabled>Ship project 💫</button>
           </Tooltip>
         {/if}
       {/if}
