@@ -1,5 +1,6 @@
 import { base } from '$lib/server/db.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
+import { getFirstAttachment, getAttachmentUrl } from './attachments.js';
 
 /**
  * Get all projects for a specific user
@@ -19,22 +20,36 @@ export async function getUserProjectsByEmail(userEmail) {
       const x = parseFloat(positionParts[0]) || 0;
       const y = parseFloat(positionParts[1]) || 0;
       
+      // Handle image attachment - get URL from first attachment if available
+      const imageAttachment = getFirstAttachment(record.fields.image);
+      const imageUrl = imageAttachment ? getAttachmentUrl(imageAttachment) : '';
+      
       return {
         id: record.id,
+        projectid: record.fields.projectid || record.id, // Use projectid field or fallback to record ID
         name: record.fields.projectname || 'Untitled Project',
         promptinfo: record.fields.promptinfo || '',
         description: record.fields.description || '',
+        shipURL: record.fields.shipURL || '',
+        githubURL: record.fields.githubURL || '',
+        projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
+        image: imageUrl, // Store the attachment URL
         addn: record.fields.addn || '',
         event: 'new', // Default since you don't have this field
         egg: record.fields.egg || 'projects/sparkle_egg1.png',
         position: record.fields.position || '0,0',
         x: x,
         y: y,
-        status: 'active', // Default since you don't have this field
+        status: record.fields.status || 'active',
         hours: record.fields.hours || 0,
         totalHours: record.fields.totalHours || 0,
         hackatimeProjects: record.fields.hackatimeProjects || [],
-        created: record.fields.Created
+        created: record.fields.Created,
+        // Form fields for shipping
+        notMadeBy: record.fields.notMadeBy || '',
+        howToPlay: record.fields.howToPlay || '',
+        addnComments: record.fields.addnComments || '',
+        hoursShipped: record.fields.hoursShipped || 0
       };
     });
 
@@ -81,11 +96,18 @@ export async function createProject(userId, projectData) {
     const x = parseFloat(positionParts[0]) || 0;
     const y = parseFloat(positionParts[1]) || 0;
 
+    // Handle image attachment - get URL from first attachment if available
+    const imageAttachment = getFirstAttachment(record.fields.image);
+    const imageUrl = imageAttachment ? getAttachmentUrl(imageAttachment) : '';
+    
     return {
       id: record.id,
+      projectid: record.fields.projectid || record.id, // Use projectid field or fallback to record ID
       name: record.fields.projectname,
       description: record.fields.description || '', // Empty description for new projects
       promptinfo: record.fields.promptinfo,
+      projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
+      image: imageUrl, // Store the attachment URL
       addn: record.fields.addn || '',
       event: 'new', // Default since you don't have this field
       egg: record.fields.egg,
@@ -93,6 +115,7 @@ export async function createProject(userId, projectData) {
       x: x,
       y: y,
       status: 'active', // Default since you don't have this field
+      hoursShipped: record.fields.hoursShipped || 0,
       created: record.fields.Created,
       modified: record.fields.Modified
     };
@@ -118,10 +141,19 @@ export async function updateProject(projectId, updates) {
     const x = parseFloat(positionParts[0]) || 0;
     const y = parseFloat(positionParts[1]) || 0;
 
+    // Handle image attachment - get URL from first attachment if available
+    const imageAttachment = getFirstAttachment(record.fields.image);
+    const imageUrl = imageAttachment ? getAttachmentUrl(imageAttachment) : '';
+    
     return {
       id: record.id,
+      projectid: record.fields.projectid || record.id, // Use projectid field or fallback to record ID
       name: record.fields.projectname,
       description: record.fields.description || '',
+      shipURL: record.fields.shipURL || '',
+      githubURL: record.fields.githubURL || '',
+      projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
+      image: imageUrl, // Store the attachment URL
       promptinfo: record.fields.promptinfo,
       addn: record.fields.addn || '',
       event: 'new', // Default since you don't have this field
@@ -130,6 +162,7 @@ export async function updateProject(projectId, updates) {
       x: x,
       y: y,
       status: 'active', // Default since you don't have this field
+      hoursShipped: record.fields.hoursShipped || 0,
       created: record.fields.Created,
       modified: record.fields.Modified
     };

@@ -2,14 +2,20 @@
   import { slide } from 'svelte/transition';
   import Tooltip from '../Tooltip.svelte';
   import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
+  import { getCreatureShapeFromCreature } from '$lib/data/prompt-data.js';
 
-  let { eggImg, projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, user, isRoomEditing = false, readOnly = false} = $props();
+  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, user, isRoomEditing = false, readOnly = false} = $props();
+  
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
   // Store original values for discard functionality
-  /** @type {{name?: string, description?: string}} */
+  /** @type {{name?: string, description?: string, shipURL?: string, githubURL?: string, projectImage?: string}} */
   let originalValues = $state({});
+  
+  // Image upload state
+  let projectImage = $state('');
+  let isUploadingImage = $state(false);
 
   // HackaTime projects state
   let hackatimeProjects = $state([]);
@@ -26,6 +32,10 @@
 
   // HackaTime setup popup state
   let showHackatimeSetup = $state(false);
+  
+  // Shipping confirmation state - check if project status is "submitted"
+  let isProjectShipped = $derived(projInfo.status === 'submitted');
+  
   
   // Check if project is incomplete roulette
   let isIncompleteRoulette = $derived(() => {
@@ -94,12 +104,48 @@
     }
   }
 
+  // Function to upload project image using Airtable's uploadAttachment API
+  async function uploadProjectImage(projectId, imageData) {
+    try {
+      const response = await fetch('/api/upload-project-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId,
+          imageData,
+          filename: `project-image-${Date.now()}.jpg`,
+          contentType: 'image/jpeg'
+        })
+      });
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.error('Failed to upload project image:', result.error);
+        return false;
+      }
+      
+      console.log('Image uploaded successfully:', result.attachment);
+      return true;
+    } catch (error) {
+      console.error('Error uploading project image:', error);
+      return false;
+    }
+  }
+
   // Start edit mode
   function startEdit() {
     originalValues = {
       name: projInfo.name,
-      description: projInfo.description
+      description: projInfo.description,
+      shipURL: projInfo.shipURL,
+      githubURL: projInfo.githubURL,
+      projectImage: projInfo.projectImage
     };
+    // Initialize project image from existing data (check both projectImage and image fields)
+    projectImage = projInfo.projectImage || projInfo.image || '';
     isEditing = true;
     // Fetch HackaTime projects when editing starts
     fetchHackatimeProjects();
@@ -127,20 +173,31 @@
     // Use the current hours count (already calculated)
     const calculatedHours = currentHackatimeHours;
     
+    /** @type {any} */
     const updates = {
       projectname: projInfo.name,
       description: projInfo.description,
+      shipURL: projInfo.shipURL,
+      githubURL: projInfo.githubURL,
       hackatimeProjects: selectedProjectsString,
       hackatimeHours: calculatedHours
     };
     
-    console.log('Saving HackaTime data:', {
+    console.log('Saving project data:', {
       selectedProjects: selectedProjectsString,
       calculatedHours: calculatedHours
     });
     
-    const success = await updateProject(projInfo.id, updates);
-    if (success) {
+    // Upload image separately if it has changed
+    let imageUploadSuccess = true;
+    if (projInfo.projectImage && projInfo.projectImage !== originalValues.projectImage) {
+      imageUploadSuccess = await uploadProjectImage(projInfo.id, projInfo.projectImage);
+    }
+    
+    // Update project data (only if image upload succeeded or wasn't needed)
+    const projectUpdateSuccess = await updateProject(projInfo.id, updates);
+    
+    if (projectUpdateSuccess && imageUploadSuccess) {
       // Update the local projInfo object with the saved values
       projInfo.hackatimeProjects = selectedProjectsString;
       projInfo.totalHours = calculatedHours;
@@ -151,6 +208,10 @@
       selectedHackatimeProjects = new Set();
       // Reset the restoration flag so next edit can restore from database
       hasRestoredProjects = false;
+    } else if (!imageUploadSuccess) {
+      alert('Failed to upload image. Please try again.');
+    } else if (!projectUpdateSuccess) {
+      alert('Failed to save project changes. Please try again.');
     }
   }
 
@@ -158,6 +219,10 @@
   function discardChanges() {
     projInfo.name = originalValues.name || '';
     projInfo.description = originalValues.description || '';
+    projInfo.shipURL = originalValues.shipURL || '';
+    projInfo.githubURL = originalValues.githubURL || '';
+    projInfo.projectImage = originalValues.projectImage || '';
+    projectImage = originalValues.projectImage || '';
     isEditing = false;
     originalValues = {};
     // Clear the selected projects when discarding
@@ -166,16 +231,176 @@
     hasRestoredProjects = false;
   }
 
-  // Add art hours function (placeholder)
-  function addArtHours() {
-    // TODO: Implement add art hours functionality
-    console.log('Add art hours clicked for project:', projInfo.id);
+  // Handle image file selection
+  function handleImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image file is too large. Please select an image smaller than 5MB.');
+      return;
+    }
+
+    isUploadingImage = true;
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const base64String = e.target?.result;
+      if (base64String && typeof base64String === 'string') {
+        projectImage = base64String;
+        projInfo.projectImage = base64String;
+      }
+      isUploadingImage = false;
+    };
+    reader.onerror = function() {
+      alert('Error reading image file');
+      isUploadingImage = false;
+    };
+    reader.readAsDataURL(file);
   }
 
-  function shipProject() {
-    // TODO: Implement ship project functionality
-    console.log('Ship project clicked for project:', projInfo.id);
+  // Trigger file input click
+  function selectImage() {
+    const fileInput = document.getElementById('project-image-input');
+    if (fileInput) {
+      fileInput.click();
+    }
   }
+
+  // Add art hours function (placeholder)
+  function addArtHours() {
+    // Placeholder for future art hours functionality
+  }
+
+  // Ship project validation
+  let shipProjectValidation = $derived(() => {
+    const missing = [];
+    
+    if (!projInfo.name || projInfo.name === 'untitled game!' || projInfo.name.trim() === '') {
+      missing.push('project name');
+    }
+    
+    if (!projInfo.description || projInfo.description.trim() === '') {
+      missing.push('game description');
+    }
+    
+    if (!projInfo.shipURL || projInfo.shipURL.trim() === '') {
+      missing.push('ship url');
+    }
+    
+    if (!projInfo.githubURL || projInfo.githubURL.trim() === '') {
+      missing.push('github url');
+    }
+    
+    // Hours validation is handled separately in hasHoursIssue check below
+    
+    if (!projInfo.projectImage && !projInfo.image) {
+      missing.push('custom image');
+    }
+    
+    // Check user profile requirements
+    const hasGitHubUsername = user?.githubUsername && user.githubUsername.trim() !== '';
+    
+    // Check new required profile fields
+    const hasHowDidYouHear = user?.howDidYouHear && user.howDidYouHear.trim() !== '';
+    const hasDoingWell = user?.doingWell && user.doingWell.trim() !== '';
+    const hasImprove = user?.improve && user.improve.trim() !== '';
+    
+    if (!hasGitHubUsername || !hasHowDidYouHear || !hasDoingWell || !hasImprove) {
+      missing.push('profile information');
+    }
+    
+    // Check if this is a roulette project that needs wheel spinning
+    if (projInfo.promptinfo === 'roulette') {
+      try {
+        const addnData = projInfo.addn ? JSON.parse(projInfo.addn) : {};
+        const rouletteStatus = addnData.rouletteStatus;
+        
+        if (rouletteStatus !== 'complete') {
+          missing.push('roulette wheels to be spun');
+        }
+      } catch (error) {
+        // If addn data is invalid, treat as incomplete roulette
+        missing.push('roulette wheels to be spun');
+      }
+    }
+    
+    // Separate hours validation from other requirements
+    const hasHoursIssue = (() => {
+      // Handle shippedHours - it might be an array/object from Airtable
+      // Take the highest value since people can ship multiple times
+      let shippedHours = 0;
+      if (projInfo.hoursShipped) {
+        if (typeof projInfo.hoursShipped === 'number') {
+          shippedHours = projInfo.hoursShipped;
+        } else if (Array.isArray(projInfo.hoursShipped)) {
+          shippedHours = Math.max(...projInfo.hoursShipped) || 0;
+        } else if (projInfo.hoursShipped && typeof projInfo.hoursShipped === 'object') {
+          // Handle object like {0: 26.9, 1: 30.5} - take the highest value
+          const values = Object.values(projInfo.hoursShipped);
+          shippedHours = Math.max(...values) || 0;
+        }
+      }
+      
+      const currentHours = projInfo.totalHours || 0;
+      
+      console.log('Frontend hours validation:', { 
+        shippedHours, 
+        currentHours, 
+        hoursShippedRaw: projInfo.hoursShipped || 0,
+        totalHours: projInfo.totalHours,
+        hackatimeHours: projInfo.hackatimeHours,
+        projInfo 
+      });
+      
+      if (currentHours < 5) {
+        return true; // First time shipping - need at least 5 hours
+      } else if (shippedHours > 0 && currentHours < shippedHours + 5) {
+        return true; // Re-shipping - need 5 more hours since last shipment
+      }
+      return false;
+    })();
+
+    return {
+      canShip: missing.length === 0 && !hasHoursIssue,
+      missingFields: missing,
+      hasHoursIssue: hasHoursIssue
+    };
+  });
+
+  function shipProject() {
+    const validation = shipProjectValidation();
+    if (validation.canShip && onShipProject) {
+      onShipProject(projInfo);
+    }
+  }
+
+
+  // Function to format time ago
+  function formatTimeAgo(dateString) {
+    const now = new Date();
+    const shipDate = new Date(dateString);
+    const diffMs = now - shipDate;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else {
+      return 'just now';
+    }
+  }
+
 
   // Delete project function
   async function deleteProject() {
@@ -262,17 +487,6 @@
 
       const result = await response.json();
       
-      console.log('HackaTime API response status:', response.status);
-      console.log('HackaTime API response result:', result);
-      
-      console.log('HackaTime API response:', {
-        success: result.success,
-        hasData: !!result.data,
-        dataKeys: result.data ? Object.keys(result.data) : 'no data',
-        error: result.error,
-        userNotFound: result.userNotFound,
-        fullResult: result
-      });
       
       // Check for 404 status or userNotFound flag
       if (response.status === 404 || result.userNotFound === true) {
@@ -297,17 +511,9 @@
             hasRestoredProjects = true;
           }
         } else {
-          console.log('No projects array found in data:', result.data);
           hackatimeProjects = [];
         }
       } else {
-        console.error('HackaTime API error details:', {
-          success: result.success,
-          error: result.error,
-          data: result.data,
-          response: result,
-          userNotFound: result.userNotFound
-        });
         
         // Check if it's a "User not found" error using the new flag
         if (result.userNotFound === true) {
@@ -317,7 +523,6 @@
         hackatimeProjects = [];
       }
     } catch (error) {
-      console.error('Error fetching HackaTime projects:', error);
       
       // Check if it's a "User not found" error in the catch block too
       if (error instanceof Error && error.message && error.message.includes('HTTP error! status: 404') && 
@@ -388,8 +593,8 @@
 </script>
 
 
-<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''}" style:--x={x} style:--y={y} style:--z={Math.round(y)} onclick={(e) => e.stopPropagation()}>
-<img class="egg-img" src={eggImg} alt="Project egg" />
+<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''} {projInfo.status === 'submitted' ? 'hatched' : ''}" style:--x={x} style:--y={y} style:--z={Math.round(y)} onclick={(e) => e.stopPropagation()}>
+<img class="egg-img" src={projInfo.egg} alt="Project egg" />
 
 <button 
   class="egg-svg" 
@@ -397,7 +602,7 @@
   onmousedown={(e) => { if (isRoomEditing && onMouseDown) { e.stopPropagation(); onMouseDown(e); } }}
   aria-label="Toggle project details"
 >
-  <img src="/projects/egg_shape.svg" alt="Project egg shape" />
+  <img src={projInfo.status === 'submitted' ? getCreatureShapeFromCreature(projInfo.egg) : "/projects/egg_shape.svg"} alt="Project shape" />
 </button>
 
 {#if isIncompleteRoulette()}
@@ -420,11 +625,44 @@
         <div class="project-name-display">{projInfo.name || 'Untitled Project'}</div>
       {/if}
     </div>
-    <img class="project-avatar" src="/pfp_placeholder.png" alt="Project avatar" />
+    {#if isEditing}
+      <button class="project-avatar-btn" onclick={selectImage} disabled={isUploadingImage} title="Click to change project image">
+        <img class="project-avatar" src={projectImage || "/pfp_placeholder.png"} alt="Project avatar" />
+        <div class="replace-img-overlay">
+          <span class="replace-img-text">✎ replace</span>
+        </div>
+        {#if isUploadingImage}
+          <div class="upload-overlay">Uploading...</div>
+        {/if}
+      </button>
+    {:else}
+      <img class="project-avatar" src={projInfo.projectImage || projInfo.image || "/pfp_placeholder.png"} alt="Project avatar" />
+    {/if}
   </div>
+
+  <!-- Hidden file input for image upload -->
+  <input 
+    id="project-image-input" 
+    type="file" 
+    accept="image/*" 
+    onchange={handleImageSelect}
+    style="display: none;"
+  />
 
   {#if isEditing}
     <textarea class="project-desc" bind:value={projInfo.description} placeholder="what's your game about?"></textarea>
+    
+    <!-- URL Fields -->
+    <div class="url-fields">
+      <div class="url-field-group">
+        <label class="url-label">ship url</label>
+        <input class="url-input" bind:value={projInfo.shipURL} placeholder="ship url - eg. itch.io link" type="url" />
+      </div>
+      <div class="url-field-group">
+        <label class="url-label">github url</label>
+        <input class="url-input" bind:value={projInfo.githubURL} placeholder="github url for your source code" type="url" />
+      </div>
+    </div>
     
     <!-- HackaTime Projects Section -->
     <div class="hackatime-section">
@@ -503,6 +741,22 @@
       {/if}
     {:else}
       <p class="project-desc-display">{projInfo.description || 'no description yet... change this!'}</p>
+      
+      <!-- Display URLs if they exist -->
+      <!-- {#if projInfo.shipURL || projInfo.githubURL}
+        <div class="project-urls">
+          {#if projInfo.shipURL}
+            <a href={projInfo.shipURL} target="_blank" rel="noopener noreferrer" class="project-url-link">
+              🚀 Ship Project
+            </a>
+          {/if}
+          {#if projInfo.githubURL}
+            <a href={projInfo.githubURL} target="_blank" rel="noopener noreferrer" class="project-url-link">
+              📁 GitHub
+            </a>
+          {/if}
+        </div>
+      {/if} -->
     {/if}
     
     <!-- HackaTime warning when no projects are associated with this project (only show if not read-only) -->
@@ -510,6 +764,21 @@
       <div class="hackatime-warning">
         <span class="warning-icon">⚠️</span>
         <span class="warning-text">no hackatime projects associated!</span>
+      </div>
+    {/if}
+
+    <!-- Shipping confirmation (always visible if shipped) -->
+    {#if isProjectShipped}
+      <div class="shipping-confirmation">
+        <span class="confirmation-icon">🚀</span>
+        <div class="confirmation-content">
+          <div class="confirmation-title">project shipped!</div>
+          <div class="confirmation-details">
+            you shipped your project at {projInfo.hoursShipped || projInfo.totalHours || 0}h logged.
+            <br>
+            <span class="review-status">your project is under review!</span>
+          </div>
+        </div>
       </div>
     {/if}
   {/if}
@@ -532,9 +801,40 @@
         <Tooltip text="coming soon!">
           <button class="add-hours-btn disabled" onclick={addArtHours}>Create artlog</button>
         </Tooltip>
-        <Tooltip text="coming soon!">
-          <button class="ship-btn disabled" onclick={shipProject}>Ship project 💫</button>
-        </Tooltip>
+        {@const validation = shipProjectValidation()}
+        {#if validation.canShip}
+          <button class="ship-btn" onclick={shipProject}>Ship project 💫</button>
+        {:else}
+          {@const tooltipText = validation.hasHoursIssue 
+            ? (() => {
+                // Handle shippedHours - same logic as validation, take highest value
+                let shippedHours = 0;
+                if (projInfo.hoursShipped) {
+                  if (typeof projInfo.hoursShipped === 'number') {
+                    shippedHours = projInfo.hoursShipped;
+                  } else if (Array.isArray(projInfo.hoursShipped)) {
+                    shippedHours = Math.max(...projInfo.hoursShipped) || 0;
+                  } else if (projInfo.hoursShipped && typeof projInfo.hoursShipped === 'object') {
+                    const values = Object.values(projInfo.hoursShipped);
+                    shippedHours = Math.max(...values) || 0;
+                  }
+                }
+                
+                const currentHours = projInfo.totalHours || 0;
+                if (currentHours < 5) {
+                  return 'at least 5 hackatime hours';
+                } else {
+                  const hoursNeeded = shippedHours + 5;
+                  const hoursMore = hoursNeeded - currentHours;
+                  return `${Math.round(hoursMore * 100) / 100} more hours (need ${Math.round(hoursNeeded * 100) / 100} total to re-ship)`;
+                }
+              })()
+            : `You need: ${validation.missingFields.join(', ')} before you can ship!`
+          }
+          <Tooltip text={tooltipText}>
+            <button class="ship-btn disabled" disabled>Ship project 💫</button>
+          </Tooltip>
+        {/if}
       {/if}
     </div>
   {/if}
@@ -627,7 +927,11 @@
 
 .project-egg:has(.egg-svg:hover) .egg-img, .project-egg.selected .egg-img {
   filter: drop-shadow(-1.5px -1.5px 0 var(--orange)) drop-shadow(1.5px -1.5px 0 var(--orange)) drop-shadow(-1.5px 1.5px 0 var(--orange)) drop-shadow(1.5px 1.5px 0 var(--orange));
+}
 
+/* Hatched creature styling - subtle glow to show it's special */
+.project-egg.hatched .egg-img {
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
 }
 
 .project-info {
@@ -693,6 +997,74 @@
   flex-shrink: 0;
 }
 
+.project-avatar-btn {
+  position: relative;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.project-avatar-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.project-avatar-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.replace-img-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7em;
+  font-weight: bold;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.project-avatar-btn:hover .replace-img-overlay {
+  opacity: 1;
+}
+
+.replace-img-text {
+  /* font-size: 0.8em; */
+  font-weight: 500;
+  text-align: center;
+  
+}
+
+.upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7em;
+  font-weight: bold;
+  border-radius: 8px;
+  z-index: 10;
+}
+
 .project-actions {
   display: flex;
   gap: 8px;
@@ -750,6 +1122,58 @@ input:hover, textarea:hover {
   margin-bottom: 12px;
 }
 
+/* URL Fields */
+.url-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.url-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.url-label {
+  font-size: 0.7em;
+  color: #666;
+  font-weight: normal;
+  margin: 0;
+  padding: 0;
+  opacity: 0.7;
+  text-transform: lowercase;
+}
+
+.url-input {
+  font-size: 1em;
+  line-height: 1.4;
+  color: #333;
+  min-height: 40px;
+  max-height: 120px;
+  background-color: transparent;
+  outline: none;
+  border: none;
+  padding: 0;
+  border-bottom: 4px solid transparent;
+  font-family: inherit;
+  font-weight: normal;
+  transition: border-bottom 0.2s;
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+}
+
+.url-input:hover {
+  border-bottom: 4px solid var(--orange);
+}
+
+.url-input:focus {
+  border-bottom: 4px solid var(--orange);
+  outline: none;
+}
+
 .project-name-display {
   font-size: 1.2em;
   margin: 0 0 4px 0;
@@ -763,6 +1187,7 @@ input:hover, textarea:hover {
   color: #333;
   min-height: 40px;
 }
+
 
 
 /* Button styles */
@@ -829,9 +1254,9 @@ input:hover, textarea:hover {
   color: white;
 } 
 
-.ship-btn:hover {
-  background: #11172A;
-  border-color: #11172A;
+.ship-btn:hover:not(.disabled) {
+  background: #5a8bc4;
+  border-color: #5a8bc4;
 }
 
 /* Disabled button styles */
@@ -961,6 +1386,50 @@ input:hover, textarea:hover {
   border: 1px solid rgba(255, 193, 7, 0.3);
   border-radius: 4px;
   font-size: 0.8em;
+}
+
+/* Shipping Confirmation */
+.shipping-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.1));
+  border: 2px solid rgba(34, 197, 94, 0.4);
+  border-radius: 8px;
+  font-size: 0.85em;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
+}
+
+.confirmation-icon {
+  font-size: 1.2em;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.confirmation-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.confirmation-title {
+  font-weight: bold;
+  color: #059669;
+  font-size: 0.9em;
+}
+
+.confirmation-details {
+  color: #047857;
+  font-size: 0.8em;
+  line-height: 1.3;
+}
+
+.review-status {
+  font-weight: 600;
+  color: #065f46;
 }
 
 .warning-icon {

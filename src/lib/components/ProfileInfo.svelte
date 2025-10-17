@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
 import Tooltip from './Tooltip.svelte';
+import ProfileSettingsPopup from './ProfileSettingsPopup.svelte';
 
 let {
   user,
@@ -8,18 +9,66 @@ let {
   coins,
   stellarships,
   paintchips,
-  onLogout
+  onLogout,
+  onUserUpdate = () => {} // Callback to notify parent when user data changes
 } = $props();
 
 let showLogoutButton = $state(false);
+let showSettingsButton = $state(false);
+let showSettingsPopup = $state(false);
+
+// Function to get missing profile information
+function getMissingProfileInfo(user: any) {
+  if (!user) return [];
+  
+  const missing = [];
+  
+  if (!user?.githubUsername || !user.githubUsername.trim()) {
+    missing.push('GitHub username');
+  }
+  
+  
+  
+  // Check new required profile fields
+  if (!user?.howDidYouHear || !user.howDidYouHear.trim()) {
+    missing.push('How did you hear about this?');
+  }
+  
+  if (!user?.doingWell || !user.doingWell.trim()) {
+    missing.push('What are we doing well?');
+  }
+  
+  if (!user?.improve || !user.improve.trim()) {
+    missing.push('How can we improve?');
+  }
+  
+  return missing;
+}
+
+// Function to get tooltip text for missing information
+function getProfileWarningTooltip(user: any) {
+  if (!user) return '';
+  
+  const missing = getMissingProfileInfo(user);
+  
+  if (missing.length === 0) {
+    return '';
+  }
+  
+  if (missing.length === 1) {
+    return `Missing: ${missing[0]}`;
+  }
+  
+  return `Missing: ${missing.join(', ')}`;
+}
 
 </script>
 
 <div class="zlayer profile-info" 
      role="button"
      tabindex="0"
-     onmouseenter={() => showLogoutButton = true} 
-     onmouseleave={() => showLogoutButton = false}>
+     onmouseenter={() => { showLogoutButton = true; showSettingsButton = true; }} 
+     onmouseleave={() => { showLogoutButton = false; showSettingsButton = false; }}>
   <img src="https://assets.hackclub.com/flag-orpheus-left.svg" style="width: 100px; position: absolute; top: 5px; left: 0;" alt="Hack Club flag"/>
 
   <div class="profile-box">
@@ -27,7 +76,16 @@ let showLogoutButton = $state(false);
 
     <div class="profile-text">
       <p class="hourinfo">{Number(totalHours).toFixed(2)} hours · {projectCount} projects</p>
-      <p class="username">{user.username}</p>
+      <div class="username-container">
+        <p class="username">{user?.username || 'Loading...'}</p>
+        {#if user && getMissingProfileInfo(user).length > 0}
+          <Tooltip text={getProfileWarningTooltip(user)}>
+            <div class="profile-badge">
+              !
+            </div>
+          </Tooltip>
+        {/if}
+      </div>
       <div class="coins-info">
         <p>{coins || 0}</p>
         <Tooltip text="earn coins by submitting projects. use them to buy items in the shop!">
@@ -46,11 +104,31 @@ let showLogoutButton = $state(false);
       </div>
     </div>
 
+    <button class="settings-button" onclick={() => showSettingsPopup = true} class:visible={showSettingsButton}>
+      profile settings
+      {#if user && getMissingProfileInfo(user).length > 0}
+
+          <div class="settings-badge">
+            !
+          </div>
+
+      {/if}
+    </button>
+    
     <button class="logout-button" onclick={onLogout} class:visible={showLogoutButton}>
       log out
     </button>
   </div>
 </div>
+
+{#if user}
+  <ProfileSettingsPopup 
+    showPopup={showSettingsPopup} 
+    onClose={() => showSettingsPopup = false}
+    {user}
+    {onUserUpdate}
+  />
+{/if}
 
 <style>
 .zlayer {
@@ -91,8 +169,60 @@ let showLogoutButton = $state(false);
   transition: height 0.2s ease;
 }
 
+.username-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-badge {
+  background: #ff6b6b;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  animation: pulse-badge 2s infinite;
+  cursor: help;
+  border: 1px solid white;
+}
+
+.settings-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ff6b6b;
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  animation: pulse-badge 2s infinite;
+  cursor: help;
+  border: 1px solid white;
+}
+
+@keyframes pulse-badge {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
 .profile-info:hover .profile-box {
-  height: 8em;
+  height: 10.5em;
 }
 
 .profile-box > img {
@@ -139,6 +269,35 @@ let showLogoutButton = $state(false);
 }
 
 .logout-button:hover {
+  background-color: white;
+  color: black;
+}
+
+.settings-button {
+  font-family: inherit;
+  font-size: inherit;
+  position: absolute;
+  bottom: 48px;
+  left: 8px;
+  right: 8px;
+  background-color: #F7C881;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s;
+  z-index: 20;
+  text-align: center;
+  opacity: 0;
+}
+
+.settings-button.visible {
+  opacity: 1;
+}
+
+.settings-button:hover {
   background-color: white;
   color: black;
 }

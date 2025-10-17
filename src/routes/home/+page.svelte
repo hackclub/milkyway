@@ -9,6 +9,7 @@ import FaqPopup from '$lib/components/FaqPopup.svelte';
 import PromptPopup from '$lib/components/PromptPopup.svelte';
 import SpinWheel from '$lib/components/prompts/roulette/SpinWheel.svelte';
 import CreateProject from '$lib/components/CreateProject.svelte';
+import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 import Announcements from '$lib/components/Announcements.svelte';
 
 let { data } = $props();
@@ -20,6 +21,7 @@ let coins = $state(data.coins || 0);
 let stellarships = $state(data.stellarships || 0);
 let paintchips = $state(data.paintchips || 0);
 let showOnboarding = $state(!data.hasOnboarded);
+let user = $state(data.user); // Create separate state for user data
 let showFaqPopup = $state(false);
 let showPromptPopup = $state(false);
 let currentPromptInfo = $state('');
@@ -28,6 +30,8 @@ let showRouletteSpinWheel = $state(false);
 let rouletteSpinProjectId = $state(/** @type {string | null} */ (null));
 let rouletteSpinProgress = $state(/** @type {any} */ (null));
 let isCreateOpen = $state(false);
+let showShipOverlay = $state(false);
+let shipProjectInfo = $state(/** @type {any} */ (null));
 
 
 // Calculate total hours and project count
@@ -91,6 +95,42 @@ async function handleRouletteClose() {
   showRouletteSpinWheel = false;
 }
 
+// Function to handle ship project
+function handleShipProject(projectInfo) {
+  shipProjectInfo = projectInfo;
+  showShipOverlay = true;
+}
+
+// Function to handle ship project completion
+async function handleShipProjectCompleted(projectData) {
+  console.log('Updating project with data:', projectData);
+  // Update the project in the list
+  const index = projectList.findIndex(/** @param {any} p */ (p) => p.id === projectData.id);
+  if (index !== -1) {
+    const updatedProject = { 
+      ...projectList[index], 
+      shipped: true, 
+      shippedDate: new Date().toISOString(),
+      egg: projectData.egg || projectList[index].egg,
+      status: projectData.status || projectList[index].status
+    };
+    console.log('Updating project at index', index, 'with egg:', updatedProject.egg);
+    projectList[index] = updatedProject;
+    // Force reactivity update
+    projectList = [...projectList];
+  } else {
+    console.log('Project not found in list:', projectData.id);
+  }
+  showShipOverlay = false;
+  shipProjectInfo = null;
+}
+
+// Function to close ship overlay
+function closeShipOverlay() {
+  showShipOverlay = false;
+  shipProjectInfo = null;
+}
+
 // Function to handle logout
 async function handleLogout() {
   try {
@@ -123,6 +163,22 @@ async function handleAnnouncementRewards() {
   }
 }
 
+// Function to refresh user data when profile is updated
+async function handleUserUpdate() {
+  try {
+    const response = await fetch('/api/get-user-profile');
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success) {
+        // Update the user state
+        user = result.user;
+      }
+    }
+  } catch (error) {
+    console.error('Error refreshing user data:', error);
+  }
+}
+
 // Auto-update Hackatime hours in the background after page load
 async function autoUpdateHackatimeHours() {
   try {
@@ -143,16 +199,13 @@ async function autoUpdateHackatimeHours() {
           const userData = await projectsResponse.json();
           if (userData.success && userData.projects) {
             projectList = userData.projects;
-            console.log(`Auto-updated ${result.updatedCount} project(s) with fresh Hackatime hours`);
           }
         }
       } else if (result.skipped) {
-        console.log('Hackatime auto-update skipped:', result.message);
       }
     }
   } catch (error) {
     // Silently fail - this is a background operation
-    console.debug('Hackatime auto-update error (non-critical):', error);
   }
 }
 
@@ -175,7 +228,7 @@ onMount(() => {
 
 
 {#if showOnboarding}
-  <OnboardingOverlay onClose={() => { showOnboarding = false }} user={data.user}>
+  <OnboardingOverlay onClose={() => { showOnboarding = false }} {user}>
   </OnboardingOverlay>
 {/if}
 
@@ -195,13 +248,14 @@ onMount(() => {
 
 <!-- Profile Info -->
 <ProfileInfo 
-  user={data.user}
+  {user}
   {totalHours}
   {projectCount}
   {coins}
   {stellarships}
   {paintchips}
   onLogout={handleLogout}
+  onUserUpdate={handleUserUpdate}
 />
 
 
@@ -221,10 +275,11 @@ onMount(() => {
     bind:projectList={projectList}
     bind:furnitureList={furnitureList}
     bind:isCreateOpen={isCreateOpen}
-    user={data.user}
+    {user}
     onShowPromptPopup={showPromptPopupHandler}
     onOpenRouletteSpin={openRouletteSpinHandler}
     onDeleteProject={() => {}}
+    onShipProject={handleShipProject}
   />
 </div>
 
@@ -241,6 +296,16 @@ onMount(() => {
 
 {#if isCreateOpen}
   <CreateProject onClose={() => { isCreateOpen = false }} bind:projectList={projectList} />
+{/if}
+
+{#if showShipOverlay}
+  <ShipProjectOverlay 
+    showPopup={showShipOverlay} 
+    onClose={closeShipOverlay}
+    projectInfo={shipProjectInfo}
+    onShip={handleShipProjectCompleted}
+    {user}
+  />
 {/if}
 
 </main>

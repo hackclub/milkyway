@@ -1,93 +1,31 @@
 import { json } from '@sveltejs/kit';
-import { base } from '$lib/server/db.js';
-import { getUserProjectsByEmail } from '$lib/server/projects.js';
-import { getUserFurnitureByEmail } from '$lib/server/furniture.js';
-import { escapeAirtableFormula } from '$lib/server/security.js';
+import { getUserInfoBySessionId, sanitizeUserForFrontend } from '$lib/server/auth.js';
 
-export async function GET({ url, locals }) {
+export async function GET({ cookies }) {
   try {
-    const username = url.searchParams.get('username');
-
-    if (!username) {
-      return json({ error: 'Username is required' }, { status: 400 });
+    const sessionId = cookies.get('sessionid');
+    if (!sessionId) {
+      return json({ success: false, error: 'Not authenticated' }, { status: 401 });
     }
 
-    const escapedUsername = escapeAirtableFormula(username);
-
-    // Fetch user by username
-    // SECURITY: Only fetch fields needed for public profile - DO NOT fetch email
-    const userRecords = await base('User')
-      .select({
-        filterByFormula: `{username} = "${escapedUsername}"`,
-        maxRecords: 1,
-        fields: ['username', 'coins', 'stellarships', 'paintchips', 'following']
-      })
-      .all();
-
-    if (userRecords.length === 0) {
-      return json({ error: 'User not found' }, { status: 404 });
+    const userInfo = await getUserInfoBySessionId(sessionId);
+    if (!userInfo) {
+      return json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    const userRecord = userRecords[0];
-    
-    // SECURITY: Get email from a separate query to avoid any accidental exposure
-    // Email is needed internally to fetch projects/furniture but NEVER returned to client
-    const userRecordWithEmail = await base('User').find(userRecord.id);
-    const email = String(userRecordWithEmail.fields.email || '');
+    const user = sanitizeUserForFrontend(userInfo);
 
-    // Fetch user's projects and furniture
-    const projects = await getUserProjectsByEmail(email);
-    const furniture = await getUserFurnitureByEmail(email);
-
-    // Get following count (how many people this user follows)
-    const followingField = userRecord.fields.following;
-    const followingCount = Array.isArray(followingField) ? followingField.length : 0;
-    
-
-    // Get follower count (how many people follow this user)
-    // IMPORTANT: ARRAYJOIN on linked records returns PRIMARY FIELD values (email), not record IDs!
-    let followerCount = 0;
-    try {
-      const followerRecords = await base('User')
-        .select({
-          filterByFormula: `FIND("${email}", ARRAYJOIN({following}, ","))`,
-          fields: ['username', 'following']
-        })
-        .all();
-      
-      followerCount = followerRecords.length;
-    } catch (error) {
-      console.error('Error fetching follower count:', error);
-    }
-
-    // Check if current user is following this user (if logged in)
-    let isFollowing = false;
-    if (locals.user) {
-      const currentUserRecord = await base('User').find(locals.user.recId);
-      const following = currentUserRecord.fields.following || [];
-      isFollowing = Array.isArray(following) && following.includes(userRecord.id);
-    }
-
-    // Return public user data (no email!)
     return json({
       success: true,
-      user: {
-        id: userRecord.id,
-        username: String(userRecord.fields.username || ''),
-        coins: userRecord.fields.coins || 0,
-        stellarships: userRecord.fields.stellarships || 0,
-        paintchips: userRecord.fields.paintchips || 0,
-        followerCount,
-        followingCount
-      },
-      projects,
-      furniture,
-      isFollowing,
-      isLoggedIn: !!locals.user
+      user
     });
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return json({ error: 'Failed to fetch user profile' }, { status: 500 });
+  } catch (err) {
+    console.error('Error fetching user profile:', err);
+    const errorMessage = err instanceof Error ? err.message : 'Failed to get user profile';
+    
+    return json({
+      success: false,
+      error: { message: errorMessage }
+    }, { status: 500 });
   }
 }
-
