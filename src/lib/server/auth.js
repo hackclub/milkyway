@@ -127,8 +127,9 @@ export async function verifyOTPAndCreateSession(email, otp) {
 // ------- FUNCTIONS FOR GENERATING OTP AND PASSING STUFF
 /**
  * @param {string} email
+ * @param {string | null} referrer
  */
-export async function createOTPRecord(email) {
+export async function createOTPRecord(email, referrer = null) {
     const otp = generateOTP();
     const token = generateToken();
     const expiry = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins expiry for otp
@@ -146,7 +147,7 @@ export async function createOTPRecord(email) {
     catch (error) {
       console.log(error)
       console.log("tried to create user")
-      userRecordId = await createUserFromEmail(email);
+      userRecordId = await createUserFromEmail(email, referrer);
     }
 
     console.log("creating OTP record...")
@@ -165,15 +166,32 @@ export async function createOTPRecord(email) {
 
 /**
  * @param {string} email
+ * @param {string | null} referrer
  */
-async function createUserFromEmail(email) {
-  const newUser = await base('User').create({
+async function createUserFromEmail(email, referrer = null) {
+  // If referrer is provided, find the referrer's record ID
+  let referrerRecordId = null;
+  if (referrer) {
+    try {
+      referrerRecordId = await getUserRecordIdByUsername(referrer);
+    } catch (error) {
+      console.log(`Referrer ${referrer} not found:`, error);
+      // Continue without referrer if not found
+    }
+  }
+
+  const userData = /** @type {any} */ ({
     'email': email,
-  })
+  });
 
-  return newUser.id;
+  // Add referrer if found
+  if (referrerRecordId) {
+    userData['referrer'] = [referrerRecordId];
+  }
 
+  const newUser = await base('User').create(userData);
 
+  return /** @type {any} */ (newUser).id;
 }
 
 /**
@@ -192,6 +210,24 @@ async function getUserRecordIdByEmail(email) {
     throw new Error('User does not exist')
   }
   return record[0].id; // return user info
+}
+
+/**
+ * @param {string} username
+ */
+async function getUserRecordIdByUsername(username) {
+  const escapedUsername = escapeAirtableFormula(username);
+  const record = await base('User')
+  .select({
+    filterByFormula: `{username} = "${escapedUsername}"`,
+    maxRecords: 1,
+  })
+  .firstPage();
+
+  if (!record[0]) {
+    throw new Error('User does not exist')
+  }
+  return record[0].id; // return user record ID
 }
 
 /**
