@@ -46,27 +46,12 @@ export async function GET({ params, cookies }) {
     }
 
     // Find the YSWS submission that links to this project
-    console.log('Searching for YSWS submission with project ID:', projectId);
-    
     const submissions = await base('YSWS Project Submission').select({
       filterByFormula: `FIND("${projectId}", ARRAYJOIN({projectEgg}, ",")) > 0`,
       maxRecords: 1
     }).all();
-
-    console.log('Found submissions:', submissions.length);
     
-    // If no submissions found, let's check all submissions to debug
     if (submissions.length === 0) {
-      console.log('No submissions found, checking all submissions...');
-      const allSubmissions = await base('YSWS Project Submission').select({
-        maxRecords: 10
-      }).all();
-      
-      console.log('All YSWS submissions:');
-      allSubmissions.forEach(sub => {
-        console.log(`- ID: ${sub.id}, projectEgg: ${JSON.stringify(sub.fields.projectEgg)}`);
-      });
-      
       return json({
         success: false,
         error: 'No submission found for this project'
@@ -75,7 +60,7 @@ export async function GET({ params, cookies }) {
 
     const submissionRecord = submissions[0];
 
-    // Return the submission data
+    // Return the submission data (user can only access their own data due to ownership verification above)
     return json({
       success: true,
       data: {

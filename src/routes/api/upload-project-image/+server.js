@@ -38,9 +38,21 @@ export async function POST({ request, locals, cookies }) {
       return json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Validate image data format
+    // Validate image data format and size
     if (!imageData.startsWith('data:image/')) {
       return json({ error: 'Invalid image format' }, { status: 400 });
+    }
+
+    // Validate image size (max 5MB base64 = ~3.7MB actual)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (imageData.length > maxSize) {
+      return json({ error: 'Image too large. Maximum size is 5MB.' }, { status: 400 });
+    }
+
+    // Validate content type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (contentType && !validTypes.includes(contentType)) {
+      return json({ error: 'Invalid image type. Only JPEG, PNG, GIF, and WebP are allowed.' }, { status: 400 });
     }
 
     // Extract filename and content type if not provided

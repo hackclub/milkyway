@@ -65,7 +65,7 @@ export async function GET({ params, cookies }) {
       }, { status: 403 });
     }
 
-    // Return the submission data
+    // Return the submission data (user can only access their own data due to ownership verification above)
     return json({
       success: true,
       data: {
