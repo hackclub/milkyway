@@ -199,16 +199,13 @@ async function autoUpdateHackatimeHours() {
           const userData = await projectsResponse.json();
           if (userData.success && userData.projects) {
             projectList = userData.projects;
-            console.log(`Auto-updated ${result.updatedCount} project(s) with fresh Hackatime hours`);
           }
         }
       } else if (result.skipped) {
-        console.log('Hackatime auto-update skipped:', result.message);
       }
     }
   } catch (error) {
     // Silently fail - this is a background operation
-    console.debug('Hackatime auto-update error (non-critical):', error);
   }
 }
 

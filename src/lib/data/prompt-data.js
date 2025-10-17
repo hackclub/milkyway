@@ -128,3 +128,23 @@ export function getRandomEggImage(/** @type {string} */ promptName) {
   const randomIndex = Math.floor(Math.random() * prompt.eggImages.length);
   return prompt.eggImages[randomIndex];
 }
+
+// Helper function to map egg images to their corresponding creature images
+export function getCreatureImageFromEgg(/** @type {string} */ eggImagePath) {
+  if (!eggImagePath) return '/projects/new_creature1.png'; // fallback
+  
+  // Map egg images to creature images
+  const eggToCreatureMap = /** @type {Record<string, string>} */ ({
+    '/projects/new_egg1.png': '/projects/new_creature1.png',
+    '/projects/new_egg2.png': '/projects/new_creature2.png',
+    '/projects/sparkle_egg1.png': '/projects/sparkle_creature1.png',
+    '/projects/sparkle_egg2.png': '/projects/sparkle_creature2.png',
+    '/projects/roulette_egg1.png': '/projects/new_creature1.png', // Temporary fallback until roulette creatures are ready
+    '/projects/roulette_egg2.png': '/projects/new_creature2.png'  // Temporary fallback until roulette creatures are ready
+  });
+  
+  // Also handle cases where the path might not start with '/projects/'
+  const normalizedPath = eggImagePath.startsWith('/projects/') ? eggImagePath : `/projects/${eggImagePath}`;
+  
+  return eggToCreatureMap[normalizedPath] || '/projects/new_creature1.png'; // fallback
+}

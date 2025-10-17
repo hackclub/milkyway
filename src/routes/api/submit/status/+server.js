@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { getUserInfoBySessionId } from '$lib/server/auth.js';
-import { env } from '$env/dynamic/private';
 
 export async function GET({ url, cookies }) {
   try {
@@ -21,12 +20,14 @@ export async function GET({ url, cookies }) {
     // Proxy the request to submit.hackclub.com
     const response = await fetch(`https://submit.hackclub.com/api/authorize/${authId}/status`, {
       headers: {
-        'Authorization': `Bearer ${env.IDV_KEY}`
+        'Authorization': `Bearer ${process.env.IDV_KEY}`
       }
     });
 
     if (!response.ok) {
-      throw new Error('Failed to get authorization status');
+      const errorText = await response.text();
+      console.error('External API error response:', errorText);
+      throw new Error(`Failed to get authorization status: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();

@@ -1,14 +1,14 @@
-<script>
+<script lang="ts">
   import { slide, fade, scale } from 'svelte/transition';
-  import { onMount } from 'svelte';
   import confetti from 'canvas-confetti';
+  import { getCreatureImageFromEgg } from '$lib/data/prompt-data.js';
 
   let { showPopup, onClose, projectInfo, onShip, user } = $props();
   
   
   let isShipping = $state(false);
   let shippingError = $state('');
-  let currentStep = $state(1); // 1 = questions, 2 = hatching, 3 = confirmation
+  let currentStep = $state(1); // 1 = confirmation, 2 = questions, 3 = identity verification, 4 = hatching
   let showQuestions = $state(false);
   let showInitialContent = $state(false);
   let clickCount = $state(0);
@@ -16,6 +16,13 @@
   let showConfetti = $state(false);
   let showCreature = $state(false);
   let isFadingOut = $state(false);
+  let submitToken = $state('');
+  let isVerifying = $state(false);
+  let verificationError = $state('');
+  let authData = $state<any>(null);
+  let popupWindow = $state<Window | null>(null);
+  let isCheckingStatus = $state(false);
+  let isHatching = $state(false);
   
   // Form data
   let notMadeByYou = $state('');
@@ -61,7 +68,7 @@
   }
 
   function handleClose() {
-    if (!isShipping && currentStep !== 2) {
+    if (!isShipping && currentStep !== 4) {
       shippingError = '';
       currentStep = 1;
       showQuestions = false;
@@ -74,39 +81,64 @@
       notMadeByYou = '';
       howToPlay = '';
       additionalComments = '';
+      submitToken = '';
+      isVerifying = false;
+      verificationError = '';
+      authData = null;
+      if (popupWindow && !popupWindow.closed) {
+        popupWindow.close();
+      }
+      popupWindow = null;
       onClose();
     }
   }
 
   // Validation for form fields and profile completeness
   let canProceed = $derived(() => {
-    // Check form fields
-    const formValid = notMadeByYou.trim() !== '' && 
-                      howToPlay.trim() !== '' && 
-                      additionalComments.trim() !== '';
-    
-    // Check profile completeness - be explicit about each field
-    const profileValid = user && 
-                        user.username && typeof user.username === 'string' && user.username.trim() !== '' &&
-                        user.githubUsername && typeof user.githubUsername === 'string' && user.githubUsername.trim() !== '' &&
-                        user.howDidYouHear && typeof user.howDidYouHear === 'string' && user.howDidYouHear.trim() !== '' &&
-                        user.doingWell && typeof user.doingWell === 'string' && user.doingWell.trim() !== '' &&
-                        user.improve && typeof user.improve === 'string' && user.improve.trim() !== '';
-    
-    
-    const valid = formValid && profileValid;
-    
-    // Temporary debug: Force validation to false to test button state
-    // const valid = false;
-    
-    return valid;
+    if (currentStep === 1) {
+      // Step 1: Confirmation - no validation needed, just need to confirm details
+      return true;
+    } else if (currentStep === 2) {
+      // Step 2: Questions - need form fields and profile completeness
+      // Check form fields
+      const formValid = notMadeByYou.trim() !== '' && 
+                  howToPlay.trim() !== '' && 
+                  additionalComments.trim() !== '';
+      
+      // Check profile completeness - be explicit about each field
+      const profileValid = user && 
+                          user.username && typeof user.username === 'string' && user.username.trim() !== '' &&
+                          user.githubUsername && typeof user.githubUsername === 'string' && user.githubUsername.trim() !== '' &&
+                          user.howDidYouHear && typeof user.howDidYouHear === 'string' && user.howDidYouHear.trim() !== '' &&
+                          user.doingWell && typeof user.doingWell === 'string' && user.doingWell.trim() !== '' &&
+                          user.improve && typeof user.improve === 'string' && user.improve.trim() !== '';
+      
+      return formValid && profileValid;
+    } else if (currentStep === 3) {
+      // Step 3: Identity Verification - need submit token
+      return submitToken.trim() !== '';
+    } else {
+      // Step 4: Hatching - no validation needed
+      return true;
+    }
   });
 
   async function handleNext() {
-    console.log('handleNext called, canProceed:', canProceed());
+    
+    if (currentStep === 1) {
+      // Step 1: Confirmation -> Step 2: Questions
+      currentStep = 2;
+      // Trigger the questions animation
+      setTimeout(() => {
+        showInitialContent = true;
+        setTimeout(() => {
+          showQuestions = true;
+        }, 600);
+      }, 100);
+    } else if (currentStep === 2) {
+      // Step 2: Questions -> Step 3: Identity Verification
     if (canProceed()) {
       try {
-        console.log('Saving form data to Airtable...');
         // Save form data to Airtable when proceeding to next step
         const response = await fetch('/api/ship-project', {
           method: 'POST',
@@ -123,14 +155,10 @@
           })
         });
 
-        console.log('Response status:', response.status);
         const result = await response.json();
-        console.log('Response result:', result);
         
         if (result.success) {
-          console.log('Form data saved successfully, moving to step 2');
-          currentStep = 2;
-          clickCount = 0; // Reset click count for hatching
+            currentStep = 3;
         } else {
           console.error('Failed to save form data:', result.error);
           shippingError = result.error?.message || 'Failed to save form data. Please try again.';
@@ -139,20 +167,167 @@
         console.error('Error saving form data:', error);
         shippingError = 'Network error. Please check your connection and try again.';
       }
-    } else {
-      console.log('Cannot proceed - form validation failed');
+      }
+    } else if (currentStep === 3) {
+      // Step 3: Identity Verification -> Step 4: Hatching
+      if (canProceed()) {
+        currentStep = 4;
+        clickCount = 0; // Reset click count for hatching
+      }
     }
   }
 
   function handleBack() {
-    if (currentStep === 3) {
-      currentStep = 2; // Go back to hatching from confirmation
+    if (currentStep === 4) {
+      currentStep = 3; // Go back to identity verification from hatching
+    } else if (currentStep === 3) {
+      currentStep = 2; // Go back to questions from identity verification
     } else if (currentStep === 2) {
-      currentStep = 1; // Go back to questions from hatching
+      currentStep = 1; // Go back to confirmation from questions
+    }
+  }
+
+  async function initiateVerification() {
+    isVerifying = true;
+    verificationError = '';
+    authData = null;
+
+    try {
+      const response = await fetch('/api/identity-verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        verificationError = result.error || 'Failed to initiate verification';
+        return;
+      }
+
+      authData = result.data;
+      
+      // Open popup window
+      const popupUrl = result.data.popup_url;
+      const popupFeatures = 'width=500,height=700,scrollbars=yes,resizable=yes';
+      popupWindow = window.open(popupUrl, 'identityVerification', popupFeatures);
+
+      if (!popupWindow) {
+        verificationError = 'Popup blocked. Please allow popups and try again.';
+        return;
+      }
+
+      // Poll for completion
+      pollForCompletion();
+
+    } catch (error) {
+      verificationError = 'Network error. Please try again.';
+    } finally {
+      isVerifying = false;
+    }
+  }
+
+  async function pollForCompletion() {
+    const pollInterval = setInterval(async () => {
+      // Prevent multiple simultaneous status checks
+      if (isCheckingStatus) {
+        return;
+      }
+
+      try {
+        isCheckingStatus = true;
+
+        // Check if popup is closed
+        if (popupWindow?.closed) {
+          clearInterval(pollInterval);
+          // Check status one final time
+          await checkVerificationStatus();
+          return;
+        }
+
+        // Check verification status
+        const response = await fetch(`/api/submit/status?auth_id=${authData.auth_id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'completed') {
+          clearInterval(pollInterval);
+          popupWindow?.close();
+          
+          // Update authData with the complete result (includes identity_response)
+          authData = result;
+          
+          // Set the submit token
+          submitToken = authData.auth_id;
+          verificationError = '';
+        } else if (result.status === 'rejected') {
+          clearInterval(pollInterval);
+          popupWindow?.close();
+          verificationError = 'Identity verification was rejected. Please try again.';
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      } finally {
+        isCheckingStatus = false;
+      }
+    }, 2000); // Poll every 2 seconds
+
+    // Clear interval after 10 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (popupWindow && !popupWindow.closed) {
+        popupWindow.close();
+        verificationError = 'Verification timed out. Please try again.';
+      }
+    }, 600000);
+  }
+
+  async function checkVerificationStatus() {
+    // Prevent duplicate status checks
+    if (isCheckingStatus) {
+      return;
+    }
+
+    try {
+      isCheckingStatus = true;
+      
+      const response = await fetch(`/api/submit/status?auth_id=${authData.auth_id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.status === 'completed') {
+        // Update authData with the complete result (includes identity_response)
+        authData = result;
+        
+        submitToken = authData.auth_id;
+        verificationError = '';
+      } else if (result.status === 'rejected') {
+        verificationError = 'Identity verification was rejected. Please try again.';
+      } else {
+        verificationError = 'Verification was not completed. Please try again.';
+      }
+    } catch (error) {
+      verificationError = 'Failed to check verification status. Please try again.';
+    } finally {
+      isCheckingStatus = false;
     }
   }
 
   function handleEggClick() {
+    if (isHatching) return; // Prevent multiple clicks during hatching
+    
     clickCount++;
     isShaking = true;
     
@@ -168,9 +343,33 @@
   }
 
   async function hatchEgg() {
+    if (isHatching) return; // Prevent multiple executions
+    
+    isHatching = true;
+    
     try {
-      console.log('Hatching egg for project:', projectInfo.id);
-      // Update project to hatched state
+      // First, create the project submission with the identity verification token
+      const submissionResponse = await fetch('/api/create-submission', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          projectEggId: projectInfo.projectid,
+          submitToken: submitToken,
+          identityData: authData // Pass the full identity verification data
+        })
+      });
+
+      const submissionResult = await submissionResponse.json();
+      if (!submissionResult.success) {
+        console.error('Failed to create project submission:', submissionResult.error);
+        shippingError = 'Failed to create project submission. Please try again.';
+        return;
+      }
+
+      // Then update project to hatched state
       const response = await fetch('/api/ship-project', {
         method: 'POST',
         headers: {
@@ -179,16 +378,13 @@
         credentials: 'include',
         body: JSON.stringify({
           projectId: projectInfo.id,
-          hatchEgg: true // Flag to indicate we're hatching the egg
+          hatchEgg: true, // Flag to indicate we're hatching the egg
+          yswsSubmissionId: submissionResult.submissionId // Pass the submission ID
         })
       });
 
       const result = await response.json();
-      console.log('API response:', result);
-      
       if (result.success) {
-        console.log('Egg hatched successfully, showing creature...');
-        console.log('Project data from API:', result.project);
         
         // Show creature with dramatic entrance
         showCreature = true;
@@ -198,16 +394,13 @@
           triggerConfetti();
         }, 500);
         
-        console.log('showCreature:', showCreature, 'showConfetti:', showConfetti);
         
         // Wait 3 seconds, then fade out for 1 second, then close
         setTimeout(() => {
-          console.log('Starting fade out...');
           isFadingOut = true;
         }, 3000);
         
         setTimeout(async () => {
-          console.log('Updating project and closing overlay...');
           // Call the parent's ship handler to update the project BEFORE closing
           if (onShip) {
             await onShip(result.project);
@@ -219,27 +412,25 @@
         }, 4000);
       } else {
         shippingError = result.error?.message || 'Failed to hatch egg. Please try again.';
+        isHatching = false;
       }
     } catch (error) {
       console.error('Error hatching egg:', error);
       shippingError = 'Network error. Please check your connection and try again.';
+      isHatching = false;
     }
   }
 
   // Trigger initial content fade-in
   function triggerInitialContentFadeIn() {
-    console.log('Triggering initial content fade-in...');
     setTimeout(() => {
-      console.log('Setting showInitialContent to true');
       showInitialContent = true;
     }, 200); // Short delay to ensure popup is rendered
   }
 
   // Trigger questions fade-in after initial content loads
   function triggerQuestionsFadeIn() {
-    console.log('Triggering questions fade-in...');
     setTimeout(() => {
-      console.log('Setting showQuestions to true');
       showQuestions = true;
     }, 1000); // Wait 1 second after initial fade-in
   }
@@ -301,21 +492,15 @@
     }
   }
 
-  // Watch for popup opening and trigger animation
+
+  // Watch for popup opening and reset states
   $effect(() => {
     if (showPopup && currentStep === 1) {
-      console.log('Popup opened, resetting states to false');
       showQuestions = false;
       showInitialContent = false;
       
       // Load existing form data
       loadExistingFormData();
-      
-      // Small delay to ensure the popup is fully rendered
-      setTimeout(() => {
-        triggerInitialContentFadeIn();
-        triggerQuestionsFadeIn();
-      }, 100);
     }
   });
 </script>
@@ -325,7 +510,74 @@
     <div class="ship-content" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
       
       {#if currentStep === 1}
-        <!-- Step 1: Questions -->
+        <!-- Step 1: Project Confirmation -->
+        <h1 class="ship-title">ready to ship?</h1>
+        <p class="confirmation-subtitle">review your project details...</p>
+        
+        <div class="project-confirmation-grid">
+          <!-- Project Image -->
+          <div class="confirmation-card image-card">
+            <div class="project-image-preview">
+              <img src={projectInfo?.projectImage || projectInfo?.image || "/pfp_placeholder.png"} alt="Project preview" />
+            </div>
+          </div>
+          
+          <!-- Project Details -->
+          <div class="confirmation-card details-card">
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">Name:</span>
+                <span class="info-value">{projectInfo?.name || 'Untitled Project'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Description:</span>
+                <span class="info-value">{projectInfo?.description || 'No description provided'}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Hours:</span>
+                <span class="info-value">{projectInfo?.totalHours || projectInfo?.hours || 0} hours</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Ship URL:</span>
+                <span class="info-value">
+                  {#if projectInfo?.shipURL}
+                    <a href={projectInfo.shipURL} target="_blank" rel="noopener noreferrer" class="url-link">
+                      {projectInfo.shipURL}
+                    </a>
+                  {:else}
+                    <span class="missing-info">No ship URL provided</span>
+                  {/if}
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">GitHub URL:</span>
+                <span class="info-value">
+                  {#if projectInfo?.githubURL}
+                    <a href={projectInfo.githubURL} target="_blank" rel="noopener noreferrer" class="url-link">
+                      {projectInfo.githubURL}
+                    </a>
+                  {:else}
+                    <span class="missing-info">No GitHub URL provided</span>
+                  {/if}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="confirmation-question">
+          <p class="question-text">make sure that all the details are correct before you continue!</p>
+        </div>
+        
+        <div class="ship-actions">
+          <button class="cancel-btn" onclick={handleClose} disabled={isShipping}>cancel</button>
+          <button class="next-btn" onclick={handleNext} disabled={isShipping}>
+            continue!
+          </button>
+        </div>
+        
+      {:else if currentStep === 2}
+        <!-- Step 2: Questions -->
         {#if showInitialContent}
           <div class="project-egg-container" transition:fade={{duration: 600}}>
             <img class="project-egg" src={projectInfo?.egg || "/projects/new_egg1.png"} alt="Project egg" />
@@ -336,7 +588,7 @@
         {/if}
         
         {#if showQuestions}
-          <div class="questions-container" transition:fade={{duration: 800}} key="questions-{showQuestions}">
+          <div class="questions-container" transition:fade={{duration: 800}}>
             <div class="question-group">
               <label class="question-label">what parts of your project were not made by you?</label>
               <p class="question-subtitle">(public assets, ai help, help from friends, etc)</p>
@@ -366,27 +618,65 @@
             </div>
           </div>
           
-          <div class="ship-actions" transition:fade={{duration: 600, delay: 200}} key="actions-{showQuestions}">
-            <button class="cancel-btn" onclick={handleClose} disabled={isShipping}>Cancel</button>
+          <div class="ship-actions" transition:fade={{duration: 600, delay: 200}}>
             <button class="next-btn" onclick={handleNext} disabled={isShipping || !canProceed()}>
-              {canProceed() ? "let's go!" : 'Fill in all fields'}
+              {canProceed() ? "let's go!" : 'fill in all fields...'}
             </button>
           </div>
         {/if}
         
-      {:else if currentStep === 2}
-        <!-- Step 2: Egg Hatching -->
-        <div class="hatching-container">
-          <!-- Debug info -->
-          <div style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; z-index: 999999; font-size: 12px;">
-            Debug: showCreature={showCreature}, showConfetti={showConfetti}, clickCount={clickCount}
+      {:else if currentStep === 3}
+        <!-- Step 3: Identity Verification -->
+        <div class="identity-verification-container">
+          <h1 class="ship-title">identity verification</h1>
+          <p class="verification-subtitle">we need to verify your identity before shipping your project</p>
+          
+          {#if submitToken}
+            <div class="verification-success">
+              <div class="success-icon">✓</div>
+              <p>Identity verified successfully!</p>
+              <p class="token-info">Token: {submitToken.substring(0, 8)}...</p>
+            </div>
+          {:else}
+            <div class="verification-prompt">
+              <p>Click the button below to start the identity verification process.</p>
+              <button class="verify-identity-btn" onclick={initiateVerification} disabled={isVerifying}>
+                {isVerifying ? 'Starting verification...' : 'Start Identity Verification'}
+              </button>
+            </div>
+          {/if}
+          
+          {#if verificationError}
+            <div class="error-message">
+              <span>{verificationError}</span>
+            </div>
+          {/if}
+          
+          {#if shippingError}
+            <div class="error-message">
+              <span>{shippingError}</span>
+            </div>
+          {/if}
+          
+          <div class="ship-actions">
+            {#if currentStep > 1}
+              <button class="cancel-btn" onclick={handleBack}>back</button>
+            {/if}
+            <button class="next-btn" onclick={handleNext} disabled={!canProceed()}>
+              {canProceed() ? "continue" : 'complete verification...'}
+            </button>
           </div>
+        </div>
+        
+      {:else if currentStep === 4}
+        <!-- Step 4: Egg Hatching -->
+        <div class="hatching-container">
           
           {#if showCreature}
             <!-- Show creature with dramatic entrance -->
             <div class="creature-celebration" class:fade-out={isFadingOut} transition:slide={{duration: 800, axis: 'y'}} style="pointer-events: none;">
               <div class="creature-container" transition:scale={{duration: 1000, start: 0.3}}>
-                <img class="hatched-creature" src="/projects/new_creature1.png" alt="Hatched creature" style="pointer-events: none; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;" />
+                <img class="hatched-creature" src={getCreatureImageFromEgg(projectInfo?.egg)} alt="Hatched creature" style="pointer-events: none; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;" />
               </div>
               <p class="celebration-text" transition:fade={{duration: 600, delay: 300}}>🎉 your egg has hatched! 🎉</p>
             </div>
@@ -404,45 +694,13 @@
               </div>
             {/if}
           {/if}
-        </div>
-        
-      {:else if currentStep === 3}
-        <!-- Step 3: Confirmation -->
-        <h1 class="ship-title">🚀 Ship Your Project</h1>
-        
-        <div class="project-info">
-          <h2 class="project-name">{projectInfo?.name || 'Untitled Project'}</h2>
-          <p class="project-description">{projectInfo?.description || 'No description'}</p>
-        </div>
-        
-        <div class="ship-question">
-          <p class="question-text">What parts of your game did you make yourself vs. what did you use from others?</p>
-        </div>
-        
-        {#if shippingError}
-          <div class="error-message">
-            <span>{shippingError}</span>
           </div>
         {/if}
         
-        <div class="ship-actions">
-          <button class="back-btn" onclick={handleBack} disabled={isShipping}>Back</button>
-          <button class="cancel-btn" onclick={handleClose} disabled={isShipping}>Cancel</button>
-          <button class="ship-confirm-btn" onclick={handleShipProject} disabled={isShipping || !canProceed()}>
-            {#if isShipping}
-              Shipping...
-            {:else if !canProceed()}
-              Complete Profile & Form
-            {:else}
-              Ship Project 💫
-            {/if}
-          </button>
-        </div>
-      {/if}
-      
     </div>
   </div>
 {/if}
+
 
 <style>
   .ship-overlay {
@@ -473,75 +731,68 @@
   }
 
   .project-egg-container {
-    margin-bottom: 30px;
+    margin-bottom: 10px;
   }
 
   .project-egg {
-    width: 120px;
+    width: 80px;
     height: auto;
-    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.3));
   }
 
   .project-name {
-    font-size: 2.2em;
-    margin: 0 0 16px 0;
+    font-size: 1.6em;
+    margin: 0 0 8px 0;
     color: white;
     font-weight: 600;
   }
 
   .hatch-text {
-    font-size: 1.1em;
+    font-size: 1em;
     color: #ccc;
-    margin: 0 0 40px 0;
+    margin: 0 0 15px 0;
     font-style: italic;
   }
 
-  .project-info {
-    margin-bottom: 40px;
-  }
-
-  .project-description {
-    font-size: 1.2em;
-    margin: 0;
-    color: #ccc;
-    line-height: 1.4;
-  }
 
   .questions-container {
     text-align: left;
-    margin-bottom: 40px;
+    margin-bottom: 20px;
+    max-height: 45vh;
+    overflow-y: auto;
+    padding-right: 8px;
   }
 
   .question-group {
-    margin-bottom: 30px;
+    margin-bottom: 18px;
   }
 
   .question-label {
     display: block;
-    font-size: 1.2em;
+    font-size: 1em;
     color: white;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
 
   .question-subtitle {
-    font-size: 0.9em;
+    font-size: 0.8em;
     color: #aaa;
-    margin: 0 0 12px 0;
+    margin: 0 0 6px 0;
     font-style: italic;
   }
 
   .question-input {
     width: 100%;
-    min-height: 80px;
-    padding: 12px;
+    min-height: 60px;
+    padding: 8px;
     background: rgba(255, 255, 255, 0.1);
     border: 2px solid rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
+    border-radius: 6px;
     color: white;
     font-family: inherit;
-    font-size: 1em;
-    line-height: 1.4;
+    font-size: 0.9em;
+    line-height: 1.3;
     resize: vertical;
     box-sizing: border-box;
   }
@@ -556,9 +807,25 @@
     background: rgba(255, 255, 255, 0.15);
   }
 
-  .ship-question {
-    margin-bottom: 40px;
+  /* Custom scrollbar for questions container */
+  .questions-container::-webkit-scrollbar {
+    width: 6px;
   }
+
+  .questions-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+
+  .questions-container::-webkit-scrollbar-thumb {
+    background: var(--orange);
+    border-radius: 3px;
+  }
+
+  .questions-container::-webkit-scrollbar-thumb:hover {
+    background: var(--yellow);
+  }
+
 
   .question-text {
     font-size: 1.3em;
@@ -580,7 +847,7 @@
     justify-content: center;
   }
 
-  .cancel-btn, .ship-confirm-btn, .next-btn, .back-btn {
+  .cancel-btn, .next-btn {
     padding: 12px 24px;
     border: 2px solid white;
     border-radius: 8px;
@@ -592,28 +859,28 @@
     min-width: 120px;
   }
 
-  .cancel-btn, .back-btn {
+  .cancel-btn {
     background: transparent;
     color: white;
   }
 
-  .cancel-btn:hover:not(:disabled), .back-btn:hover:not(:disabled) {
+  .cancel-btn:hover:not(:disabled) {
     background: white;
     color: black;
   }
 
-  .next-btn, .ship-confirm-btn {
+  .next-btn {
     background: #7FA9DB;
     border-color: #7FA9DB;
     color: white;
   }
 
-  .next-btn:hover:not(:disabled), .ship-confirm-btn:hover:not(:disabled) {
+  .next-btn:hover:not(:disabled) {
     background: #5a8bc4;
     border-color: #5a8bc4;
   }
 
-  .cancel-btn:disabled, .ship-confirm-btn:disabled, .next-btn:disabled, .back-btn:disabled {
+  .cancel-btn:disabled, .next-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
@@ -650,18 +917,6 @@
     color: #ccc;
   }
 
-  .click-progress {
-    font-size: 1.1em;
-    margin-bottom: 20px;
-    color: #aaa;
-  }
-
-  .hatch-actions {
-    display: flex;
-    gap: 20px;
-    justify-content: center;
-    margin-top: 30px;
-  }
 
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
@@ -732,6 +987,239 @@
     }
     100% {
       text-shadow: 0 0 30px rgba(255, 255, 255, 1), 0 0 60px rgba(255, 255, 255, 0.6);
+    }
+  }
+
+  /* Confirmation Step Styles - Compact Layout */
+  .confirmation-subtitle {
+    font-size: 1em;
+    color: #ccc;
+    margin-bottom: 20px;
+    text-align: left;
+  }
+
+  .project-confirmation-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 15px;
+    margin-bottom: 20px;
+    max-width: 100%;
+  }
+
+  .confirmation-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 15px;
+  }
+
+  /* Image card */
+  .image-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .project-image-preview img {
+    max-width: 200px;
+    max-height: 200px;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Details card */
+  .details-card {
+    text-align: left;
+  }
+
+  .info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .info-item {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .info-label {
+    font-weight: 600;
+    color: var(--orange);
+    font-size: 0.85em;
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  .info-value {
+    color: #fff;
+    font-size: 0.85em;
+    line-height: 1.3;
+    word-break: break-word;
+    flex: 1;
+  }
+
+  .url-link {
+    color: var(--yellow);
+    text-decoration: underline;
+    font-size: 0.85em;
+  }
+
+  .url-link:hover {
+    color: var(--orange);
+  }
+
+  .missing-info {
+    color: #ff6b6b;
+    font-style: italic;
+    font-size: 0.85em;
+  }
+
+  .confirmation-question {
+    text-align: left;
+    margin: 20px 0;
+  }
+
+  .confirmation-question .question-text {
+    font-size: 1em;
+    color: var(--yellow);
+    font-weight: 600;
+  }
+
+  /* Identity Verification Styles */
+  .identity-verification-container {
+    text-align: center;
+    color: white;
+  }
+
+  .verification-subtitle {
+    font-size: 1.1em;
+    color: #ccc;
+    margin-bottom: 30px;
+    line-height: 1.5;
+  }
+
+  .verification-success {
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid #4caf50;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+  }
+
+  .success-icon {
+    font-size: 2em;
+    color: #4caf50;
+    margin-bottom: 10px;
+  }
+
+  .verification-success p {
+    margin: 5px 0;
+    color: #4caf50;
+  }
+
+  .token-info {
+    font-family: monospace;
+    font-size: 0.9em;
+    color: #ccc;
+  }
+
+  .verification-prompt {
+    margin: 20px 0;
+  }
+
+  .verification-prompt p {
+    color: #ccc;
+    margin-bottom: 20px;
+  }
+
+  .verify-identity-btn {
+    background: var(--orange);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .verify-identity-btn:hover:not(:disabled) {
+    background: var(--yellow);
+    color: black;
+  }
+
+  .verify-identity-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .project-confirmation-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    
+    .image-card {
+      order: 1;
+    }
+    
+    .details-card {
+      order: 2;
+    }
+    
+    .project-image-preview img {
+      max-width: 150px;
+      max-height: 150px;
+    }
+    
+    /* Make questions even more compact on mobile */
+    .questions-container {
+      max-height: 35vh;
+      padding-right: 6px;
+    }
+    
+    .question-group {
+      margin-bottom: 12px;
+    }
+    
+    .question-input {
+      min-height: 50px;
+      padding: 6px;
+      font-size: 0.85em;
+    }
+    
+    .question-label {
+      font-size: 0.9em;
+    }
+    
+    .question-subtitle {
+      font-size: 0.75em;
+    }
+    
+    .project-egg {
+      width: 50px;
+    }
+    
+    .project-name {
+      font-size: 1.2em;
+      margin: 0 0 4px 0;
+    }
+    
+    .hatch-text {
+      font-size: 0.9em;
+      margin: 0 0 10px 0;
+    }
+    
+    .project-egg-container {
+      margin-bottom: 5px;
     }
   }
 </style>

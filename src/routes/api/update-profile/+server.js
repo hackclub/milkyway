@@ -115,6 +115,7 @@ export async function POST({ request, cookies }) {
       updateData.githubUsername = githubUsername.trim();
     }
 
+
     // Update howDidYouHear if provided
     if (howDidYouHear !== undefined) {
       updateData.howDidYouHear = howDidYouHear.trim();

@@ -26,6 +26,7 @@ export async function getUserProjectsByEmail(userEmail) {
       
       return {
         id: record.id,
+        projectid: record.fields.projectid || record.id, // Use projectid field or fallback to record ID
         name: record.fields.projectname || 'Untitled Project',
         promptinfo: record.fields.promptinfo || '',
         description: record.fields.description || '',
@@ -47,7 +48,8 @@ export async function getUserProjectsByEmail(userEmail) {
         // Form fields for shipping
         notMadeBy: record.fields.notMadeBy || '',
         howToPlay: record.fields.howToPlay || '',
-        addnComments: record.fields.addnComments || ''
+        addnComments: record.fields.addnComments || '',
+        hoursShipped: record.fields.hoursShipped || 0
       };
     });
 
@@ -100,6 +102,7 @@ export async function createProject(userId, projectData) {
     
     return {
       id: record.id,
+      projectid: record.fields.projectid || record.id, // Use projectid field or fallback to record ID
       name: record.fields.projectname,
       description: record.fields.description || '', // Empty description for new projects
       promptinfo: record.fields.promptinfo,
@@ -112,6 +115,7 @@ export async function createProject(userId, projectData) {
       x: x,
       y: y,
       status: 'active', // Default since you don't have this field
+      hoursShipped: record.fields.hoursShipped || 0,
       created: record.fields.Created,
       modified: record.fields.Modified
     };
@@ -143,6 +147,7 @@ export async function updateProject(projectId, updates) {
     
     return {
       id: record.id,
+      projectid: record.fields.projectid || record.id, // Use projectid field or fallback to record ID
       name: record.fields.projectname,
       description: record.fields.description || '',
       shipURL: record.fields.shipURL || '',
@@ -157,6 +162,7 @@ export async function updateProject(projectId, updates) {
       x: x,
       y: y,
       status: 'active', // Default since you don't have this field
+      hoursShipped: record.fields.hoursShipped || 0,
       created: record.fields.Created,
       modified: record.fields.Modified
     };

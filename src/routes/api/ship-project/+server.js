@@ -2,25 +2,22 @@ import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
 import { getUserInfoBySessionId } from '$lib/server/auth.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
+import { getCreatureImageFromEgg } from '$lib/data/prompt-data.js';
 
 export async function POST({ request, cookies }) {
   try {
     // Get user info from session
     const sessionId = cookies.get('sessionid');
-    console.log('Ship project API - Session ID:', sessionId ? 'present' : 'missing');
-    
-    const userInfo = await getUserInfoBySessionId(sessionId);
-    console.log('Ship project API - User info:', userInfo ? 'found' : 'not found');
+    const userInfo = await getUserInfoBySessionId(sessionId || '');
     
     if (!userInfo) {
-      console.log('Ship project API - No user info found, sessionId:', sessionId);
       return json({ 
         success: false, 
         error: { message: 'Authentication required' } 
       }, { status: 401 });
     }
 
-    const { projectId, notMadeBy, howToPlay, addnComments, saveFormOnly, shipProject, hatchEgg } = await request.json();
+    const { projectId, notMadeBy, howToPlay, addnComments, saveFormOnly, shipProject, hatchEgg, yswsSubmissionId } = await request.json();
     
     if (!projectId) {
       return json({ 
@@ -60,23 +57,23 @@ export async function POST({ request, cookies }) {
     // Validate ship requirements
     const validationErrors = [];
     
-    if (!projectData.projectname || projectData.projectname === 'untitled game!' || projectData.projectname.trim() === '') {
+    if (!projectData.projectname || projectData.projectname === 'untitled game!' || (typeof projectData.projectname === 'string' && projectData.projectname.trim() === '')) {
       validationErrors.push('Project name is required');
     }
     
-    if (!projectData.description || projectData.description.trim() === '') {
+    if (!projectData.description || (typeof projectData.description === 'string' && projectData.description.trim() === '')) {
       validationErrors.push('Game description is required');
     }
     
-    if (!projectData.shipURL || projectData.shipURL.trim() === '') {
+    if (!projectData.shipURL || (typeof projectData.shipURL === 'string' && projectData.shipURL.trim() === '')) {
       validationErrors.push('Ship URL is required');
     }
     
-    if (!projectData.githubURL || projectData.githubURL.trim() === '') {
+    if (!projectData.githubURL || (typeof projectData.githubURL === 'string' && projectData.githubURL.trim() === '')) {
       validationErrors.push('GitHub URL is required');
     }
     
-    if (!projectData.hackatimeHours || projectData.hackatimeHours <= 0) {
+    if (!projectData.hackatimeHours || (typeof projectData.hackatimeHours === 'number' && projectData.hackatimeHours <= 0)) {
       validationErrors.push('Hackatime hours must be greater than 0');
     }
     
@@ -107,9 +104,12 @@ export async function POST({ request, cookies }) {
     }
 
     if (hatchEgg) {
-      // Hatch the egg - change image and status
+      // Hatch the egg - change image to corresponding creature and status
+      const currentEggImage = String(projectData.egg || 'projects/new_egg1.png');
+      const creatureImage = getCreatureImageFromEgg(currentEggImage);
+      
       await projectsTable.update(projectRecord.id, {
-        egg: 'projects/new_creature1.png',
+        egg: creatureImage,
         status: 'submitted'
       });
 
@@ -119,20 +119,19 @@ export async function POST({ request, cookies }) {
         project: {
           id: projectRecord.id, // Use the actual record ID
           name: projectData.projectname,
-          egg: 'projects/new_creature1.png',
+          egg: creatureImage,
           status: 'submitted'
         }
       };
       
-      console.log('API returning project data:', responseData);
       return json(responseData);
     }
 
-    // Check if project is already shipped (only when actually shipping)
-    if (shipProject && projectData.shipped === true) {
+    // Check if project is already submitted (only when actually shipping)
+    if (shipProject && projectData.status === 'submitted') {
       return json({ 
         success: false, 
-        error: { message: 'Project has already been shipped' } 
+        error: { message: 'Project has already been submitted' } 
       }, { status: 400 });
     }
 
@@ -140,19 +139,19 @@ export async function POST({ request, cookies }) {
     if (shipProject) {
       const missingFields = [];
       
-      if (!userInfo.username || userInfo.username.trim() === '') {
+      if (!userInfo.username || (typeof userInfo.username === 'string' && userInfo.username.trim() === '')) {
         missingFields.push('username');
       }
-      if (!userInfo.githubUsername || userInfo.githubUsername.trim() === '') {
+      if (!userInfo.githubUsername || (typeof userInfo.githubUsername === 'string' && userInfo.githubUsername.trim() === '')) {
         missingFields.push('GitHub username');
       }
-      if (!userInfo.howDidYouHear || userInfo.howDidYouHear.trim() === '') {
+      if (!userInfo.howDidYouHear || (typeof userInfo.howDidYouHear === 'string' && userInfo.howDidYouHear.trim() === '')) {
         missingFields.push('how you heard about this');
       }
-      if (!userInfo.doingWell || userInfo.doingWell.trim() === '') {
+      if (!userInfo.doingWell || (typeof userInfo.doingWell === 'string' && userInfo.doingWell.trim() === '')) {
         missingFields.push('what we are doing well');
       }
-      if (!userInfo.improve || userInfo.improve.trim() === '') {
+      if (!userInfo.improve || (typeof userInfo.improve === 'string' && userInfo.improve.trim() === '')) {
         missingFields.push('how we can improve');
       }
 
@@ -166,30 +165,38 @@ export async function POST({ request, cookies }) {
       }
     }
 
-    // Ship the project by updating the shipped status
+    // Ship the project by updating the status to "submitted"
     if (shipProject) {
-      await projectsTable.update(projectRecord.id, {
-        shipped: true,
-        shippedDate: new Date().toISOString()
-      });
+      const updateData = {
+        status: 'submitted',
+        shippedDate: new Date().toISOString(),
+        hoursShipped: projectData.totalHours || 0
+      };
+      
+      // Add YSWS submission link if provided
+      if (yswsSubmissionId) {
+        updateData['YSWS Project Submission'] = [yswsSubmissionId];
+      }
+      
+      await projectsTable.update(projectRecord.id, updateData);
     }
 
     // Only calculate and award coins when actually shipping
     if (shipProject) {
       // Calculate coins earned (4-10 coins per hour, default to 8 for now)
-      const hoursWorked = projectData.hackatimeHours || 0;
+      const hoursWorked = typeof projectData.hackatimeHours === 'number' ? projectData.hackatimeHours : 0;
       const coinsPerHour = 8; // Default rate, could be adjusted based on project quality
       const coinsEarned = Math.round(hoursWorked * coinsPerHour);
 
       // Update user's coins
       const usersTable = base('User');
       const userRecords = await usersTable.select({
-        filterByFormula: `{email} = "${escapeAirtableFormula(userInfo.email)}"`
+        filterByFormula: `{email} = "${escapeAirtableFormula(typeof userInfo.email === 'string' ? userInfo.email : '')}"`
       }).all();
 
       if (userRecords.length > 0) {
         const userRecord = userRecords[0];
-        const currentCoins = userRecord.fields.coins || 0;
+        const currentCoins = typeof userRecord.fields.coins === 'number' ? userRecord.fields.coins : 0;
         const newCoins = currentCoins + coinsEarned;
 
         await usersTable.update(userRecord.id, {
@@ -204,7 +211,7 @@ export async function POST({ request, cookies }) {
         project: {
           id: projectData.id,
           name: projectData.projectname,
-          shipped: true,
+          status: 'submitted',
           shippedDate: new Date().toISOString()
         }
       });

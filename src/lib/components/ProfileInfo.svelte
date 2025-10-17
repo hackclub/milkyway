@@ -27,11 +27,7 @@ function getMissingProfileInfo(user: any) {
     missing.push('GitHub username');
   }
   
-  // Check if user has an address record ID (linked field in Airtable)
-  // The address field in User table is a linked field, so it's an array of record IDs
-  if (!user?.address || !Array.isArray(user.address) || user.address.length === 0) {
-    missing.push('Address');
-  }
+  
   
   // Check new required profile fields
   if (!user?.howDidYouHear || !user.howDidYouHear.trim()) {

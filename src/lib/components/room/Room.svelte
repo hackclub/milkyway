@@ -23,6 +23,9 @@ let isEditingRoom = $state(false);
 let selectedEggForMove = $state(null);
 let selectedFurnitureForMove = $state(null);
 
+// References to ProjectEgg components for calling their methods
+let projectEggRefs = $state([]);
+
 // Use external selectedProjectId if provided, otherwise use local state
 let localSelectedEggId = $state(null);
 let selectedEggId = $derived(selectedProjectId !== null ? selectedProjectId : localSelectedEggId);
@@ -120,6 +123,20 @@ function deleteProjectHandler(projectId) {
   if (onDeleteProject) {
     onDeleteProject(projectId);
   }
+}
+
+// Function to handle project shipping
+/**
+ * @param {any} project
+ */
+function handleShipProject(project) {
+  // Call the original onShipProject function
+  if (onShipProject) {
+    onShipProject(project);
+  }
+  
+  // The project will be automatically updated with the YSWS submission link
+  // No need to manually mark it as shipped since it will be determined by the Airtable link
 }
 
 // Function to handle furniture selection (for clicks, not drag)
@@ -525,10 +542,11 @@ function handleMouseUp() {
       onShowPromptPopup={onShowPromptPopup}
       onDelete={deleteProjectHandler}
       onOpenRouletteSpin={onOpenRouletteSpin}
-      onShipProject={onShipProject}
+      onShipProject={handleShipProject}
       user={user}
       isRoomEditing={isEditingRoom}
       readOnly={readOnly}
+      bind:this={projectEggRefs[index]}
     />
 
   {/each}

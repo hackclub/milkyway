@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { getUserInfoBySessionId } from '$lib/server/auth.js';
-import { env } from '$env/dynamic/private';
 
 export async function POST({ request, cookies }) {
   try {
@@ -16,7 +15,7 @@ export async function POST({ request, cookies }) {
     const response = await fetch('https://submit.hackclub.com/api/authorize', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.IDV_KEY}`,
+        'Authorization': `Bearer ${process.env.IDV_KEY}`,
         'Content-Type': 'application/json'
       }
     });

@@ -4,6 +4,7 @@
   import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
 
   let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, user, isRoomEditing = false, readOnly = false} = $props();
+  
   let isEditing = $state(false);
   let isUpdating = $state(false);
   
@@ -30,6 +31,10 @@
 
   // HackaTime setup popup state
   let showHackatimeSetup = $state(false);
+  
+  // Shipping confirmation state - check if project status is "submitted"
+  let isProjectShipped = $derived(projInfo.status === 'submitted');
+  
   
   // Check if project is incomplete roulette
   let isIncompleteRoulette = $derived(() => {
@@ -271,8 +276,7 @@
 
   // Add art hours function (placeholder)
   function addArtHours() {
-    // TODO: Implement add art hours functionality
-    console.log('Add art hours clicked for project:', projInfo.id);
+    // Placeholder for future art hours functionality
   }
 
   // Ship project validation
@@ -295,8 +299,8 @@
       missing.push('github url');
     }
     
-    if (!projInfo.totalHours || projInfo.totalHours <= 0) {
-      missing.push('hackatime hours');
+    if (!projInfo.totalHours || projInfo.totalHours < 5) {
+      missing.push('at least 5 hackatime hours');
     }
     
     if (!projInfo.projectImage && !projInfo.image) {
@@ -305,16 +309,13 @@
     
     // Check user profile requirements
     const hasGitHubUsername = user?.githubUsername && user.githubUsername.trim() !== '';
-    // Check if user has an address record ID (linked field in Airtable)
-    // The address field in User table is a linked field, so it's an array of record IDs
-    const hasAddress = user?.address && Array.isArray(user.address) && user.address.length > 0;
     
     // Check new required profile fields
     const hasHowDidYouHear = user?.howDidYouHear && user.howDidYouHear.trim() !== '';
     const hasDoingWell = user?.doingWell && user.doingWell.trim() !== '';
     const hasImprove = user?.improve && user.improve.trim() !== '';
     
-    if (!hasGitHubUsername || !hasAddress || !hasHowDidYouHear || !hasDoingWell || !hasImprove) {
+    if (!hasGitHubUsername || !hasHowDidYouHear || !hasDoingWell || !hasImprove) {
       missing.push('profile information');
     }
     
@@ -330,6 +331,25 @@
       onShipProject(projInfo);
     }
   }
+
+
+  // Function to format time ago
+  function formatTimeAgo(dateString) {
+    const now = new Date();
+    const shipDate = new Date(dateString);
+    const diffMs = now - shipDate;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else {
+      return 'just now';
+    }
+  }
+
 
   // Delete project function
   async function deleteProject() {
@@ -416,17 +436,6 @@
 
       const result = await response.json();
       
-      console.log('HackaTime API response status:', response.status);
-      console.log('HackaTime API response result:', result);
-      
-      console.log('HackaTime API response:', {
-        success: result.success,
-        hasData: !!result.data,
-        dataKeys: result.data ? Object.keys(result.data) : 'no data',
-        error: result.error,
-        userNotFound: result.userNotFound,
-        fullResult: result
-      });
       
       // Check for 404 status or userNotFound flag
       if (response.status === 404 || result.userNotFound === true) {
@@ -451,17 +460,9 @@
             hasRestoredProjects = true;
           }
         } else {
-          console.log('No projects array found in data:', result.data);
           hackatimeProjects = [];
         }
       } else {
-        console.error('HackaTime API error details:', {
-          success: result.success,
-          error: result.error,
-          data: result.data,
-          response: result,
-          userNotFound: result.userNotFound
-        });
         
         // Check if it's a "User not found" error using the new flag
         if (result.userNotFound === true) {
@@ -471,7 +472,6 @@
         hackatimeProjects = [];
       }
     } catch (error) {
-      console.error('Error fetching HackaTime projects:', error);
       
       // Check if it's a "User not found" error in the catch block too
       if (error instanceof Error && error.message && error.message.includes('HTTP error! status: 404') && 
@@ -715,6 +715,21 @@
         <span class="warning-text">no hackatime projects associated!</span>
       </div>
     {/if}
+
+    <!-- Shipping confirmation (always visible if shipped) -->
+    {#if isProjectShipped}
+      <div class="shipping-confirmation">
+        <span class="confirmation-icon">🚀</span>
+        <div class="confirmation-content">
+          <div class="confirmation-title">project shipped!</div>
+          <div class="confirmation-details">
+            you shipped your project at {projInfo.hoursShipped || projInfo.totalHours || 0}h logged.
+            <br>
+            <span class="review-status">your project is under review!</span>
+          </div>
+        </div>
+      </div>
+    {/if}
   {/if}
 
   <!-- Only show action buttons if not read-only -->
@@ -738,7 +753,7 @@
         {#if shipProjectValidation().canShip}
           <button class="ship-btn" onclick={shipProject}>Ship project 💫</button>
         {:else}
-          <Tooltip text="Fill in: {shipProjectValidation().missingFields.join(', ')} before you can ship!">
+          <Tooltip text="You need: {shipProjectValidation().missingFields.join(', ')} before you can ship!">
             <button class="ship-btn disabled" onclick={shipProject}>Ship project 💫</button>
           </Tooltip>
         {/if}
@@ -1095,34 +1110,6 @@ input:hover, textarea:hover {
   min-height: 40px;
 }
 
-/* Project URLs Display */
-.project-urls {
-  display: flex;
-  gap: 8px;
-  margin: 8px 0 12px 0;
-  flex-wrap: wrap;
-}
-
-.project-url-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: var(--orange);
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  font-size: 0.8em;
-  font-weight: 500;
-  transition: all 0.2s;
-  border: 2px solid var(--orange);
-}
-
-.project-url-link:hover {
-  background: white;
-  color: var(--orange);
-  transform: translateY(-1px);
-}
 
 
 /* Button styles */
@@ -1321,6 +1308,50 @@ input:hover, textarea:hover {
   border: 1px solid rgba(255, 193, 7, 0.3);
   border-radius: 4px;
   font-size: 0.8em;
+}
+
+/* Shipping Confirmation */
+.shipping-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.1));
+  border: 2px solid rgba(34, 197, 94, 0.4);
+  border-radius: 8px;
+  font-size: 0.85em;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
+}
+
+.confirmation-icon {
+  font-size: 1.2em;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.confirmation-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.confirmation-title {
+  font-weight: bold;
+  color: #059669;
+  font-size: 0.9em;
+}
+
+.confirmation-details {
+  color: #047857;
+  font-size: 0.8em;
+  line-height: 1.3;
+}
+
+.review-status {
+  font-weight: 600;
+  color: #065f46;
 }
 
 .warning-icon {
