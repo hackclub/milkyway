@@ -64,6 +64,7 @@ export async function GET({ url, locals, request, cookies }) {
       status: record.fields.status || 'active',
       hours: record.fields.hours || 0,
       totalHours: record.fields.totalHours || 0,
+      hoursShipped: record.fields.hoursShipped || 0,
       hackatimeProjects: record.fields.hackatimeProjects || [],
       created: record.fields.Created,
       // Form fields for shipping

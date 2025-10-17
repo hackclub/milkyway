@@ -356,7 +356,7 @@
         },
         credentials: 'include',
         body: JSON.stringify({
-          projectEggId: projectInfo.projectid,
+          projectEggId: projectInfo.id, // Use the Airtable record ID, not projectid field
           submitToken: submitToken,
           identityData: authData // Pass the full identity verification data
         })

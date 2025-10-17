@@ -299,9 +299,7 @@
       missing.push('github url');
     }
     
-    if (!projInfo.totalHours || projInfo.totalHours < 5) {
-      missing.push('at least 5 hackatime hours');
-    }
+    // Hours validation is handled separately in hasHoursIssue check below
     
     if (!projInfo.projectImage && !projInfo.image) {
       missing.push('custom image');
@@ -319,10 +317,49 @@
       missing.push('profile information');
     }
     
-    return {
-      canShip: missing.length === 0,
-      missingFields: missing
+    // Separate hours validation from other requirements
+    const hasHoursIssue = (() => {
+      // Handle shippedHours - it might be an array/object from Airtable
+      // Take the highest value since people can ship multiple times
+      let shippedHours = 0;
+      if (projInfo.hoursShipped) {
+        if (typeof projInfo.hoursShipped === 'number') {
+          shippedHours = projInfo.hoursShipped;
+        } else if (Array.isArray(projInfo.hoursShipped)) {
+          shippedHours = Math.max(...projInfo.hoursShipped) || 0;
+        } else if (projInfo.hoursShipped && typeof projInfo.hoursShipped === 'object') {
+          // Handle object like {0: 26.9, 1: 30.5} - take the highest value
+          const values = Object.values(projInfo.hoursShipped);
+          shippedHours = Math.max(...values) || 0;
+        }
+      }
+      
+      const currentHours = projInfo.totalHours || 0;
+      
+      console.log('Hours validation:', { currentHours, shippedHours, rawShippedHours: projInfo.hoursShipped });
+      
+      if (currentHours < 5) {
+        return true; // First time shipping - need at least 5 hours
+      } else if (shippedHours > 0 && currentHours < shippedHours + 5) {
+        return true; // Re-shipping - need 5 more hours since last shipment
+      }
+      return false;
+    })();
+
+    const result = {
+      canShip: missing.length === 0 && !hasHoursIssue,
+      missingFields: missing,
+      hasHoursIssue: hasHoursIssue
     };
+
+    console.log('=== SHIP VALIDATION DEBUG ===');
+    console.log('Project hours:', { currentHours: projInfo.totalHours, shippedHours: projInfo.hoursShipped });
+    console.log('Missing fields:', missing);
+    console.log('Has hours issue:', hasHoursIssue);
+    console.log('Can ship:', result.canShip);
+    console.log('=============================');
+
+    return result;
   });
 
   function shipProject() {
@@ -750,11 +787,40 @@
         <Tooltip text="coming soon!">
           <button class="add-hours-btn disabled" onclick={addArtHours}>Create artlog</button>
         </Tooltip>
-        {#if shipProjectValidation().canShip}
+        {@const validation = shipProjectValidation()}
+        {#if validation.canShip}
           <button class="ship-btn" onclick={shipProject}>Ship project 💫</button>
         {:else}
-          <Tooltip text="You need: {shipProjectValidation().missingFields.join(', ')} before you can ship!">
-            <button class="ship-btn disabled" onclick={shipProject}>Ship project 💫</button>
+          {@const tooltipText = validation.hasHoursIssue 
+            ? (() => {
+                // Handle shippedHours - same logic as validation, take highest value
+                let shippedHours = 0;
+                if (projInfo.hoursShipped) {
+                  if (typeof projInfo.hoursShipped === 'number') {
+                    shippedHours = projInfo.hoursShipped;
+                  } else if (Array.isArray(projInfo.hoursShipped)) {
+                    shippedHours = Math.max(...projInfo.hoursShipped) || 0;
+                  } else if (projInfo.hoursShipped && typeof projInfo.hoursShipped === 'object') {
+                    const values = Object.values(projInfo.hoursShipped);
+                    shippedHours = Math.max(...values) || 0;
+                  }
+                }
+                
+                const currentHours = projInfo.totalHours || 0;
+                if (currentHours < 5) {
+                  return 'at least 5 hackatime hours';
+                } else {
+                  const hoursNeeded = shippedHours + 5;
+                  const hoursMore = hoursNeeded - currentHours;
+                  return `${Math.round(hoursMore * 100) / 100} more hours (need ${Math.round(hoursNeeded * 100) / 100} total to re-ship)`;
+                }
+              })()
+            : `You need: ${validation.missingFields.join(', ')} before you can ship!`
+          }
+          {@const debugInfo = `Button DEBUG: canShip=${validation.canShip}, hasHoursIssue=${validation.hasHoursIssue}, missingFields=${validation.missingFields.length}`}
+          {console.log('BUTTON RENDER:', debugInfo)}
+          <Tooltip text={tooltipText}>
+            <button class="ship-btn disabled" disabled title={debugInfo}>Ship project 💫</button>
           </Tooltip>
         {/if}
       {/if}

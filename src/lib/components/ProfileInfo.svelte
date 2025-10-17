@@ -107,11 +107,11 @@ function getProfileWarningTooltip(user: any) {
     <button class="settings-button" onclick={() => showSettingsPopup = true} class:visible={showSettingsButton}>
       profile settings
       {#if user && getMissingProfileInfo(user).length > 0}
-        <Tooltip text={getProfileWarningTooltip(user)}>
+
           <div class="settings-badge">
             !
           </div>
-        </Tooltip>
+
       {/if}
     </button>
     

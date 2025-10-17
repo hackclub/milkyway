@@ -26,8 +26,7 @@ export async function POST({ request, cookies }) {
 
     const { projectEggId, submitToken, identityData } = await request.json();
     
-    console.log('Creating submission with projectEggId:', projectEggId);
-    console.log('submitToken:', submitToken);
+    // Removed debug logging of sensitive data
     
     if (!projectEggId || !submitToken) {
       return json({
@@ -36,7 +35,23 @@ export async function POST({ request, cookies }) {
       }, { status: 400 });
     }
 
-    // Extract user details from the passed identity data
+    // Validate projectEggId format (should be Airtable record ID)
+    if (typeof projectEggId !== 'string' || !projectEggId.startsWith('rec')) {
+      return json({
+        success: false,
+        error: 'Invalid project ID format'
+      }, { status: 400 });
+    }
+
+    // Validate submitToken format (should be UUID-like)
+    if (typeof submitToken !== 'string' || submitToken.length < 10) {
+      return json({
+        success: false,
+        error: 'Invalid submit token format'
+      }, { status: 400 });
+    }
+
+    // Extract and sanitize user details from the passed identity data
     let firstName = '';
     let lastName = '';
     let addressLine1 = '';
@@ -48,35 +63,55 @@ export async function POST({ request, cookies }) {
     let birthday = '';
     
     if (identityData && identityData.identity_response) {
-      // Extract names
-      firstName = identityData.identity_response.first_name || '';
-      lastName = identityData.identity_response.last_name || '';
+      // Extract and sanitize names (limit length to prevent abuse)
+      firstName = String(identityData.identity_response.first_name || '').substring(0, 100);
+      lastName = String(identityData.identity_response.last_name || '').substring(0, 100);
       
-      // Extract birthday
-      birthday = identityData.identity_response.birthday || '';
+      // Extract and validate birthday format (YYYY-MM-DD)
+      const birthdayStr = String(identityData.identity_response.birthday || '');
+      if (birthdayStr && /^\d{4}-\d{2}-\d{2}$/.test(birthdayStr)) {
+        birthday = birthdayStr;
+      }
       
-      // Extract address data
-      if (identityData.identity_response.addresses && identityData.identity_response.addresses.length > 0) {
+      // Extract and sanitize address data
+      if (identityData.identity_response.addresses && Array.isArray(identityData.identity_response.addresses) && identityData.identity_response.addresses.length > 0) {
         const address = identityData.identity_response.addresses[0]; // Use first address
-        addressLine1 = address.line_1 || '';
-        addressLine2 = address.line_2 || '';
-        city = address.city || '';
-        state = address.state || '';
-        country = address.country || '';
-        zipCode = address.postal_code || '';
+        addressLine1 = String(address.line_1 || '').substring(0, 200);
+        addressLine2 = String(address.line_2 || '').substring(0, 200);
+        city = String(address.city || '').substring(0, 100);
+        state = String(address.state || '').substring(0, 100);
+        country = String(address.country || '').substring(0, 100);
+        zipCode = String(address.postal_code || '').substring(0, 20);
       }
     }
 
-    // Get the project's hours logged for the submission
+    // Get the project's hours logged for the submission and verify ownership
     let hoursLogged = 0;
     try {
       const projectRecord = await base('Projects').find(projectEggId);
+      
+      // CRITICAL SECURITY: Verify that the project belongs to the current user
+      const projectUserField = projectRecord.fields.user;
+      const projectUserIds = Array.isArray(projectUserField) ? projectUserField : 
+                             (projectUserField ? [String(projectUserField)] : []);
+      
+      if (!projectUserIds.includes(userInfo.recId)) {
+        return json({
+          success: false,
+          error: 'Unauthorized: You can only create submissions for your own projects'
+        }, { status: 403 });
+      }
+      
       if (projectRecord && projectRecord.fields.totalHours) {
         hoursLogged = typeof projectRecord.fields.totalHours === 'number' ? 
                      projectRecord.fields.totalHours : 0;
       }
     } catch (error) {
       console.error('Failed to fetch project hours:', error);
+      return json({
+        success: false,
+        error: 'Project not found'
+      }, { status: 404 });
     }
 
     // Create entry in YSWS Project Submission table

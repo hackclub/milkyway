@@ -73,8 +73,18 @@ export async function POST({ request, cookies }) {
       validationErrors.push('GitHub URL is required');
     }
     
-    if (!projectData.hackatimeHours || (typeof projectData.hackatimeHours === 'number' && projectData.hackatimeHours <= 0)) {
-      validationErrors.push('Hackatime hours must be greater than 0');
+    // Check hours requirement based on whether project has been shipped before
+    const shippedHours = projectData.hoursShipped || 0;
+    const currentHours = projectData.hackatimeHours || 0;
+    
+    if (currentHours < 5) {
+      // First time shipping - need at least 5 hours
+      validationErrors.push('At least 5 hackatime hours are required to ship');
+    } else if (shippedHours > 0 && currentHours < shippedHours + 5) {
+      // Re-shipping - need 5 more hours since last shipment
+      const hoursNeeded = shippedHours + 5;
+      const hoursMore = hoursNeeded - currentHours;
+      validationErrors.push(`Need ${Math.round(hoursNeeded * 100) / 100} total hours to re-ship (currently at ${Math.round(currentHours * 100) / 100}, need ${Math.round(hoursMore * 100) / 100} more)`);
     }
     
     if (!projectData.projectImage && !projectData.image) {
@@ -169,8 +179,7 @@ export async function POST({ request, cookies }) {
     if (shipProject) {
       const updateData = {
         status: 'submitted',
-        shippedDate: new Date().toISOString(),
-        hoursShipped: projectData.totalHours || 0
+        shippedDate: new Date().toISOString()
       };
       
       // Add YSWS submission link if provided
