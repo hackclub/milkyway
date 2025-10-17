@@ -72,9 +72,9 @@ export async function POST({ locals }) {
 
         // Calculate start date (1 week before project creation)
         const projectCreatedDate = new Date(String(projectCreated));
-        const oneWeekBefore = new Date(projectCreatedDate);
-        oneWeekBefore.setDate(projectCreatedDate.getDate() - 7);
-        const startDate = oneWeekBefore.toISOString().split('T')[0];
+        const oneDayBefore = new Date(projectCreatedDate);
+        oneDayBefore.setDate(projectCreatedDate.getDate() - 1);
+        const startDate = oneDayBefore.toISOString().split('T')[0];
 
         // Fetch HackaTime data
         const hackatimeData = await fetchProjects(userEmail, null, startDate);

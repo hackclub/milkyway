@@ -467,9 +467,9 @@
       
       // Calculate start date as project creation date minus 1 week
       const projectCreatedDate = new Date(projInfo.created);
-      const oneWeekAgo = new Date(projectCreatedDate);
-      oneWeekAgo.setDate(projectCreatedDate.getDate() - 7);
-      const startDate = oneWeekAgo.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const oneDayAgo = new Date(projectCreatedDate);
+      oneDayAgo.setDate(projectCreatedDate.getDate() - 1);
+      const startDate = oneDayAgo.toISOString().split('T')[0]; // YYYY-MM-DD format
       
       console.log('HackaTime start date:', {
         projectCreated: projInfo.created,
