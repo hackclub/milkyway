@@ -66,7 +66,7 @@ export async function GET({ url, locals, request, cookies }) {
       totalHours: record.fields.totalHours || 0,
       hoursShipped: record.fields.hoursShipped || 0,
       hackatimeProjects: record.fields.hackatimeProjects || [],
-      created: record.fields.Created,
+      created: record.fields.countingFrom,
       // Form fields for shipping
       notMadeBy: record.fields.notMadeBy || '',
       howToPlay: record.fields.howToPlay || '',
@@ -181,7 +181,7 @@ export async function PUT({ request, locals, cookies }) {
         // Get project creation date for HackaTime query
         const { base } = await import('$lib/server/db.js');
         const projectRecord = await base('Projects').find(projectId);
-        const projectCreated = projectRecord.fields.Created;
+        const projectCreated = projectRecord.fields.countingFrom;
         
         if (projectCreated) {
           // Calculate start date (1 week before project creation)

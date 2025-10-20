@@ -64,7 +64,7 @@ export async function POST({ locals }) {
     // Update each project's hours
     for (const projectRecord of projectsToUpdate) {
       try {
-        const projectCreated = projectRecord.fields.Created;
+        const projectCreated = projectRecord.fields.countingFrom;
         
         if (!projectCreated) {
           continue; // Skip projects without creation date
