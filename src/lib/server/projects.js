@@ -44,7 +44,7 @@ export async function getUserProjectsByEmail(userEmail) {
         hours: record.fields.hours || 0,
         totalHours: record.fields.totalHours || 0,
         hackatimeProjects: record.fields.hackatimeProjects || [],
-        created: record.fields.Created,
+        created: record.fields.countingFrom,
         // Form fields for shipping
         notMadeBy: record.fields.notMadeBy || '',
         howToPlay: record.fields.howToPlay || '',
@@ -163,7 +163,7 @@ export async function updateProject(projectId, updates) {
       y: y,
       status: 'active', // Default since you don't have this field
       hoursShipped: record.fields.hoursShipped || 0,
-      created: record.fields.Created,
+      created: record.fields.countingFrom,
       modified: record.fields.Modified
     };
   } catch (error) {
