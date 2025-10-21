@@ -33,6 +33,13 @@
   // HackaTime setup popup state
   let showHackatimeSetup = $state(false);
   
+  // YSWS submission data state
+  /** @type {{id: string, notesToUser: string, coinsAwarded: number} | null} */
+  let yswsSubmissionData = $state(null);
+  let isLoadingSubmission = $state(false);
+  /** @type {string | null} */
+  let submissionError = $state(null);
+  
   // Shipping confirmation state - check if project status is "submitted"
   let isProjectShipped = $derived(projInfo.status === 'submitted');
   
@@ -590,6 +597,51 @@
     }
   }
 
+  // Fetch YSWS submission data for this project
+  async function fetchYSWSSubmissionData() {
+    if (!projInfo.id || projInfo.status !== 'submitted') {
+      return;
+    }
+
+    try {
+      isLoadingSubmission = true;
+      submissionError = null;
+      
+      const response = await fetch(`/api/get-ysws-submission-by-project/${projInfo.id}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        // Validate and sanitize the data before using it
+        yswsSubmissionData = {
+          id: String(result.data.id || ''),
+          notesToUser: String(result.data.notesToUser || '').substring(0, 1000),
+          coinsAwarded: Math.max(0, Number(result.data.coinsAwarded || 0))
+        };
+      } else {
+        // No submission found or error - this is normal for projects without submissions
+        yswsSubmissionData = null;
+      }
+    } catch (error) {
+      console.error('Error fetching YSWS submission data:', error);
+      submissionError = error instanceof Error ? error.message : 'Unknown error';
+      yswsSubmissionData = null;
+    } finally {
+      isLoadingSubmission = false;
+    }
+  }
+
+  // Fetch submission data when project is selected and shipped
+  $effect(() => {
+    if (selected && projInfo.status === 'submitted' && !yswsSubmissionData && !isLoadingSubmission) {
+      fetchYSWSSubmissionData();
+    }
+  });
+
 </script>
 
 
@@ -776,7 +828,31 @@
           <div class="confirmation-details">
             you shipped your project at {projInfo.hoursShipped || projInfo.totalHours || 0}h logged.
             <br>
-            <span class="review-status">your project is under review!</span>
+            {#if yswsSubmissionData}
+              <!-- Show review results if available -->
+              {#if yswsSubmissionData.notesToUser || (yswsSubmissionData.coinsAwarded && yswsSubmissionData.coinsAwarded > 0)}
+                {#if yswsSubmissionData.notesToUser}
+                  <div class="review-notes-inline">
+                    <div class="notes-label-inline">reviewer notes:</div>
+                    <div class="notes-content-inline">{yswsSubmissionData.notesToUser}</div>
+                  </div>
+                {/if}
+                
+                {#if yswsSubmissionData.coinsAwarded && yswsSubmissionData.coinsAwarded > 0}
+                  <div class="coins-awarded-inline">
+                    <img src="/coin.png" alt="Coins" class="coins-icon" />
+                    <span class="coins-text">+{yswsSubmissionData.coinsAwarded} coins awarded!</span>
+                  </div>
+                {/if}
+              {:else}
+                <!-- Submission exists but no review results yet -->
+                <span class="review-status">your project is under review!</span>
+              {/if}
+            {:else if isLoadingSubmission}
+              <span class="review-status">loading review results...</span>
+            {:else}
+              <span class="review-status">your project is under review!</span>
+            {/if}
           </div>
         </div>
       </div>
@@ -1657,5 +1733,53 @@ input:hover, textarea:hover {
   50% {
     transform: translateY(-5px);
   }
+}
+
+/* Inline Review Results within Shipping Confirmation */
+.review-notes-inline {
+  margin: 8px 0;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  border-left: 3px solid rgba(255, 255, 255, 0.5);
+}
+
+.notes-label-inline {
+  font-weight: 600;
+  color: #065f46;
+  font-size: 0.75em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.notes-content-inline {
+  color: #047857;
+  font-size: 0.8em;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.coins-awarded-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.coins-awarded-inline .coins-icon {
+  height: 1em;
+  flex-shrink: 0;
+  filter: drop-shadow(-1.5px -1.5px 0 white) drop-shadow(1.5px -1.5px 0 white) drop-shadow(-1.5px 1.5px 0 white) drop-shadow(1.5px 1.5px 0 white) drop-shadow(0 0 3px white);
+}
+
+.coins-awarded-inline .coins-text {
+  color: #065f46;
+  font-size: 0.8em;
 }
 </style>
