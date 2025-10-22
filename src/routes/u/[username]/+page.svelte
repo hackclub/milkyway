@@ -1,48 +1,20 @@
 <script>
 import Room from '$lib/components/room/Room.svelte';
-import { onMount } from 'svelte';
 
 let { data } = $props();
 
 /** @type {any[]} */
-let projectList = $state([]);
+let projectList = $state(data.projects || []);
 /** @type {any[]} */
-let furnitureList = $state([]);
-let isFollowing = $state(false);
+let furnitureList = $state(data.furniture || []);
+let isFollowing = $state(data.isFollowing || false);
 let followLoading = $state(false);
-let loading = $state(true);
+let loading = $state(false);
 let userData = $state(data.user);
 
 // Calculate total hours and project count
 let totalHours = $derived(Number(projectList.reduce((/** @type {number} */ sum, /** @type {any} */ project) => sum + (project.totalHours || project.hours || 0), 0)));
 let projectCount = $derived(projectList.length);
-
-// Load user data on mount
-onMount(async () => {
-  try {
-    const response = await fetch(`/api/get-user-profile?username=${encodeURIComponent(data.username)}`);
-    if (response.ok) {
-      const result = await response.json();
-      // Update all fields individually to ensure reactivity
-      userData = {
-        id: result.user.id,
-        username: result.user.username,
-        coins: result.user.coins || 0,
-        stellarships: result.user.stellarships || 0,
-        paintchips: result.user.paintchips || 0,
-        followerCount: result.user.followerCount || 0,
-        followingCount: result.user.followingCount || 0
-      };
-      projectList = result.projects || [];
-      furnitureList = result.furniture || [];
-      isFollowing = result.isFollowing || false;
-    }
-  } catch (error) {
-    console.error('Error loading user profile:', error);
-  } finally {
-    loading = false;
-  }
-});
 
 /**
  * Toggle follow/unfollow or redirect to sign in
@@ -60,7 +32,7 @@ async function handleFollowClick() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        userId: userData.id, 
+        userId: userData?.recId, 
         action: isFollowing ? 'unfollow' : 'follow' 
       })
     });
@@ -71,7 +43,7 @@ async function handleFollowClick() {
       isFollowing = result.isFollowing;
       
       // Update follower count immediately (only if data has loaded)
-      if (!loading && userData.followerCount !== undefined && userData.followerCount !== null) {
+      if (!loading && userData && userData.followerCount !== undefined && userData.followerCount !== null) {
         userData.followerCount += (result.isFollowing && !wasFollowing) ? 1 : (!result.isFollowing && wasFollowing) ? -1 : 0;
       }
     } else {
@@ -88,10 +60,13 @@ async function handleFollowClick() {
 </script>
 
 <svelte:head>
-  <title>{userData.username}'s Room ✦ Milkyway</title>
+  <title>{userData?.username || 'User'}'s Room ✦ Milkyway</title>
 </svelte:head>
 
 <main>
+  {#if !userData}
+    <div class="error-message">User not found</div>
+  {:else}
   <!-- User Info Header -->
   <div class="user-info-header">
     <div class="user-info-content">
@@ -121,12 +96,12 @@ async function handleFollowClick() {
       
       <div class="social-stats" class:loading>
         <div class="social-item">
-          <span class="social-count">{loading ? '...' : (userData?.followerCount || 0)}</span>
+          <span class="social-count">{loading ? '...' : (userData.followerCount || 0)}</span>
           <span class="social-label">Followers</span>
         </div>
         <div class="social-divider"></div>
         <div class="social-item">
-          <span class="social-count">{loading ? '...' : (userData?.followingCount || 0)}</span>
+          <span class="social-count">{loading ? '...' : (userData.followingCount || 0)}</span>
           <span class="social-label">Following</span>
         </div>
       </div>
@@ -157,6 +132,7 @@ async function handleFollowClick() {
       onShowPromptPopup={() => {}}
       onOpenRouletteSpin={() => {}}
       onDeleteProject={() => {}}
+      onShipProject={() => {}}
       readOnly={true}
       hideControls={true}
     />
@@ -168,6 +144,7 @@ async function handleFollowClick() {
       <span>← back to {data.isLoggedIn ? "home" : "landing"}</span>
     </a>
   </div>
+  {/if}
 </main>
 
 <style>

@@ -950,7 +950,7 @@
 .project-egg {
   height: 8%;
   position: absolute;
-  z-index: calc(100 + var(--z));
+  z-index: calc(500 + var(--z));
 
   display: flex;
   justify-content: center;
@@ -960,7 +960,7 @@
 }
 
 .project-egg.selected {
-  z-index: calc(1000 + var(--z));
+  z-index: calc(1500 + var(--z));
 }
 
 .project-egg.editing-mode {

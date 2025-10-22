@@ -231,6 +231,37 @@ async function getUserRecordIdByUsername(username) {
 }
 
 /**
+ * @param {string} username
+ * Get user info by username
+ * WARNING: Returns email field for server-side use ONLY
+ * NEVER send the returned object directly to the client without removing email!
+ */
+export async function getUserInfoByUsername(username) {
+  const escapedUsername = escapeAirtableFormula(username);
+  const records = await base('User')
+    .select({
+      filterByFormula: `{username} = "${escapedUsername}"`,
+      maxRecords: 1
+    })
+    .firstPage();
+
+  if (!records.length) return null;
+  const fields = records[0].fields;
+  
+  return {
+    recId: records[0].id,
+    email: fields.email,
+    username: fields.username,
+    hasOnboarded: fields.hasOnboarded,
+    coins: fields.coins,
+    stellarships: fields.stellarships,
+    paintchips: fields.paintchips,
+    githubUsername: fields.githubUsername,
+    birthday: fields.birthday,
+  };
+}
+
+/**
  * @param {string} userId
  */
 export async function getUserCoinsAndStellarships(userId) {
