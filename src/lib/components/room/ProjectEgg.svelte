@@ -674,7 +674,11 @@
       {#if isEditing}
         <input class="project-name" bind:value={projInfo.name} placeholder="your game name..." />
       {:else}
-        <div class="project-name-display">{projInfo.name || 'Untitled Project'}</div>
+        {#if projInfo.status === 'submitted'}
+          <a target="_blank" href={projInfo.shipURL} class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
+        {:else}
+          <a class="project-name-display">{projInfo.status || 'Untitled Project'}</a>
+        {/if}
       {/if}
     </div>
     {#if isEditing}
