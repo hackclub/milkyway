@@ -3,6 +3,7 @@ import FloorTile from '$lib/components/FloorTile.svelte';
 import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
 import FurnitureItem from '$lib/components/room/FurnitureItem.svelte';
 import ExpandableButton from '$lib/components/ExpandableButton.svelte';
+import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
 
 let {
   projectList = $bindable([]),
@@ -20,10 +21,12 @@ let {
 } = $props();
 
 let isEditingRoom = $state(false);
+let showFurnitureSidebar = $state(false);
 let selectedEggForMove = $state(null);
 let selectedFurnitureForMove = $state(null);
 
 // References to ProjectEgg components for calling their methods
+/** @type {any[]} */
 let projectEggRefs = $state([]);
 
 // Use external selectedProjectId if provided, otherwise use local state
@@ -161,16 +164,55 @@ function selectFurnitureForDrag(furnitureId, e) {
   }
 }
 
-// Function to handle furniture deletion
+// Function to handle removing furniture from room (back to inventory)
 /**
  * @param {any} furnitureId
  */
-function deleteFurnitureHandler(furnitureId) {
-  // Remove the furniture from the list
-  furnitureList = furnitureList.filter(furniture => furniture.id !== furnitureId);
-  // If the deleted furniture was selected, clear selection
-  if (selectedFurnitureId === furnitureId) {
-    localSelectedFurnitureId = null;
+async function removeFurnitureFromRoom(furnitureId) {
+  try {
+    const response = await fetch('/api/furniture', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        furnitureId: furnitureId,
+        updates: {
+          position: 'inventory'
+        }
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Update local furniture list - mark as not placed
+      const furnitureIndex = furnitureList.findIndex(f => f.id === furnitureId);
+      if (furnitureIndex !== -1) {
+        furnitureList[furnitureIndex] = {
+          ...furnitureList[furnitureIndex],
+          position: 'inventory',
+          x: 0,
+          y: 0,
+          isPlaced: false,
+          flipped: false
+        };
+        furnitureList = [...furnitureList]; // Trigger reactivity
+      }
+      
+      // Clear selection
+      if (selectedFurnitureId === furnitureId) {
+        localSelectedFurnitureId = null;
+      }
+      if (selectedFurnitureForMove === furnitureId) {
+        selectedFurnitureForMove = null;
+      }
+    } else {
+      alert(`Failed to remove furniture: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Error removing furniture:', error);
+    alert('Failed to remove furniture. Please try again.');
   }
 }
 
@@ -201,6 +243,7 @@ function enterEditMode() {
 // Exit room editing mode (discard)
 function exitEditMode() {
   isEditingRoom = false;
+  showFurnitureSidebar = false;
   selectedEggForMove = null;
   selectedFurnitureForMove = null;
   isDragging = false;
@@ -247,6 +290,7 @@ async function saveRoomChanges() {
     if (changedProjects.length === 0 && changedFurniture.length === 0) {
       // No changes to save
       isEditingRoom = false;
+      showFurnitureSidebar = false;
       selectedEggForMove = null;
       selectedFurnitureForMove = null;
       originalPositions = [];
@@ -318,6 +362,7 @@ async function saveRoomChanges() {
     
     // Exit edit mode
     isEditingRoom = false;
+    showFurnitureSidebar = false;
     selectedEggForMove = null;
     selectedFurnitureForMove = null;
     originalPositions = [];
@@ -501,12 +546,20 @@ function handleMouseUp() {
   isDragging = false;
 }
 
+// Handle furniture list updates from room editor
+/**
+ * @param {any[]} updatedFurnitureList
+ */
+function handleFurnitureUpdate(updatedFurnitureList) {
+  furnitureList = updatedFurnitureList;
+}
+
 </script>
 
 <svelte:window onmouseup={handleMouseUp} />
 
 <div 
-  class="zlayer room {isEditingRoom ? 'editing' : ''} {isDragging ? 'dragging' : ''}" 
+  class="zlayer room {isEditingRoom ? 'editing' : ''} {isDragging ? 'dragging' : ''} {showFurnitureSidebar ? 'sidebar-open' : ''}" 
   onclick={() => { 
     if (!isEditingRoom) {
       if (onSelectProject) {
@@ -522,7 +575,7 @@ function handleMouseUp() {
   role="presentation"
 >
 
-  <img aria-hidden="true" class="room-bg" src="/room_draft.png" />
+  <img aria-hidden="true" class="room-bg" src="/room_draft.png" alt="Room background" />
 
   <FloorTile></FloorTile>
 
@@ -551,16 +604,16 @@ function handleMouseUp() {
 
   {/each}
 
-  {#each furnitureList as furniture, index}
+  {#each furnitureList.filter(f => f.isPlaced) as furniture, index}
 
     <FurnitureItem 
-      bind:furnitureInfo={furnitureList[index]} 
+      bind:furnitureInfo={furnitureList[furnitureList.findIndex(f => f.id === furniture.id)]} 
       x={furniture.x} 
       y={furniture.y}
       selected={isEditingRoom ? (selectedFurnitureForMove === furniture.id) : (selectedFurnitureId === furniture.id)}
       onSelect={() => selectFurnitureForClick(furniture.id)}
       onMouseDown={(/** @type {MouseEvent} */ e) => selectFurnitureForDrag(furniture.id, e)}
-      onDelete={deleteFurnitureHandler}
+      onRemoveFromRoom={removeFurnitureFromRoom}
       isRoomEditing={isEditingRoom}
       readOnly={readOnly}
     />
@@ -569,7 +622,12 @@ function handleMouseUp() {
 
   {#if !hideControls}
     {#if !isEditingRoom}
-      <div class="fab-container" onclick={(e) => e.stopPropagation()}>
+      <div 
+        class="fab-container" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="presentation"
+      >
         <ExpandableButton 
           icon="+" 
           expandedText="create new project" 
@@ -581,11 +639,19 @@ function handleMouseUp() {
           icon="✎"
           expandedText="edit room" 
           expandedWidth="112px"
-          onClick={enterEditMode} 
+          onClick={() => { 
+            enterEditMode();
+            showFurnitureSidebar = true;
+          }} 
         />
       </div>
     {:else}
-      <div class="edit-mode-controls" onclick={(e) => e.stopPropagation()}>
+      <div 
+        class="edit-mode-controls" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="presentation"
+      >
       <p>editing your room →</p>
         <button class="edit-mode-btn discard-edit-btn" onclick={exitEditMode} disabled={isSaving}>
           <span class="btn-text">discard 🗑️</span>
@@ -596,6 +662,16 @@ function handleMouseUp() {
       </div>
     {/if}
   {/if}
+
+  <!-- Furniture Sidebar -->
+  {#if showFurnitureSidebar}
+    <FurnitureSidebar 
+      bind:furnitureList={furnitureList}
+      {user}
+      onClose={() => { showFurnitureSidebar = false }}
+    />
+  {/if}
+
 
 </div>
 
@@ -614,6 +690,17 @@ function handleMouseUp() {
   justify-content: center;
   align-items: center;
   position: absolute;
+  transition: transform 0.3s ease;
+}
+
+.room.sidebar-open {
+  transform: translateX(-150px);
+}
+
+@media (max-width: 768px) {
+  .room.sidebar-open {
+    transform: translateX(0);
+  }
 }
 
 .room-bg {

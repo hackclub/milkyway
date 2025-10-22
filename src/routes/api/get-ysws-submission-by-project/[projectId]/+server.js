@@ -1,9 +1,19 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
 import { getUserInfoBySessionId } from '$lib/server/auth.js';
+import { escapeAirtableFormula, checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
 
-export async function GET({ params, cookies }) {
+export async function GET({ params, cookies, request }) {
   try {
+    // Rate limiting: 20 requests per minute per client
+    const clientId = getClientIdentifier(request, cookies);
+    if (!checkRateLimit(`ysws-submission:${clientId}`, 20, 60000)) {
+      return json({
+        success: false,
+        error: 'Too many requests. Please try again later.'
+      }, { status: 429 });
+    }
+
     const sessionId = cookies.get('sessionid');
     
     if (!sessionId) {
@@ -32,8 +42,26 @@ export async function GET({ params, cookies }) {
       }, { status: 400 });
     }
 
+    // Validate projectId format (should be Airtable record ID)
+    if (typeof projectId !== 'string' || !projectId.startsWith('rec') || projectId.length < 10) {
+      return json({
+        success: false,
+        error: 'Invalid project ID format'
+      }, { status: 400 });
+    }
+
     // First verify that the project belongs to the current user
-    const projectRecord = await base('Projects').find(projectId);
+    let projectRecord;
+    try {
+      projectRecord = await base('Projects').find(projectId);
+    } catch (error) {
+      console.error('Error fetching project:', error);
+      return json({
+        success: false,
+        error: 'Project not found'
+      }, { status: 404 });
+    }
+
     const projectUserField = projectRecord.fields.user;
     const projectUserIds = Array.isArray(projectUserField) ? projectUserField : 
                            (projectUserField ? [String(projectUserField)] : []);
@@ -45,37 +73,59 @@ export async function GET({ params, cookies }) {
       }, { status: 403 });
     }
 
-    // Find the YSWS submission that links to this project
-    const submissions = await base('YSWS Project Submission').select({
-      filterByFormula: `FIND("${projectId}", ARRAYJOIN({projectEgg}, ",")) > 0`,
-      maxRecords: 1
-    }).all();
+    // Check if the project has a YSWS Project Submission link
+    const projectYSWSField = projectRecord.fields['YSWS Project Submission'];
+    let submissionRecord = null;
     
-    if (submissions.length === 0) {
-      return json({
-        success: false,
-        error: 'No submission found for this project'
-      }, { status: 404 });
+    if (projectYSWSField && Array.isArray(projectYSWSField) && projectYSWSField.length > 0) {
+      // Project has a direct link to YSWS submission
+      try {
+        submissionRecord = await base('YSWS Project Submission').find(projectYSWSField[0]);
+      } catch (error) {
+        console.error('Error fetching linked YSWS submission:', error);
+        return json({
+          success: false,
+          error: 'Failed to fetch submission data'
+        }, { status: 500 });
+      }
+    } else {
+      // No direct link, try to find by projectEgg field using the correct Airtable pattern
+      /** @type {any[]} */
+      let submissions = [];
+      
+      try {
+        // Use the correct Airtable pattern for querying linked fields
+        const escapedProjectId = escapeAirtableFormula(projectId);
+        const result = await base('YSWS Project Submission').select({
+          filterByFormula: `FIND("${escapedProjectId}", ARRAYJOIN({projectEgg}, ",")) > 0`,
+          maxRecords: 1
+        }).all();
+        
+        submissions = Array.from(result);
+      } catch (filterError) {
+        console.error('Error with projectEgg filter:', filterError);
+        // Return empty result instead of error
+        submissions = [];
+      }
+      
+      if (submissions.length === 0) {
+        return json({
+          success: false,
+          error: 'No submission found for this project'
+        }, { status: 404 });
+      }
+      
+      submissionRecord = submissions[0];
     }
 
-    const submissionRecord = submissions[0];
-
     // Return the submission data (user can only access their own data due to ownership verification above)
+    // Only return the fields needed for the UI - exclude sensitive personal data
     return json({
       success: true,
       data: {
         id: submissionRecord.id,
-        hoursLogged: submissionRecord.fields.hoursLogged || 0,
-        submitToken: submissionRecord.fields.submit_token,
-        firstName: submissionRecord.fields['First Name'] || '',
-        lastName: submissionRecord.fields['Last Name'] || '',
-        birthday: submissionRecord.fields['Birthday'] || '',
-        addressLine1: submissionRecord.fields['Address (Line 1)'] || '',
-        addressLine2: submissionRecord.fields['Address (Line 2)'] || '',
-        city: submissionRecord.fields['City'] || '',
-        state: submissionRecord.fields['State / Province'] || '',
-        country: submissionRecord.fields['Country'] || '',
-        zipCode: submissionRecord.fields['ZIP / Postal Code'] || ''
+        notesToUser: String(submissionRecord.fields.notesToUser || '').substring(0, 1000), // Limit length
+        coinsAwarded: Math.max(0, Number(submissionRecord.fields.coinsAwarded || 0)) // Ensure non-negative
       }
     });
 

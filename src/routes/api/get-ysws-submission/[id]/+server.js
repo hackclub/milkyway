@@ -1,9 +1,19 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
 import { getUserInfoBySessionId } from '$lib/server/auth.js';
+import { escapeAirtableFormula, checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
 
-export async function GET({ params, cookies }) {
+export async function GET({ params, cookies, request }) {
   try {
+    // Rate limiting: 20 requests per minute per client
+    const clientId = getClientIdentifier(request, cookies);
+    if (!checkRateLimit(`ysws-submission:${clientId}`, 20, 60000)) {
+      return json({
+        success: false,
+        error: 'Too many requests. Please try again later.'
+      }, { status: 429 });
+    }
+
     const sessionId = cookies.get('sessionid');
     
     if (!sessionId) {
@@ -80,7 +90,9 @@ export async function GET({ params, cookies }) {
         city: submissionRecord.fields['City'] || '',
         state: submissionRecord.fields['State / Province'] || '',
         country: submissionRecord.fields['Country'] || '',
-        zipCode: submissionRecord.fields['ZIP / Postal Code'] || ''
+        zipCode: submissionRecord.fields['ZIP / Postal Code'] || '',
+        notesToUser: submissionRecord.fields.notesToUser || '',
+        coinsAwarded: submissionRecord.fields.coinsAwarded || 0
       }
     });
 
