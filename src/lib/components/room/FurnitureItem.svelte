@@ -6,26 +6,59 @@
     selected = $bindable(false), 
     onSelect, 
     onMouseDown = null, 
-    onDelete, 
+    onRemoveFromRoom, 
     isRoomEditing = false, 
     readOnly = false
   } = $props();
 
-  let isFlipped = $state(furnitureInfo.flipped || false);
+  // Use derived state that stays in sync with furnitureInfo.flipped
+  let isFlipped = $derived(furnitureInfo.flipped || false);
+
+  // Map furniture types to their SVG stroke files
+  // Some furniture share the same stroke, and some don't have strokes
+  /** @type {Record<string, string>} */
+  const furnitureStrokeMap = {
+    'beanbag_white': 'beanbag_stroke.svg',
+    'beanbag_yellow': 'beanbag_stroke.svg',
+    'bed_simple_blue': 'bed_stroke.svg',
+    'bed_simple_green': 'bed_stroke.svg',
+    'bed_simple_red': 'bed_stroke.svg',
+    'bed_simple_yellow': 'bed_stroke.svg',
+    'bedside_round': 'bedside_round_stroke.svg',
+    'bedside_white': 'bedside_stroke.svg',
+    'bedside_wooden': 'bedside_stroke.svg',
+    'sofa_blue': 'sofa_stroke.svg',
+    'sofa_red': 'sofa_stroke.svg',
+    'cow_statue': 'cow_statue_stroke.svg'
+  };
+
+  // Only cow_statue has a physical _flipped.png file
+  const hasFlippedImage = ['cow_statue'];
 
   // Get furniture assets based on type and flipped state
   const furnitureAssets = $derived(() => {
-    const type = furnitureInfo.type || 'cow_statue';
-    const suffix = isFlipped ? '_flipped' : '';
+    const type = String(furnitureInfo.type || 'cow_statue');
+    const hasPhysicalFlip = hasFlippedImage.includes(type);
+    const suffix = (isFlipped && hasPhysicalFlip) ? '_flipped' : '';
+    
+    // Get stroke SVG
+    const strokeFile = furnitureStrokeMap[type] || 'cow_statue_stroke.svg';
+    const strokeSuffix = (isFlipped && type === 'cow_statue') ? '_flipped' : '';
+    const strokePath = strokeFile.replace('_stroke.svg', `${strokeSuffix}_stroke.svg`);
+    
     return {
       image: `/room/${type}${suffix}.png`,
-      stroke: `/room/${type}${suffix}_stroke.svg`
+      stroke: `/room/${strokePath}`,
+      useCssFlip: isFlipped && !hasPhysicalFlip
     };
   });
 
   // Toggle flip
   async function toggleFlip() {
-    isFlipped = !isFlipped;
+    const newFlippedState = !isFlipped;
+    
+    // Optimistically update local state
+    furnitureInfo.flipped = newFlippedState;
     
     // Update the furniture in the database
     try {
@@ -37,25 +70,22 @@
         body: JSON.stringify({
           furnitureId: furnitureInfo.id,
           updates: {
-            position: `${Math.round(x)},${Math.round(y)},${isFlipped ? '1' : '0'}`
+            position: `${Math.round(x)},${Math.round(y)},${newFlippedState ? '1' : '0'}`
           }
         })
       });
 
       const result = await response.json();
       
-      if (result.success) {
-        // Update local state
-        furnitureInfo.flipped = isFlipped;
-      } else {
+      if (!result.success) {
         console.error('Failed to update furniture flip:', result.error);
         // Revert on failure
-        isFlipped = !isFlipped;
+        furnitureInfo.flipped = !newFlippedState;
       }
     } catch (error) {
       console.error('Error updating furniture flip:', error);
       // Revert on failure
-      isFlipped = !isFlipped;
+      furnitureInfo.flipped = !newFlippedState;
     }
   }
 </script>
@@ -65,19 +95,31 @@
   style:--x={x} 
   style:--y={y}
   style:--z={Math.round(y)}
-  onclick={(e) => e.stopPropagation()}
+  onclick={(e) => {
+    e.stopPropagation();
+    if (isRoomEditing && onSelect) onSelect();
+  }}
+  onmousedown={(e) => {
+    if (isRoomEditing && onMouseDown) {
+      e.stopPropagation();
+      onMouseDown(e);
+    }
+  }}
+  role="button"
+  tabindex={isRoomEditing ? 0 : -1}
 >
-  <img class="furniture-img" src={furnitureAssets().image} alt="Furniture" />
+  <img 
+    class="furniture-img {furnitureAssets().useCssFlip ? 'css-flipped' : ''}" 
+    src={furnitureAssets().image} 
+    alt="Furniture" 
+  />
 
   {#if isRoomEditing}
-    <button 
-      class="furniture-hitbox" 
-      onclick={() => { if (onSelect) onSelect(); }} 
-      onmousedown={(e) => { if (onMouseDown) { e.stopPropagation(); onMouseDown(e); } }}
-      aria-label="Select furniture"
-    >
-      <img src={furnitureAssets().stroke} alt="Furniture outline" />
-    </button>
+    <img 
+      class="furniture-stroke {furnitureAssets().useCssFlip ? 'css-flipped' : ''}"
+      src={furnitureAssets().stroke} 
+      alt="Furniture outline" 
+    />
   {/if}
 
   {#if selected && isRoomEditing && !readOnly}
@@ -85,13 +127,15 @@
       <button class="rotate-furniture-btn" onclick={toggleFlip} aria-label="Flip furniture">
         ↻
       </button>
+      <button class="delete-furniture-btn" onclick={() => { if (onRemoveFromRoom) onRemoveFromRoom(furnitureInfo.id); }} aria-label="Remove furniture from room">
+        🗑️
+      </button>
     </div>
   {/if}
 </div>
 
 <style>
 .furniture-item {
-  height: 12%;
   position: absolute;
   z-index: calc(100 + var(--z));
 
@@ -114,41 +158,40 @@
   cursor: grab;
 }
 
-.furniture-item.editing-mode.selected .furniture-img {
-  filter: drop-shadow(-2px -2px 0 var(--orange)) drop-shadow(2px -2px 0 var(--orange)) drop-shadow(-2px 2px 0 var(--orange)) drop-shadow(2px 2px 0 var(--orange));
+.furniture-item.editing-mode .furniture-img {
   pointer-events: none;
 }
 
+.furniture-item.editing-mode.selected .furniture-img {
+  filter: drop-shadow(-6px -6px 0 var(--orange)) drop-shadow(6px -6px 0 var(--orange)) drop-shadow(-6px 6px 0 var(--orange)) drop-shadow(6px 6px 0 var(--orange));
+}
+
 .furniture-img {
-  height: 100%;
+  width: auto;
+  height: auto;
   position: absolute;
   transition: filter 0.2s;
+  transform: scale(0.3);
 }
 
-.furniture-hitbox {
-  height: 85%;
+.furniture-img.css-flipped {
+  transform: scale(0.3) scaleX(-1);
+}
+
+.furniture-stroke {
   position: absolute;
-  cursor: pointer;
-  background: none;
-  border: none;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.furniture-item.editing-mode .furniture-hitbox {
-  cursor: move;
-}
-
-.furniture-hitbox img {
-  height: 100%;
   width: auto;
+  height: auto;
+  transform: scale(0.3);
 }
 
-.furniture-item.editing-mode:has(.furniture-hitbox:hover) .furniture-img, 
+.furniture-stroke.css-flipped {
+  transform: scale(0.3) scaleX(-1);
+}
+
+.furniture-item.editing-mode:hover .furniture-img, 
 .furniture-item.editing-mode.selected .furniture-img {
-  filter: drop-shadow(-2px -2px 0 var(--orange)) drop-shadow(2px -2px 0 var(--orange)) drop-shadow(-2px 2px 0 var(--orange)) drop-shadow(2px 2px 0 var(--orange));
+  filter: drop-shadow(-6px -6px 0 var(--orange)) drop-shadow(6px -6px 0 var(--orange)) drop-shadow(-6px 6px 0 var(--orange)) drop-shadow(6px 6px 0 var(--orange));
 }
 
 /* Furniture controls */
@@ -162,7 +205,8 @@
   z-index: 1500;
 }
 
-.rotate-furniture-btn {
+.rotate-furniture-btn,
+.delete-furniture-btn {
   padding: 6px 12px 10px;
   border: 2px solid var(--orange);
   border-radius: 50px;
@@ -181,6 +225,12 @@
   background: var(--orange);
   color: white;
   transform: rotate(180deg);
+}
+
+.delete-furniture-btn:hover {
+  background: #ff4444;
+  border-color: #ff4444;
+  color: white;
 }
 </style>
 

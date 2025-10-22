@@ -396,6 +396,9 @@ export async function completePurchase(userId, userEmail, itemId) {
       // Record purchase
       const purchase = await createPurchase(userEmail, itemId, costs);
       
+      // NOTE: Furniture is now handled by a separate purchase system (/api/purchase-furniture)
+      // The Shop table should only contain prizes and one-time items, not furniture
+      
       return {
         success: true,
         purchase,
