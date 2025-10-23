@@ -1,5 +1,6 @@
 <script>
 import { onMount } from 'svelte';
+import { FURNITURE_TYPES } from '$lib/furniture-catalog.js';
 
 let {
   furnitureList = $bindable([]),
@@ -21,6 +22,7 @@ const availableFurnitureTypes = [
   { type: 'bedside_wooden', name: 'wooden bedside table', cost: 8, purchasable: true },
   { type: 'sofa_blue', name: 'blue sofa', cost: 12, purchasable: true },
   { type: 'sofa_red', name: 'red sofa', cost: 12, purchasable: true },
+  { type: 'flower_cushion', name: 'flower cushion', cost: 0, purchasable: false},
   { type: 'cow_statue', name: 'cow statue', cost: 0, purchasable: false },
 ];
 
@@ -38,9 +40,9 @@ $effect(() => {
   /** @type {Record<string, {type: string, name: string, cost: number, owned: number, placed: number, instances: any[]}>} */
   const ownership = {};
   
-  availableFurnitureTypes.forEach(furnitureType => {
-    const owned = furnitureList.filter(f => f.type === furnitureType.type);
-    const placed = owned.filter(f => f.isPlaced);
+  FURNITURE_TYPES.forEach(furnitureType => {
+    const owned = furnitureList.filter(/** @param {any} f */ f => f.type === furnitureType.type);
+    const placed = owned.filter(/** @param {any} f */ f => f.isPlaced);
     
     ownership[furnitureType.type] = {
       ...furnitureType,
