@@ -11,11 +11,17 @@ let {
     <img src="/friends.png" alt="Friends" />
     <span>friends</span>
   </a>
+  <div class="bottom-right-buttons">
+  <a href="/leaderboard" class="bottom-button">
+    <img src="/leaderboard.png" alt="Shop" />
+    <span class="leaderboard">leaderboard</span>
+  </a>
 
   <a href="/shop" class="bottom-button">
     <img src="/shop.png" alt="Shop" />
     <span>shop</span>
   </a>
+  </div>
 </div>
 
 <!-- FAQ button -->
@@ -46,7 +52,7 @@ let {
 }
 
 .bottom-buttons a {
-  padding: 20px;
+  padding: 18px;
   font-size: inherit;
   font-family: inherit;
 }
@@ -61,7 +67,7 @@ let {
   gap: 4px;
   border: 2px solid white;
   aspect-ratio: 1;
-  padding: 12px;
+  padding: 1000px;
   width: auto;
   height: 6em;
   box-sizing: border-box;
@@ -72,6 +78,12 @@ let {
   transition: 0.2s;
   cursor: pointer;
   pointer-events: all;
+}
+
+.bottom-right-buttons {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
 }
 
 .bottom-button img {
@@ -87,6 +99,10 @@ let {
 .bottom-button:hover {
   background-color: white;
   color: black;
+}
+
+.leaderboard {
+  font-size: 0.8em;
 }
 
 .faq-button {
