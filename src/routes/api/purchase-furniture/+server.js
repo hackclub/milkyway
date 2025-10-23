@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createFurniture } from '$lib/server/furniture.js';
 import { base } from '$lib/server/db.js';
 import { checkRateLimit } from '$lib/server/security.js';
+import { FURNITURE_CATALOG, VALID_FURNITURE_TYPES } from '$lib/furniture-catalog.js';
 
 // Track recent purchases to prevent duplicates (simple in-memory cache)
 const recentPurchases = new Map();
@@ -15,23 +16,6 @@ setInterval(() => {
     }
   }
 }, 60000);
-
-// Furniture catalog with prices
-/** @type {Record<string, {name: string, cost: number, purchasable: boolean}>} */
-const FURNITURE_CATALOG = {
-  'beanbag_white': { name: 'White Beanbag', cost: 5, purchasable: true },
-  'beanbag_yellow': { name: 'Yellow Beanbag', cost: 5, purchasable: true },
-  'bed_simple_blue': { name: 'Blue Bed', cost: 15, purchasable: true },
-  'bed_simple_green': { name: 'Green Bed', cost: 15, purchasable: true },
-  'bed_simple_red': { name: 'Red Bed', cost: 15, purchasable: true },
-  'bed_simple_yellow': { name: 'Yellow Bed', cost: 15, purchasable: true },
-  'bedside_round': { name: 'Round Bedside Table', cost: 8, purchasable: true },
-  'bedside_white': { name: 'White Bedside Table', cost: 8, purchasable: true },
-  'bedside_wooden': { name: 'Wooden Bedside Table', cost: 8, purchasable: true },
-  'sofa_blue': { name: 'Blue Sofa', cost: 12, purchasable: true },
-  'sofa_red': { name: 'Red Sofa', cost: 12, purchasable: true },
-  'cow_statue': { name: 'Cow Statue', cost: 10, purchasable: false } // Reward only
-};
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request, locals }) {
@@ -70,8 +54,7 @@ export async function POST({ request, locals }) {
     }
 
     // SECURITY: Validate furniture type against allowed list
-    const validTypes = Object.keys(FURNITURE_CATALOG);
-    if (!validTypes.includes(furnitureType)) {
+    if (!VALID_FURNITURE_TYPES.includes(furnitureType)) {
       return json({ success: false, error: 'Furniture not found' }, { status: 404 });
     }
 

@@ -1,5 +1,6 @@
 import { base } from '$lib/server/db.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
+import { VALID_FURNITURE_TYPES } from '$lib/furniture-catalog.js';
 
 /**
  * Get all furniture for a specific user
@@ -53,16 +54,8 @@ export async function getUserFurnitureByEmail(userEmail) {
 export async function createFurniture(userId, furnitureData) {
   try {
     // SECURITY: Validate furniture type against allowed list
-    const allowedTypes = [
-      'beanbag_white', 'beanbag_yellow',
-      'bed_simple_blue', 'bed_simple_green', 'bed_simple_red', 'bed_simple_yellow',
-      'bedside_round', 'bedside_white', 'bedside_wooden',
-      'sofa_blue', 'sofa_red',
-      'cow_statue'
-    ];
-    
     const furnitureType = String(furnitureData.type || 'cow_statue');
-    if (!allowedTypes.includes(furnitureType)) {
+    if (!VALID_FURNITURE_TYPES.includes(furnitureType)) {
       throw new Error('Invalid furniture type');
     }
     
