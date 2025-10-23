@@ -47,9 +47,15 @@
   let isLoadingSubmission = $state(false);
   /** @type {string | null} */
   let submissionError = $state(null);
+  /** @type {string | null} */
+  let lastFetchedProjectId = $state(null);
   
   // Shipping confirmation state - check if project status is "submitted"
   let isProjectShipped = $derived(projInfo.status === 'submitted');
+  
+  // Extract specific values to avoid unnecessary effect re-runs
+  let projectStatus = $derived(projInfo.status);
+  let projectId = $derived(projInfo.id);
   
   
   // Check if project is incomplete roulette
@@ -663,9 +669,22 @@
   }
 
   // Fetch submission data when project is selected and shipped
+  // Using derived values to prevent unnecessary re-runs
   $effect(() => {
-    if (selected && projInfo.status === 'submitted' && !yswsSubmissionData && !isLoadingSubmission) {
+    // Only fetch if:
+    // 1. Project is selected
+    // 2. Status is 'submitted'
+    // 3. We haven't fetched for this specific project yet
+    // 4. We're not currently loading
+    if (selected && projectStatus === 'submitted' && projectId !== lastFetchedProjectId && !isLoadingSubmission) {
+      lastFetchedProjectId = projectId;
       fetchYSWSSubmissionData();
+    }
+    
+    // Reset submission data if project changes or is no longer submitted
+    if (projectId !== lastFetchedProjectId || projectStatus !== 'submitted') {
+      yswsSubmissionData = null;
+      submissionError = null;
     }
   });
 

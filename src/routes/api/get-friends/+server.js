@@ -2,15 +2,26 @@ import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
 import { getUserProjectsByEmail } from '$lib/server/projects.js';
 import { getUserFurnitureByEmail } from '$lib/server/furniture.js';
-import { escapeAirtableFormula } from '$lib/server/security.js';
+import { escapeAirtableFormula, checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
 
-export async function GET({ url, locals }) {
+export async function GET({ url, locals, request, cookies }) {
   if (!locals.user) {
     return json({ error: 'Not authenticated' }, { status: 401 });
   }
 
+  // Rate limiting: 30 requests per minute per client
+  const clientId = getClientIdentifier(request, cookies);
+  if (!checkRateLimit(`get-friends:${clientId}`, 30, 60000)) {
+    return json({
+      error: 'Too many requests. Please try again later.'
+    }, { status: 429 });
+  }
+
   try {
     const count = parseInt(url.searchParams.get('count') || '6', 10);
+    
+    // Validate and cap count to prevent excessive data requests
+    const validCount = Math.max(1, Math.min(count, 20)); // Cap at 20
     const escapedEmail = escapeAirtableFormula(locals.user.email);
 
     // Get current user's following list first
@@ -23,7 +34,7 @@ export async function GET({ url, locals }) {
     // Step 1: Fetch users you follow first (if any)
     if (following.length > 0) {
       for (const followedUserId of following) {
-        if (selectedFriends.length >= count) break;
+        if (selectedFriends.length >= validCount) break;
         
         try {
           const followedUser = await base('User').find(followedUserId);
@@ -54,12 +65,12 @@ export async function GET({ url, locals }) {
     }
 
     // Step 2: If we need more users, fill with random users
-    if (selectedFriends.length < count) {
+    if (selectedFriends.length < validCount) {
       const userRecords = await base('User')
         .select({
           filterByFormula: `AND({email} != "${escapedEmail}", {username} != "")`,
           fields: ['email', 'username'],
-          maxRecords: count * 4
+          maxRecords: validCount * 4
         })
         .all();
 
@@ -69,7 +80,7 @@ export async function GET({ url, locals }) {
       const shuffled = [...otherUsers].sort(() => 0.5 - Math.random());
 
       for (const userRecord of shuffled) {
-        if (selectedFriends.length >= count) break;
+        if (selectedFriends.length >= validCount) break;
         
         const email = String(userRecord.fields.email || '');
         const projects = await getUserProjectsByEmail(email);
