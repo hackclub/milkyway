@@ -4,11 +4,12 @@ import { onMount } from 'svelte';
 let users = $state(/** @type {any[]} */ ([]));
 let isLoading = $state(true);
 let currentPage = $state(1);
+let sortBy = $state('coins'); // 'coins' or 'hours'
 
 async function loadLeaderboardData() {
     try {
-        // Load top 100 users by coins for current page
-        const leaderboardResponse = await fetch(`/api/get-users-sorted-by-coins?limit=100&page=${currentPage}`);
+    // Load top users for current page and sort
+    const leaderboardResponse = await fetch(`/api/get-users-sorted-by-coins?limit=100&page=${currentPage}&sort=${encodeURIComponent(sortBy)}`);
     
         if (leaderboardResponse.ok) {
             const leaderboardResult = await leaderboardResponse.json();
@@ -34,12 +35,26 @@ function nextPage() {
     loadLeaderboardData();
 }
 
+function setSort(mode) {
+    if (mode !== 'hours' && mode !== 'coins') return;
+    sortBy = mode;
+    currentPage = 1;
+    isLoading = true;
+    loadLeaderboardData();
+}
+
+
+
 function prevPage() {
     if (currentPage > 1) {
         currentPage = currentPage - 1;
         isLoading = true;
         loadLeaderboardData();
     }
+}
+
+function viewUserProfile(username) {
+  window.location.href = `/u/${username}`;
 }
 </script>
 
@@ -60,23 +75,31 @@ function prevPage() {
             <div class="leaderboard-header">
                 <div class="col-rank">#</div>
                 <div class="col-name">Name</div>
-                <div class="col-hours">Hours</div>
-                <div class="col-coins">Coins</div>
-                <div class="col-ticket">Ticket</div>
+                                <div class="col-hours" role="button" tabindex="0" onclick={() => setSort('hours')}>
+									<div class="hours-button">
+                                    	<span>Hours</span>
+                                    	<span class="sort-arrow">{sortBy === 'hours' ? '▾' : ' '}</span>
+									</div>
+                                </div>
+                                <div class="col-coins" role="button" tabindex="0" onclick={() => setSort('coins')}>
+									<div class="coins-button">
+                                    <span>Coins</span>
+                                    <span class="sort-arrow">{sortBy === 'coins' ? '▾' : ' '}</span>
+									</div>
+                                </div>
             </div>
             {#if isLoading}
-                <div class="user">Loading leaderboard...</div>
+                <div class="loading">Loading...</div>
             {:else if users.length === 0}
                 <div class="user">No users found</div>
             {:else}
                 <div class="user-container">
                 {#each users as u, i}
-                    <div class="user">
+                    <div onclick={() => viewUserProfile(u.username)} class="user">
                         <div class="col-rank">#{i + 1}</div>
                         <div class="col-name">{u.username}</div>
-                        <div class="col-hours">{u.hours ?? ''}</div>
+                        <div class="col-hours">{Math.trunc(u.hours)}</div>
                         <div class="col-coins">{u.coins}</div>
-                        <div class="col-ticket"></div>
                     </div>
                 {/each}
                 </div>
@@ -116,12 +139,11 @@ function prevPage() {
         border-radius: 8px;
         padding: 8px;
     }
-    .user-container {
-    }
+
     .leaderboard-header {
         display: grid;
-        /* rank / name / hours / coins / ticket */
-        grid-template-columns: 48px 1fr 80px 120px 100px;
+        /* rank / name / hours / coins */
+        grid-template-columns: 48px 1fr 120px 120px;
         gap: 12px;
         width: 100%;
         align-items: center;
@@ -129,17 +151,35 @@ function prevPage() {
         padding: 8px 12px;
         box-sizing: border-box;
     }
+    .leaderboard-header .sort-arrow { font-size: 0.9em; }
     .leaderboard-header .col-name { font-weight: 800; justify-self: start; text-align: left; }
     .leaderboard-header .col-hours { font-weight: 800; justify-self: center; text-align: center; }
-    .leaderboard-header .col-coins { font-weight: 800; justify-self: end; text-align: right; }
-    .leaderboard-header .col-ticket { font-weight: 800; justify-self: center; text-align: center; }
+    .leaderboard-header .col-coins { font-weight: 800; justify-self: center; text-align: center; }
 
     .user {
         background-color: #d5e2f6;
         border: 2px solid #81a0f7;
-        padding: 8px;
+        padding-top: 8px;
+		padding-bottom: 8px;
+		padding-left: 18px;
+		padding-right: 10px;
         display: grid;
-        grid-template-columns: 48px 1fr 80px 120px 100px;
+        grid-template-columns: 48px 1fr 120px 120px;
+        gap: 12px;
+        font-size: large;
+        margin-top: 8px;
+        border-radius: 8px;
+        align-items: center;
+        transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+	.loading {
+        background-color: #d5e2f6;
+        border: 2px solid #81a0f7;
+        padding-top: 10px;
+		padding-left: 18px;
+		padding-right: 10px;
+        display: grid;
+        grid-template-columns: 48px 1fr 120px 120px;
         gap: 12px;
         font-size: large;
         margin-top: 8px;
@@ -147,13 +187,27 @@ function prevPage() {
         align-items: center;
             transition: transform 0.08s ease, box-shadow 0.08s ease;
     }
-    .user .col-name { justify-self: start; text-align: left; font-weight:700; }
+	.hours-button, .coins-button {
+		padding: 6px;
+		padding-left: 14px;
+		padding-right: 16px;
+		border-radius: 16px;
+		background-color: #d5e2f6;
+		border: 3px solid #81a0f7;
+	}
+	.hours-button:hover, .coins-button:hover {
+		cursor: pointer;
+	}
+    /* Ensure cell contents are vertically centered within each grid cell */
+    .user > div { display: flex; align-items: center; }
+
+    .user .col-name { justify-self: start; text-align: left; font-weight:800; }
     .user .col-hours { justify-self: center; text-align: center; }
-    .user .col-coins { justify-self: end; text-align: right; font-weight: 800; }
-    .user .col-ticket { justify-self: center; text-align: center; }
+    .user .col-coins { justify-self: center; text-align: center; font-weight: 800; }
         .user:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+			cursor: pointer;
         }
     .pagination-controls { display:flex; gap:12px; align-items:center; justify-content:center; margin: 12px 0; }
     .pagination-btn { padding:8px 12px; border-radius:6px; border:2px solid #5A9BD4; background:#73ACE0; color:white; cursor:pointer; }
