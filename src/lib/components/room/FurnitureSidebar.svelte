@@ -8,6 +8,24 @@ let {
   onClose
 } = $props();
 
+// Available furniture types from static assets
+// Set purchasable: false for items that can only be obtained through rewards/events
+const availableFurnitureTypes = [
+  { type: 'beanbag_white', name: 'white beanbag', cost: 12, purchasable: true },
+  { type: 'beanbag_yellow', name: 'yellow beanbag', cost: 12, purchasable: true },
+  { type: 'bed_simple_blue', name: 'blue bed', cost: 15, purchasable: true },
+  { type: 'bed_simple_green', name: 'green bed', cost: 15, purchasable: true },
+  { type: 'bed_simple_red', name: 'red bed', cost: 15, purchasable: true },
+  { type: 'bed_simple_yellow', name: 'yellow bed', cost: 15, purchasable: true },
+  { type: 'bedside_round', name: 'round bedside table', cost: 8, purchasable: true },
+  { type: 'bedside_white', name: 'white bedside table', cost: 8, purchasable: true },
+  { type: 'bedside_wooden', name: 'wooden bedside table', cost: 8, purchasable: true },
+  { type: 'sofa_blue', name: 'blue sofa', cost: 12, purchasable: true },
+  { type: 'sofa_red', name: 'red sofa', cost: 12, purchasable: true },
+  { type: 'flower_cushion', name: 'flower cushion', cost: 0, purchasable: false},
+  { type: 'cow_statue', name: 'cow statue', cost: 0, purchasable: false },
+];
+
 let userCurrency = $state({ paintchips: 0 });
 let purchasingItems = $state(/** @type {Set<string>} */ (new Set()));
 let errorMessage = $state('');

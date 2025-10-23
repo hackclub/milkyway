@@ -2,6 +2,8 @@
   import { slide } from 'svelte/transition';
   import Tooltip from '../Tooltip.svelte';
   import HackatimeSetupPopup from '../HackatimeSetupPopup.svelte';
+  import ArtlogPopup from '../ArtlogPopup.svelte';
+  import ArtlogListPopup from '../ArtlogListPopup.svelte';
   import { getCreatureShapeFromCreature } from '$lib/data/prompt-data.js';
 
   let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, user, isRoomEditing = false, readOnly = false} = $props();
@@ -32,6 +34,12 @@
 
   // HackaTime setup popup state
   let showHackatimeSetup = $state(false);
+
+  // Artlog popup state
+  let showArtlogPopup = $state(false);
+  let showArtlogListPopup = $state(false);
+  let artlogSuccessMessage = $state('');
+  let showArtlogSuccess = $state(false);
   
   // YSWS submission data state
   /** @type {{id: string, notesToUser: string, coinsAwarded: number} | null} */
@@ -282,9 +290,28 @@
     }
   }
 
-  // Add art hours function (placeholder)
+  // Add art hours function
   function addArtHours() {
-    // Placeholder for future art hours functionality
+    showArtlogPopup = true;
+  }
+
+  // Handle artlog success
+  /**
+   * @param {number} hours
+   */
+  function handleArtlogSuccess(hours) {
+    artlogSuccessMessage = `artlog for ${hours} hour${hours !== 1 ? 's' : ''} successfully created!\nyou'll get paint chips for these artlogs once you ship your project :)`;
+    showArtlogSuccess = true;
+    
+    // Hide the message after 5 seconds
+    setTimeout(() => {
+      showArtlogSuccess = false;
+    }, 5000);
+  }
+
+  // Open artlog list
+  function viewPastArtlogs() {
+    showArtlogListPopup = true;
   }
 
   // Ship project validation
@@ -667,7 +694,7 @@
   <div class="project-header">
     <div class="project-main-info">
       <div class="project-meta">
-        <span class="hours-info">{projInfo.totalHours || 0} hours</span>
+        <span class="hours-info">{projInfo.hackatimeHours || 0} code hours · {projInfo.artHours || 0} art hours</span>
         <span class="separator">·</span>
         <button class="prompt-info-link" onclick={() => onShowPromptPopup(projInfo.promptinfo, rouletteProgress())}>{projInfo.promptinfo}</button>
       </div>
@@ -677,7 +704,7 @@
         {#if projInfo.status === 'submitted'}
           <a target="_blank" href={projInfo.shipURL} class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
         {:else}
-          <a class="project-name-display">{projInfo.status || 'Untitled Project'}</a>
+          <a class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
         {/if}
       {/if}
     </div>
@@ -823,6 +850,16 @@
       </div>
     {/if}
 
+    <!-- Artlog Hours Section (always visible when selected) -->
+    {#if !readOnly}
+      <div class="artlog-section">
+        <div class="artlog-header">
+          <h4 class="artlog-title">🎨 {projInfo.artHours || 0} art hours</h4>
+          <button class="view-artlogs-btn" onclick={viewPastArtlogs}>(view past artlogs)</button>
+        </div>
+      </div>
+    {/if}
+
     <!-- Shipping confirmation (always visible if shipped) -->
     {#if isProjectShipped}
       <div class="shipping-confirmation">
@@ -878,9 +915,7 @@
         </div>
       {:else}
         <button class="edit-btn" onclick={startEdit}>Edit details</button>
-        <Tooltip text="coming soon!">
-          <button class="add-hours-btn disabled" onclick={addArtHours}>Create artlog</button>
-        </Tooltip>
+        <button class="add-hours-btn" onclick={addArtHours}>Create artlog</button>
         {@const validation = shipProjectValidation()}
         {#if validation.canShip}
           <button class="ship-btn" onclick={shipProject}>Ship project 💫</button>
@@ -942,8 +977,21 @@
 <!-- HackaTime Setup Popup -->
 <HackatimeSetupPopup showPopup={showHackatimeSetup} onClose={closeHackatimeSetup} />
 
+<!-- Artlog Success Message - Outside egg container for proper positioning -->
+{#if showArtlogSuccess}
+  <div class="artlog-success-overlay">
+    <div class="artlog-success-message">
+      <span class="success-icon">✨</span>
+      <span class="success-text">{artlogSuccessMessage}</span>
+    </div>
+  </div>
+{/if}
 
+<!-- Artlog Popup -->
+<ArtlogPopup bind:show={showArtlogPopup} projectId={projInfo.id} onSuccess={handleArtlogSuccess} />
 
+<!-- Artlog List Popup -->
+<ArtlogListPopup bind:show={showArtlogListPopup} projectId={projInfo.id} />
 
 <style>
 
@@ -1025,7 +1073,7 @@
   transform: translateY(-50%);
 
   padding: 12px;
-  width: 30vw;
+  width: 32vw;
   z-index: 1500;
 }
 
@@ -1675,6 +1723,85 @@ input:hover, textarea:hover {
 .progress-item.complete {
   color: #28a745;
   font-weight: bold;
+}
+
+/* Artlog Section */
+.artlog-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 6px 8px;
+  background: rgba(255, 165, 0, 0.1);
+  border: 1px solid rgba(255, 165, 0, 0.3);
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+
+.artlog-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.artlog-title {
+  margin: 0;
+  font-size: 1em;
+  color: #856404;
+  font-weight: 500;
+}
+
+.view-artlogs-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: #856404;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s;
+  padding: 0;
+  font-weight: 500;
+}
+
+.view-artlogs-btn:hover {
+  color: var(--orange);
+}
+
+/* Artlog Success Message Overlay */
+.artlog-success-overlay {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.artlog-success-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.95), rgba(16, 185, 129, 0.95));
+  border: 2px solid rgba(34, 197, 94, 0.8);
+  border-radius: 8px;
+  font-size: 0.9em;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
+  min-width: 400px;
+}
+
+.artlog-success-message .success-icon {
+  flex-shrink: 0;
+  font-size: 1.2em;
+}
+
+.artlog-success-message .success-text {
+  color: white;
+  line-height: 1.4;
+  white-space: pre-line;
+  font-weight: 500;
 }
 
 .continue-spinning-btn {
