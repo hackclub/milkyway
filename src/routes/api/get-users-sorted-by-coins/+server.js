@@ -1,9 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { getUsersSortedByCoins } from '$lib/server/leaderboard';
 
-export async function GET() {
+export async function GET({ url }) {
   try {
-    const userList = await getUsersSortedByCoins();
+    const limitParam = url.searchParams.get('limit');
+    const pageParam = url.searchParams.get('page');
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const page = pageParam ? parseInt(pageParam, 10) : undefined;
+    const userList = await getUsersSortedByCoins(limit, page);
     return json({
       success: true,
       userList
