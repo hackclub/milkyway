@@ -1,10 +1,19 @@
 import { json } from '@sveltejs/kit';
 import { getUserInfoBySessionId, getUserInfoByUsername, sanitizeUserForFrontend } from '$lib/server/auth.js';
 import { base } from '$lib/server/db.js';
-import { escapeAirtableFormula } from '$lib/server/security.js';
+import { escapeAirtableFormula, checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
 
-export async function GET({ cookies, url }) {
+export async function GET({ cookies, url, request }) {
   try {
+    // Rate limiting: 60 requests per minute per client to prevent enumeration attacks
+    const clientId = getClientIdentifier(request, cookies);
+    if (!checkRateLimit(`user-profile:${clientId}`, 60, 60000)) {
+      return json({
+        success: false,
+        error: 'Too many requests. Please try again later.'
+      }, { status: 429 });
+    }
+
     const username = url.searchParams.get('username');
     const sessionId = cookies.get('sessionid');
     

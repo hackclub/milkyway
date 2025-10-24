@@ -249,7 +249,6 @@ onMount(() => {
 <div class="furniture-sidebar">
   <div class="furniture-sidebar-header">
     <h3>Furniture</h3>
-    <button class="close-button" onclick={onClose} aria-label="Close furniture sidebar">×</button>
   </div>
   
   <div class="furniture-sidebar-content">
