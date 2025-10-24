@@ -662,10 +662,49 @@
     }
   }
 
+  let menu;
+
+
   // Fetch submission data when project is selected and shipped
   $effect(() => {
     if (selected && projInfo.status === 'submitted' && !yswsSubmissionData && !isLoadingSubmission) {
       fetchYSWSSubmissionData();
+    }
+  });
+
+   function clampVertical() {
+    if (!menu) return;
+
+    const rect = menu.getBoundingClientRect();
+    const padding = 12; // small margin from screen edge
+
+    // Calculate the desired top position
+    let newTop = rect.top;
+
+    // If above viewport
+    if (rect.top < padding) {
+      const shift = padding - rect.top;
+      menu.style.top = `${menu.offsetTop + shift}px`;
+      menu.style.transform = ''; // cancel translate if we’re adjusting
+    }
+    // If below viewport
+    else if (rect.bottom > window.innerHeight - padding) {
+      const shift = rect.bottom - (window.innerHeight - padding);
+      menu.style.top = `${menu.offsetTop - shift}px`;
+      menu.style.transform = '';
+    }
+  }
+
+  $effect(() => {
+    if (selected) {
+        queueMicrotask(() => {
+        clampVertical();
+
+        // Watch for animation growth
+        const observer = new ResizeObserver(clampVertical);
+        observer.observe(menu);
+        return () => observer.disconnect();
+      });
     }
   });
 
@@ -689,7 +728,7 @@
 {/if}
 
 {#if selected && !isRoomEditing}
-<div class="project-info" transition:slide={{duration: 200}}>
+<div bind:this={menu} class="project-info" transition:slide={{duration: 200}}>
 
   <div class="project-header">
     <div class="project-main-info">

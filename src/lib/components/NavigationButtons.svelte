@@ -39,7 +39,7 @@ let {
 }
 
 .bottom-buttons {
-  z-index: 2;
+  z-index: 1;
   bottom: 0;
   width: 100%;
   top: auto;
@@ -82,7 +82,7 @@ let {
 
 .bottom-right-buttons {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 20px;
 }
 
