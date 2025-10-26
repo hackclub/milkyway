@@ -19,14 +19,7 @@ import ArtEasel from '$lib/components/furniture/ArtEasel.svelte';
 export const FURNITURE_TYPES = [
 	{ type: 'beanbag_white', name: 'white beanbag', cost: 12, purchasable: true },
 	{ type: 'beanbag_yellow', name: 'yellow beanbag', cost: 12, purchasable: true },
-	{
-		type: 'bed_simple_blue',
-		name: 'blue bed',
-		cost: 15,
-		isInteractable: true,
-		component: ArtEasel,
-		purchasable: true
-	},
+	{ type: 'bed_simple_blue', name: 'blue bed', cost: 15, purchasable: true },
 	{ type: 'bed_simple_green', name: 'green bed', cost: 15, purchasable: true },
 	{ type: 'bed_simple_red', name: 'red bed', cost: 15, purchasable: true },
 	{ type: 'bed_simple_yellow', name: 'yellow bed', cost: 15, purchasable: true },
@@ -37,7 +30,14 @@ export const FURNITURE_TYPES = [
 	{ type: 'sofa_red', name: 'red sofa', cost: 12, purchasable: true },
 	{ type: 'cow_statue', name: 'cow statue', cost: 0, purchasable: false },
 	{ type: 'flower_cushion', name: 'flower cushion', cost: 0, purchasable: false },
-	{ type: 'art_easel', name: 'art easel', cost: 40, isInteractable: true, purchasable: true }
+	{
+		type: 'art_easel',
+		name: 'art easel',
+		cost: 40,
+		isInteractable: true,
+		component: ArtEasel,
+		purchasable: true
+	}
 ];
 
 /** @type {Record<string, FurnitureType>} */

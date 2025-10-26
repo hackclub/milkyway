@@ -68,6 +68,10 @@ export async function createFurniture(userId, furnitureData) {
 			throw new Error('Invalid furniture type');
 		}
 
+		// Get user record to retrieve username
+		const userRecord = await base('User').find(userId);
+		const username = String(userRecord.fields.username || '');
+
 		// New furniture starts in inventory (not placed)
 		const position = 'inventory';
 
@@ -75,7 +79,8 @@ export async function createFurniture(userId, furnitureData) {
 		const fieldsToCreate = {
 			user: [userId],
 			type: furnitureType,
-			position: position
+			position: position,
+			data: JSON.stringify({ name: username })
 		};
 
 		const record = /** @type {any} */ (await base('Furniture').create(fieldsToCreate));
@@ -104,10 +109,14 @@ export async function createFurniture(userId, furnitureData) {
  */
 export async function updateFurniture(furnitureId, updates) {
 	try {
-		// SECURITY: Only allow updating position, never allow changing ownership or type
+		// SECURITY: Only allow updating position and data, never allow changing ownership or type
 		const safeUpdates = {};
 		if (updates.position !== undefined) {
 			safeUpdates.position = updates.position;
+		}
+		console.log(updates.data);
+		if (updates.data !== undefined) {
+			safeUpdates.data = updates.data;
 		}
 
 		const record = await base('Furniture').update(furnitureId, safeUpdates);
@@ -133,6 +142,7 @@ export async function updateFurniture(furnitureId, updates) {
 			position: record.fields.position || 'inventory',
 			x: x,
 			y: y,
+			data: record.fields.data,
 			flipped: flipped,
 			isPlaced: isPlaced,
 			created: record.fields.Created

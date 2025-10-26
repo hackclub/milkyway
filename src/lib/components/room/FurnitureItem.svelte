@@ -1,6 +1,6 @@
 <script>
 	import { FURNITURE_TYPES } from '$lib/furniture-catalog.js';
-	import { mount } from 'svelte';
+	import { mount, tick } from 'svelte';
 
 	let {
 		furnitureInfo = $bindable(),
@@ -18,12 +18,9 @@
 	} = $props();
 
 	let componentContainer;
-	// Use derived state that stays in sync with furnitureInfo.flipped
+	let isModalOpen = $state(false);
 	let isFlipped = $derived(furnitureInfo.flipped || false);
 
-	// Map furniture types to their SVG stroke files
-	// Some furniture share the same stroke, and some don't have strokes
-	/** @type {Record<string, string>} */
 	const furnitureStrokeMap = {
 		beanbag_white: 'beanbag_stroke.svg',
 		beanbag_yellow: 'beanbag_stroke.svg',
@@ -39,16 +36,13 @@
 		cow_statue: 'cow_statue_stroke.svg'
 	};
 
-	// Only cow_statue has a physical _flipped.png file
 	const hasFlippedImage = ['cow_statue'];
 
-	// Get furniture assets based on type and flipped state
 	const furnitureAssets = $derived(() => {
 		const type = String(furnitureInfo.type || 'cow_statue');
 		const hasPhysicalFlip = hasFlippedImage.includes(type);
 		const suffix = isFlipped && hasPhysicalFlip ? '_flipped' : '';
 
-		// Get stroke SVG
 		const strokeFile = furnitureStrokeMap[type] || 'cow_statue_stroke.svg';
 		const strokeSuffix = isFlipped && type === 'cow_statue' ? '_flipped' : '';
 		const strokePath = strokeFile.replace('_stroke.svg', `${strokeSuffix}_stroke.svg`);
@@ -60,14 +54,10 @@
 		};
 	});
 
-	// Toggle flip
 	async function toggleFlip() {
 		const newFlippedState = !isFlipped;
-
-		// Optimistically update local state
 		furnitureInfo.flipped = newFlippedState;
 
-		// Update the furniture in the database
 		try {
 			const response = await fetch('/api/furniture', {
 				method: 'PUT',
@@ -83,17 +73,27 @@
 			});
 
 			const result = await response.json();
-
 			if (!result.success) {
 				console.error('Failed to update furniture flip:', result.error);
-				// Revert on failure
 				furnitureInfo.flipped = !newFlippedState;
 			}
 		} catch (error) {
 			console.error('Error updating furniture flip:', error);
-			// Revert on failure
 			furnitureInfo.flipped = !newFlippedState;
 		}
+	}
+
+	async function openModal(mode) {
+		isModalOpen = true;
+		await tick();
+		mount(furnitureComponent, {
+			target: componentContainer,
+			props: { data: data, mode: mode, id: furnitureInfo.id }
+		});
+	}
+
+	function closeModal() {
+		isModalOpen = false;
 	}
 </script>
 
@@ -106,10 +106,7 @@
 		e.stopPropagation();
 		if (isRoomEditing && onSelect) onSelect();
 		if (!isRoomEditing && isInteractable) {
-			mount(furnitureComponent, {
-				target: componentContainer,
-				props: { data: data, mode: 'view' }
-			});
+			openModal('view');
 		}
 	}}
 	onmousedown={(e) => {
@@ -153,7 +150,7 @@
 				<button
 					class="interact-furniture-btn"
 					onclick={() => {
-						alert('Interact action triggered!');
+						openModal('edit');
 					}}
 					aria-label="Interact with furniture"
 				>
@@ -164,7 +161,10 @@
 	{/if}
 </div>
 
-<div class="furniture-component-container" bind:this={componentContainer}></div>
+{#if isModalOpen}
+	<div class="modal-overlay" onclick={closeModal}></div>
+	<div class="furniture-component-container" bind:this={componentContainer}></div>
+{/if}
 
 <style>
 	.furniture-item {
@@ -176,6 +176,26 @@
 		align-items: center;
 
 		transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px));
+	}
+
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.5);
+		z-index: 9998;
+		cursor: pointer;
+	}
+
+	.furniture-component-container {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 9999;
+		pointer-events: auto;
 	}
 
 	.furniture-item.selected {
@@ -228,7 +248,6 @@
 			drop-shadow(-6px 6px 0 var(--orange)) drop-shadow(6px 6px 0 var(--orange));
 	}
 
-	/* Furniture controls */
 	.furniture-controls {
 		position: absolute;
 		top: -50px;
