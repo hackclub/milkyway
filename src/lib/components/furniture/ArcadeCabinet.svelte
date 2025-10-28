@@ -1,12 +1,12 @@
 <script>
-	import ArtViewer from '$lib/components/furniture/art-easel/ArtViewer.svelte';
-	import DrawingBoard from '$lib/components/furniture/art-easel/DrawingBoard.svelte';
+	import ArcadePlayer from '$lib/components/furniture/arcade-cabinet/ArcadePlayer.svelte';
+	import CabinetSettings from '$lib/components/furniture/arcade-cabinet/CabinetSettings.svelte';
 
 	let { data, mode, id } = $props();
 
-	let artworkData = $state(data ? JSON.parse(data) : '');
+	let arcadeData = $state(data ? JSON.parse(data) : '');
 
-	async function onSave(newArtworkData) {
+	async function onSave(newArcadeData) {
 		try {
 			const response = await fetch('/api/furniture', {
 				method: 'PUT',
@@ -15,38 +15,38 @@
 				},
 				body: JSON.stringify({
 					furnitureId: id,
-					updates: { data: JSON.stringify(newArtworkData) }
+					updates: { data: JSON.stringify(newArcadeData) }
 				})
 			});
 
 			const result = await response.json();
 
 			if (result.success) {
-				artworkData = newArtworkData;
+				arcadeData = newArcadeData;
 				location.reload();
 			} else {
-				console.error('Failed to save artwork:', result.error);
-				alert('Failed to save artwork. Please try again.');
+				console.error('Failed to save:', result.error);
+				alert('Failed to save. Please try again.');
 			}
 		} catch (error) {
-			console.error('Error saving artwork:', error);
-			alert('Error saving artwork. Please try again.');
+			console.error('Error saving:', error);
+			alert('Error saving. Please try again.');
 		}
 	}
 </script>
 
-<div class="art-easel">
-	{#if mode === 'view' && artworkData.data !== ''}
-		<ArtViewer {artworkData} />
+<div class="arcade-cabinet">
+	{#if mode === 'view'}
+		<ArcadePlayer terminalData={arcadeData} />
 	{:else if mode === 'edit'}
-		<DrawingBoard {artworkData} saveArtwork={onSave} />
+		<CabinetSettings terminalData={arcadeData} saveTerminal={onSave} />
 	{:else}
-		<span class="placeholder-text">No artwork to display.</span>
+		<span class="placeholder-text">Failed to display cabinet.</span>
 	{/if}
 </div>
 
 <style>
-	.art-easel {
+	.arcade-cabinet {
 		width: 100%;
 		height: 100%;
 		display: flex;

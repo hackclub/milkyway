@@ -14,7 +14,8 @@
 		isInteractable,
 		furnitureComponent,
 		readOnly = false,
-		data
+		data,
+		showFurnitureSidebar
 	} = $props();
 
 	let componentContainer;
@@ -90,10 +91,14 @@
 			target: componentContainer,
 			props: { data: data, mode: mode, id: furnitureInfo.id }
 		});
+		showFurnitureSidebar(false);
 	}
 
 	function closeModal() {
 		isModalOpen = false;
+		if (isRoomEditing) {
+			showFurnitureSidebar(true);
+		}
 	}
 </script>
 

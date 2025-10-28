@@ -16,7 +16,7 @@
 
 <div class="art-viewer">
 	<div class="art-container">
-		<canvas bind:this={canvasElement} width="400" height="400"></canvas>
+		<canvas bind:this={canvasElement} width="600" height="450"></canvas>
 	</div>
 	<div class="nameplate"><span>{artworkData.name}</span></div>
 </div>

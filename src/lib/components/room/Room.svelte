@@ -637,6 +637,7 @@
 				?.isInteractable || false}
 			furnitureComponent={FURNITURE_TYPES.find((f) => f.type === String(furniture.type))
 				?.component || null}
+			showFurnitureSidebar={(v) => (showFurnitureSidebar = v)}
 			data={furnitureList[furnitureList.findIndex((f) => f.id === furniture.id)].data}
 			{readOnly}
 		/>

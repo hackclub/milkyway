@@ -10,9 +10,15 @@
 	let lastX = $state(0);
 	let lastY = $state(0);
 
+	let isLoading = $state(false);
+
 	let currentBrush = $state('simple');
 	let brushSize = $state(10);
 	let currentColor = $state('#754668');
+
+	let canvasWidth = $state(800);
+	let canvasHeight = $state(600);
+	let containerWidth = $state(0);
 
 	const brushes = [
 		{ type: 'simple', icon: '✏️', name: 'Pencil' },
@@ -25,6 +31,9 @@
 	];
 
 	onMount(() => {
+		updateCanvasSize();
+		window.addEventListener('resize', updateCanvasSize);
+
 		ctx = canvas.getContext('2d');
 		if (artworkData) {
 			const img = new Image();
@@ -32,7 +41,28 @@
 			img.src = artworkData.data;
 		}
 		animateParticles();
+
+		return () => {
+			window.removeEventListener('resize', updateCanvasSize);
+		};
 	});
+
+	function updateCanvasSize() {
+		if (!canvas) return;
+
+		const container = canvas.parentElement;
+		if (!container) return;
+
+		const maxWidth = Math.min(container.clientWidth - 32, window.innerWidth - 32);
+		const aspectRatio = 4 / 3;
+
+		canvasWidth = Math.max(300, Math.min(800, maxWidth));
+		canvasHeight = Math.round(canvasWidth / aspectRatio);
+		containerWidth = maxWidth;
+
+		canvas.width = canvasWidth;
+		canvas.height = canvasHeight;
+	}
 
 	function startDrawing(e) {
 		isDrawing = true;
@@ -260,9 +290,12 @@
 			<button class="action-btn clear-btn" onclick={confirmClear}>Clear</button>
 			<button
 				class="action-btn save-btn"
-				onclick={() => {
+				disabled={isLoading}
+				onclick={async () => {
+					isLoading = true;
 					const dataUrl = canvas.toDataURL();
-					saveArtwork({ ...artworkData, data: dataUrl });
+					await saveArtwork({ ...artworkData, data: dataUrl });
+					isLoading = false;
 				}}>Save</button
 			>
 		</div>
@@ -422,6 +455,14 @@
 		border-color: #40a653;
 	}
 
+	.save-btn:disabled {
+		background: #a5d6a7;
+		border-color: #81c784;
+		cursor: not-allowed;
+		box-shadow: none;
+		transform: none;
+	}
+
 	.popup-overlay {
 		position: fixed;
 		top: 0;
@@ -472,5 +513,43 @@
 		background: #ff6b6b;
 		color: white;
 		border-color: #cc5555;
+	}
+
+	@media (max-width: 600px) {
+		.editor {
+			padding: 8px;
+		}
+
+		.canvas-container {
+			padding: 8px;
+		}
+
+		.toolbar {
+			padding: 8px;
+		}
+
+		.brush-btn {
+			width: 40px;
+			height: 40px;
+			font-size: 1.2rem;
+		}
+
+		.color-picker {
+			width: 50px;
+			height: 35px;
+		}
+
+		.size-slider {
+			width: 100px;
+		}
+
+		.action-btn {
+			padding: 10px 20px;
+			font-size: 0.9rem;
+		}
+
+		.popup-content {
+			padding: 24px;
+		}
 	}
 </style>

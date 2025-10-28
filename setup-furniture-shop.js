@@ -11,6 +11,7 @@
 
 import Airtable from 'airtable';
 import dotenv from 'dotenv';
+import ArcadeCabinet from '$lib/components/furniture/ArcadeCabinet.svelte';
 
 // Load environment variables
 dotenv.config();
@@ -119,6 +120,12 @@ const furnitureItems = [
 		paintchips_cost: 40,
 		description: 'Show your drawings to the world!',
 		sort: 13
+	},
+	{
+		type: 'arcade_cabinet',
+		name: 'Arcade Cabinet',
+		paintchips_cost: 60,
+		description: 'Show off your game to the world! Also comes with some built-in fun'
 	}
 ];
 
