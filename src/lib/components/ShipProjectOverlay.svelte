@@ -678,11 +678,16 @@
             </div>
             
             <div class="question-group">
-              <label class="question-label">any additional comments?</label>
+              <label class="question-label">
+                {isReShip ? 'additional comments (+ what did you add since the last ship?)' : 'any additional comments?'}
+              </label>
               <textarea 
                 class="question-input" 
                 bind:value={additionalComments}
-                placeholder="anything else you'd like to share about your project..."
+                placeholder={isReShip 
+                  ? "what improvements or features did you add since your last submission..." 
+                  : "anything else you'd like to share about your project..."
+                }
               ></textarea>
             </div>
           </div>
