@@ -17,7 +17,7 @@ export async function POST({ request, cookies }) {
       }, { status: 401 });
     }
 
-    const { projectId, notMadeBy, howToPlay, addnComments, saveFormOnly, shipProject, hatchEgg, yswsSubmissionId } = await request.json();
+    const { projectId, notMadeBy, howToPlay, addnComments, saveFormOnly, shipProject, hatchEgg, reShip, yswsSubmissionId } = await request.json();
     
     if (!projectId) {
       return json({ 
@@ -82,7 +82,7 @@ export async function POST({ request, cookies }) {
     // Check if this is a roulette project that needs wheel spinning
     if (projectData.promptinfo === 'roulette') {
       try {
-        const addnData = projectData.addn ? JSON.parse(projectData.addn) : {};
+        const addnData = projectData.addn ? JSON.parse(String(projectData.addn)) : {};
         const rouletteStatus = addnData.rouletteStatus;
         
         if (rouletteStatus !== 'complete') {
@@ -121,10 +121,18 @@ export async function POST({ request, cookies }) {
       const currentEggImage = String(projectData.egg || 'projects/new_egg1.png');
       const creatureImage = getCreatureImageFromEgg(currentEggImage);
       
-      await projectsTable.update(projectRecord.id, {
+      /** @type {any} */
+      const updateData = {
         egg: creatureImage,
         status: 'submitted'
-      });
+      };
+      
+      // Add YSWS submission link if provided
+      if (yswsSubmissionId) {
+        updateData['YSWS Project Submission'] = [yswsSubmissionId];
+      }
+      
+      await projectsTable.update(projectRecord.id, updateData);
 
       const responseData = {
         success: true,
@@ -140,7 +148,38 @@ export async function POST({ request, cookies }) {
       return json(responseData);
     }
 
-    // Check if project is already submitted (only when actually shipping)
+    if (reShip) {
+      // Re-ship - update submission but DON'T change the creature image
+      /** @type {any} */
+      const updateData = {
+        status: 'submitted',
+        shippedDate: new Date().toISOString()
+      };
+      
+      // Add YSWS submission link if provided - APPEND to existing submissions, don't replace
+      if (yswsSubmissionId) {
+        const existingSubmissions = projectData['YSWS Project Submission'];
+        const submissionsArray = Array.isArray(existingSubmissions) ? existingSubmissions : [];
+        updateData['YSWS Project Submission'] = [...submissionsArray, yswsSubmissionId];
+      }
+      
+      await projectsTable.update(projectRecord.id, updateData);
+
+      const responseData = {
+        success: true,
+        message: 'Project re-shipped successfully!',
+        project: {
+          id: projectRecord.id,
+          name: projectData.projectname,
+          egg: projectData.egg, // Keep existing creature image
+          status: 'submitted'
+        }
+      };
+      
+      return json(responseData);
+    }
+
+    // Check if project is already submitted (only when actually shipping first time)
     if (shipProject && projectData.status === 'submitted') {
       return json({ 
         success: false, 
@@ -178,8 +217,8 @@ export async function POST({ request, cookies }) {
       }
 
       // Check hours requirement based on whether project has been shipped before
-      const shippedHours = projectData.hoursShipped || 0;
-      const currentHours = projectData.hackatimeHours || 0;
+      const shippedHours = typeof projectData.hoursShipped === 'number' ? projectData.hoursShipped : 0;
+      const currentHours = typeof projectData.hackatimeHours === 'number' ? projectData.hackatimeHours : 0;
       
       console.log('Hours validation debug (shipProject only):', { shippedHours, currentHours, projectData });
       
@@ -204,6 +243,7 @@ export async function POST({ request, cookies }) {
 
     // Ship the project by updating the status to "submitted"
     if (shipProject) {
+      /** @type {any} */
       const updateData = {
         status: 'submitted',
         shippedDate: new Date().toISOString()

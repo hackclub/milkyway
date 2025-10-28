@@ -24,6 +24,9 @@
   let isCheckingStatus = $state(false);
   let isHatching = $state(false);
   
+  // Check if this is a re-ship (project already submitted)
+  let isReShip = $derived(projectInfo?.status === 'submitted');
+  
   // Form data
   let notMadeByYou = $state('');
   let howToPlay = $state('');
@@ -63,6 +66,70 @@
       console.error('Error shipping project:', error);
       shippingError = 'Network error. Please check your connection and try again.';
     } finally {
+      isShipping = false;
+    }
+  }
+
+  async function handleReShip() {
+    if (!projectInfo?.id || isShipping) return;
+    
+    try {
+      isShipping = true;
+      shippingError = '';
+      
+      // Create the project submission with the identity verification token
+      const submissionResponse = await fetch('/api/create-submission', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          projectEggId: projectInfo.id,
+          submitToken: submitToken,
+          identityData: authData
+        })
+      });
+
+      const submissionResult = await submissionResponse.json();
+      if (!submissionResult.success) {
+        console.error('Failed to create project submission:', submissionResult.error);
+        shippingError = 'Failed to create project submission. Please try again.';
+        isShipping = false;
+        return;
+      }
+
+      // Update project (but don't change the egg/creature image)
+      const response = await fetch('/api/ship-project', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          projectId: projectInfo.id,
+          reShip: true, // Flag to indicate this is a re-ship
+          yswsSubmissionId: submissionResult.submissionId
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        // Show success message and close
+        currentStep = 5; // New step for re-ship success
+        
+        // Wait 2 seconds then refresh the page
+        setTimeout(() => {
+          // Force page refresh to reload all data with new submission
+          window.location.reload();
+        }, 2000);
+      } else {
+        shippingError = result.error?.message || 'Failed to re-ship project. Please try again.';
+        isShipping = false;
+      }
+    } catch (error) {
+      console.error('Error re-shipping project:', error);
+      shippingError = 'Network error. Please check your connection and try again.';
       isShipping = false;
     }
   }
@@ -169,10 +236,16 @@
       }
       }
     } else if (currentStep === 3) {
-      // Step 3: Identity Verification -> Step 4: Hatching
+      // Step 3: Identity Verification -> Step 4: Hatching (or skip for re-ship)
       if (canProceed()) {
-        currentStep = 4;
-        clickCount = 0; // Reset click count for hatching
+        if (isReShip) {
+          // For re-ships, skip the hatching animation and just ship directly
+          await handleReShip();
+        } else {
+          // For first-time ships, go to hatching step
+          currentStep = 4;
+          clickCount = 0; // Reset click count for hatching
+        }
       }
     }
   }
@@ -395,20 +468,14 @@
         }, 500);
         
         
-        // Wait 3 seconds, then fade out for 1 second, then close
+        // Wait 3 seconds, then fade out for 1 second, then refresh
         setTimeout(() => {
           isFadingOut = true;
         }, 3000);
         
-        setTimeout(async () => {
-          // Call the parent's ship handler to update the project BEFORE closing
-          if (onShip) {
-            await onShip(result.project);
-          }
-          // Small delay to ensure the update is processed
-          setTimeout(() => {
-            onClose();
-          }, 100);
+        setTimeout(() => {
+          // Force page refresh to reload all data with new submission
+          window.location.reload();
         }, 4000);
       } else {
         shippingError = result.error?.message || 'Failed to hatch egg. Please try again.';
@@ -584,7 +651,9 @@
           </div>
           
           <h2 class="project-name" transition:fade={{duration: 600, delay: 200}}>{projectInfo?.name || 'Untitled Project'}</h2>
-          <p class="hatch-text" transition:fade={{duration: 600, delay: 400}}>let's hatch your egg!</p>
+          <p class="hatch-text" transition:fade={{duration: 600, delay: 400}}>
+            {isReShip ? "ready to re-ship your project!" : "let's hatch your egg!"}
+          </p>
         {/if}
         
         {#if showQuestions}
@@ -669,7 +738,7 @@
         </div>
         
       {:else if currentStep === 4}
-        <!-- Step 4: Egg Hatching -->
+        <!-- Step 4: Egg Hatching (first-time ships only) -->
         <div class="hatching-container">
           
           {#if showCreature}
@@ -678,7 +747,9 @@
               <div class="creature-container" transition:scale={{duration: 1000, start: 0.3}}>
                 <img class="hatched-creature" src={getCreatureImageFromEgg(projectInfo?.egg)} alt="Hatched creature" style="pointer-events: none; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;" />
               </div>
-              <p class="celebration-text" transition:fade={{duration: 600, delay: 300}}>🎉 your egg has hatched! 🎉</p>
+              <p class="celebration-text" transition:fade={{duration: 600, delay: 300}}>
+                🎉 your egg has hatched! 🎉
+              </p>
             </div>
           {:else}
             <!-- Egg hatching interface -->
@@ -694,7 +765,15 @@
               </div>
             {/if}
           {/if}
-          </div>
+        </div>
+        
+      {:else if currentStep === 5}
+        <!-- Step 5: Re-ship Success (no animation, just confirmation) -->
+        <div class="reship-success-container" transition:fade={{duration: 600}}>
+          <div class="success-icon-large">✓</div>
+          <h1 class="ship-title">project re-shipped!</h1>
+          <p class="reship-message">your project has been successfully re-submitted for review.</p>
+        </div>
         {/if}
         
     </div>
@@ -1158,6 +1237,41 @@
   .verify-identity-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  /* Re-ship Success Styles */
+  .reship-success-container {
+    text-align: center;
+    color: white;
+    padding: 40px 20px;
+  }
+
+  .success-icon-large {
+    font-size: 6em;
+    color: #4caf50;
+    margin-bottom: 20px;
+    animation: success-pop 0.6s ease-out;
+  }
+
+  @keyframes success-pop {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.2);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .reship-message {
+    font-size: 1.2em;
+    color: #ccc;
+    margin: 20px 0;
+    line-height: 1.5;
   }
 
   /* Responsive adjustments */

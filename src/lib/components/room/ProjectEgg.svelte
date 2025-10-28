@@ -881,8 +881,19 @@
 
     <!-- Shipping confirmation (always visible if shipped) -->
     {#if isProjectShipped}
+      {@const hasMultipleShipments = (() => {
+        // Check if this project has been shipped multiple times
+        if (projInfo.hoursShipped) {
+          if (Array.isArray(projInfo.hoursShipped)) {
+            return projInfo.hoursShipped.length > 1;
+          } else if (typeof projInfo.hoursShipped === 'object') {
+            return Object.keys(projInfo.hoursShipped).length > 1;
+          }
+        }
+        return false;
+      })()}
       <div class="shipping-confirmation">
-        <span class="confirmation-icon">🚀</span>
+        <span class="confirmation-icon">{hasMultipleShipments ? '✨' : '🚀'}</span>
         <div class="confirmation-content">
           <div class="confirmation-title">project shipped!</div>
           <div class="confirmation-details">
@@ -936,8 +947,11 @@
         <button class="edit-btn" onclick={startEdit}>Edit details</button>
         <button class="add-hours-btn" onclick={addArtHours}>Create artlog</button>
         {@const validation = shipProjectValidation()}
+        {@const isReShip = isProjectShipped}
         {#if validation.canShip}
-          <button class="ship-btn" onclick={shipProject}>Ship project 💫</button>
+          <button class="ship-btn" onclick={shipProject}>
+            {isReShip ? 'Re-ship project ✨' : 'Ship project 💫'}
+          </button>
         {:else}
           {@const tooltipText = validation.hasHoursIssue 
             ? (() => {
@@ -963,10 +977,12 @@
                   return `${Math.round(hoursMore * 100) / 100} more hours (need ${Math.round(hoursNeeded * 100) / 100} total to re-ship)`;
                 }
               })()
-            : `You need: ${validation.missingFields.join(', ')} before you can ship!`
+            : `You need: ${validation.missingFields.join(', ')} before you can ${isReShip ? 're-ship' : 'ship'}!`
           }
           <Tooltip text={tooltipText}>
-            <button class="ship-btn disabled" disabled>Ship project 💫</button>
+            <button class="ship-btn disabled" disabled>
+              {isReShip ? 'Re-ship project ✨' : 'Ship project 💫'}
+            </button>
           </Tooltip>
         {/if}
       {/if}
