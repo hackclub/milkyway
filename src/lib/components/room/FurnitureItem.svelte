@@ -1,5 +1,4 @@
 <script>
-	import { FURNITURE_TYPES } from '$lib/furniture-catalog.js';
 	import { mount, tick } from 'svelte';
 
 	let {
@@ -199,7 +198,7 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		z-index: 9999;
+		z-index: 9999 !important;
 		pointer-events: auto;
 	}
 

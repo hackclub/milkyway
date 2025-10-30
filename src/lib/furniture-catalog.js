@@ -15,6 +15,7 @@
 
 import ArtEasel from '$lib/components/furniture/ArtEasel.svelte';
 import ArcadeCabinet from '$lib/components/furniture/ArcadeCabinet.svelte';
+import BulletinBoard from '$lib/components/furniture/BulletinBoard.svelte';
 
 /** @type {FurnitureType[]} */
 export const FURNITURE_TYPES = [
@@ -45,6 +46,14 @@ export const FURNITURE_TYPES = [
 		cost: 60,
 		isInteractable: true,
 		component: ArcadeCabinet,
+		purchasable: true
+	},
+	{
+		type: 'bulletin_board',
+		name: 'bulletin board',
+		cost: 30,
+		isInteractable: true,
+		component: BulletinBoard,
 		purchasable: true
 	}
 ];
