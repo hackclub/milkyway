@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import interfaceHtml from './interface.html?raw';
 
 	const { terminalData, saveTerminal } = $props();
 
@@ -14,7 +15,7 @@
 
 	let vfs = $state(
 		terminalData?.vfs || {
-			'/': { type: 'dir', children: ['home'] },
+			'/': { type: 'dir', children: ['home', 'cabinet.html'] },
 			'/home': { type: 'dir', children: ['readme.txt', 'game.url'] },
 			'/home/readme.txt': {
 				type: 'file',
@@ -22,10 +23,11 @@
 			},
 			'/home/game.url': {
 				type: 'file',
-				content: `READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.
-
-
-${gameUrl}`
+				content: `READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.\n\n\n${() => gameUrl}`
+			},
+			'/cabinet.html': {
+				type: 'file',
+				content: interfaceHtml
 			}
 		}
 	);
@@ -187,16 +189,22 @@ ${gameUrl}`
 					return 'setgame: Invaid URL';
 				}
 
-				if (newGameUrl.protocol !== 'https:') {
-					return 'setgame: invalid URL. Please provide a valid https URL.';
+				if (newGameUrl.protocol !== 'https:' && newGameUrl.protocol !== 'internal:') {
+					return 'setgame: invalid URL. Please provide a valid URL.';
+				} else if (newGameUrl.protocol === 'internal:') {
+					if (!vfs[newGameUrl.pathname] || vfs[newGameUrl.pathname].type !== 'file') {
+						return 'setgame: invalid internal URL. File does not exist in VFS.';
+					}
+					console.log(`internal path: ${newGameUrl.pathname}`);
+					gameUrl = vfs[newGameUrl.pathname].content;
+					console.log(`gameUrl: ${gameUrl}`);
+					vfs['/home/game.url'].content =
+						`READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.\n\n\n${newGameUrl}`;
 				} else {
 					gameUrl = newGameUrl.toString();
 					console.log(`gameUrl: ${gameUrl}`);
 					vfs['/home/game.url'].content =
-						`READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.
-
-
-${gameUrl}`;
+						`READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.\n\n\n${gameUrl}`;
 				}
 
 				return null;
@@ -343,7 +351,6 @@ ${gameUrl}`;
 					<div class="line error">{entry.content}</div>
 				{/if}
 			{/each}
-
 			<form class="input-line" onsubmit={handleSubmit}>
 				<span class="prompt">{username}@cabinet:{currentDir}$</span>
 				<input
