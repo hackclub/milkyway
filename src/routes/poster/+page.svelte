@@ -4,9 +4,9 @@
 	let { data = { user: null } } = $props();
 	
 	const posters = [
-		{ name: 'Black and White', file: 'black and white poster.png' },
-		{ name: 'Full Color', file: 'full color poster.png' },
-		{ name: 'Simple', file: 'simple poster.png' }
+		{ name: 'black and white', file: 'black and white poster.png' },
+		{ name: 'full color', file: 'full color poster.png' },
+		{ name: 'simple', file: 'simple poster.png' }
 	];
 	
 	/** @type {Record<string, HTMLCanvasElement>} */
