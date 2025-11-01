@@ -1,22 +1,16 @@
-# sv
+# milkyway
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+![milkyway](https://github.com/hackclub/milkyway/blob/main/static/ogimg.png?raw=true)
 
-## Creating a project
+milkyway is a hack club program where you can make games, get coins in return, build your house, and earn rewards (like a ticket to overglade, a hyper-immersive game jam)!!
 
-If you're seeing this, you've probably already done this step. Congrats!
+this site is built in sveltekit.
 
-```sh
-# create a new project in the current directory
-npx sv create
+# contributing
 
-# create a new project in my-app
-npx sv create my-app
-```
+if you have any cool ideas to make it better, please feel free to submit a pull request and/or reach out to @tongyu on hack club slack!
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+clone the repo, then install dependencies with `npm install` (or `pnpm install` or `yarn`). start a development server:
 
 ```sh
 npm run dev
@@ -24,15 +18,3 @@ npm run dev
 # or start the server and open the app in a new browser tab
 npm run dev -- --open
 ```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
