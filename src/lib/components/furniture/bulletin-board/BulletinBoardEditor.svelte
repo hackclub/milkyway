@@ -9,6 +9,8 @@
 	let canvasWrapperElement;
 	let canvasScale = $state(1);
 
+	let isLoading = $state(false);
+
 	let resizingComponent = $state(null);
 	let resizeHandle = $state(null);
 	let resizeStart = $state({ x: 0, y: 0, width: 0, height: 0 });
@@ -18,8 +20,8 @@
 	let propertiesDragOffset = $state({ x: 0, y: 0 });
 	let propertiesPanelElement;
 
-	const CANVAS_WIDTH = 1000;
-	const CANVAS_HEIGHT = 700;
+	const CANVAS_WIDTH = 714;
+	const CANVAS_HEIGHT = 500;
 
 	const componentTypes = [
 		{ type: 'text', label: 'Text' },
@@ -213,6 +215,7 @@
 	}
 
 	async function handleSave() {
+		isLoading = true;
 		await saveData({ components });
 	}
 
@@ -247,7 +250,7 @@
 	<div class="toolbar">
 		<div class="component-buttons">
 			{#each componentTypes as { type, label } (type)}
-				<button class="add-component-btn" onclick={() => createComponent(type)}>
+				<button class="add-component-btn action-btn" onclick={() => createComponent(type)}>
 					Add {label}
 				</button>
 			{/each}
@@ -255,9 +258,9 @@
 		<div class="action-buttons">
 			<span class="scale-indicator">Scale: {Math.round(canvasScale * 100)}%</span>
 			{#if selectedComponent}
-				<button class="delete-btn" onclick={deleteComponent}>Delete</button>
+				<button class="delete-btn action-btn" onclick={deleteComponent}>Delete</button>
 			{/if}
-			<button class="save-btn" onclick={handleSave}>Save</button>
+			<button class="save-btn action-btn" onclick={handleSave} disabled={isLoading}>Save</button>
 		</div>
 	</div>
 
@@ -505,15 +508,17 @@
 	.save-btn,
 	.delete-btn {
 		padding: 8px 16px;
-		border: none;
+		border: 3px solid;
 		border-radius: 4px;
 		font-weight: 500;
+		font-size: 17px;
 		cursor: pointer;
 		transition: background-color 0.2s;
 	}
 
 	.add-component-btn {
 		background-color: #4a90e2;
+		border-color: #3f78b8;
 		color: white;
 	}
 
@@ -523,6 +528,7 @@
 
 	.save-btn {
 		background-color: #5cb85c;
+		border-color: #40a653;
 		color: white;
 	}
 
@@ -530,8 +536,15 @@
 		background-color: #4cae4c;
 	}
 
+	.save-btn:disabled {
+		background-color: #a5d6a7;
+		border-color: #81c784;
+		cursor: not-allowed;
+	}
+
 	.delete-btn {
-		background-color: #d9534f;
+		background: #ff6b6b;
+		border-color: #cc5555;
 		color: white;
 	}
 
@@ -710,7 +723,7 @@
 	.properties-panel {
 		position: absolute;
 		width: 320px;
-		max-height: 400px;
+		max-height: 300px;
 		background-color: white;
 		border: 2px solid #ddd;
 		border-radius: 8px;
@@ -732,7 +745,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 16px;
+		padding: 12px;
 		touch-action: none;
 		background-color: #f8f8f8;
 		border-bottom: 1px solid #ddd;

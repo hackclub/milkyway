@@ -295,7 +295,6 @@
 					isLoading = true;
 					const dataUrl = canvas.toDataURL();
 					await saveArtwork({ ...artworkData, data: dataUrl });
-					isLoading = false;
 				}}>Save</button
 			>
 		</div>

@@ -8,26 +8,14 @@
 
 	async function onSave(newArtworkData) {
 		try {
-			const response = await fetch('/api/furniture', {
-				method: 'PUT',
+			await fetch('/api/upload-canvas-image', {
+				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
 				},
-				body: JSON.stringify({
-					furnitureId: id,
-					updates: { data: JSON.stringify(newArtworkData) }
-				})
+				body: JSON.stringify({ id: id, imageData: newArtworkData.data })
 			});
-
-			const result = await response.json();
-
-			if (result.success) {
-				artworkData = newArtworkData;
-				location.reload();
-			} else {
-				console.error('Failed to save artwork:', result.error);
-				alert('Failed to save artwork. Please try again.');
-			}
+			location.reload();
 		} catch (error) {
 			console.error('Error saving artwork:', error);
 			alert('Error saving artwork. Please try again.');

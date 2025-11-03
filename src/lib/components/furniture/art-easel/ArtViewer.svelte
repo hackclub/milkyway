@@ -7,7 +7,7 @@
 	onMount(() => {
 		let ctx = canvasElement.getContext('2d');
 		const img = new Image();
-		img.src = artworkData.data;
+		img.src = artworkData.url;
 		img.onload = () => {
 			ctx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
 		};

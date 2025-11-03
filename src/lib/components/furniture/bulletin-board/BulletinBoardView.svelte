@@ -5,14 +5,14 @@
 	let canvasWrapperElement;
 	let canvasScale = $state(1);
 
-	const CANVAS_WIDTH = 1000;
-	const CANVAS_HEIGHT = 700;
+	const CANVAS_WIDTH = 714;
+	const CANVAS_HEIGHT = 500;
 
 	$effect(() => {
 		if (canvasWrapperElement) {
 			const updateScale = () => {
 				const wrapperRect = canvasWrapperElement.getBoundingClientRect();
-				const padding = 64;
+				const padding = 128;
 				const availableWidth = wrapperRect.width - padding;
 				const availableHeight = wrapperRect.height - padding;
 
@@ -51,10 +51,15 @@
 						{component.content}
 					</div>
 				{:else if component.type === 'link'}
-					<a href={component.url} target="_blank" rel="noopener noreferrer" class="link-content">
+					<button
+						onclick={(window.location.href = component.url)}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="link-content"
+					>
 						<span class="link-icon">🔗</span>
 						<span class="link-text">{component.label || component.url}</span>
-					</a>
+					</button>
 				{:else if component.type === 'image'}
 					<img
 						src={component.url}
