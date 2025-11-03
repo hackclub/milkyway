@@ -38,6 +38,7 @@
 		if (artworkData) {
 			const img = new Image();
 			img.onload = () => ctx.drawImage(img, 0, 0);
+			img.crossOrigin = 'anonymous';
 			img.src = artworkData.url;
 		}
 		animateParticles();
