@@ -78,9 +78,11 @@ export async function GET({ params, cookies, request }) {
     let submissionRecord = null;
     
     if (projectYSWSField && Array.isArray(projectYSWSField) && projectYSWSField.length > 0) {
-      // Project has a direct link to YSWS submission
+      // Project has a direct link to YSWS submission (most recent one)
+      // Get the last submission in the array (most recent)
+      const mostRecentSubmissionId = projectYSWSField[projectYSWSField.length - 1];
       try {
-        submissionRecord = await base('YSWS Project Submission').find(projectYSWSField[0]);
+        submissionRecord = await base('YSWS Project Submission').find(mostRecentSubmissionId);
       } catch (error) {
         console.error('Error fetching linked YSWS submission:', error);
         return json({
@@ -95,9 +97,11 @@ export async function GET({ params, cookies, request }) {
       
       try {
         // Use the correct Airtable pattern for querying linked fields
+        // Get all submissions and sort by creation date to get the most recent
         const escapedProjectId = escapeAirtableFormula(projectId);
         const result = await base('YSWS Project Submission').select({
           filterByFormula: `FIND("${escapedProjectId}", ARRAYJOIN({projectEgg}, ",")) > 0`,
+          sort: [{field: 'Created', direction: 'desc'}], // Get most recent first
           maxRecords: 1
         }).all();
         
@@ -118,6 +122,25 @@ export async function GET({ params, cookies, request }) {
       submissionRecord = submissions[0];
     }
 
+    // Check if this submission has been reviewed yet
+    const hasReviewNotes = submissionRecord.fields.notesToUser && 
+                          String(submissionRecord.fields.notesToUser).trim() !== '';
+    const hasCoinsAwarded = submissionRecord.fields.coinsAwarded && 
+                           Number(submissionRecord.fields.coinsAwarded) > 0;
+
+    // If no review data yet, return success but with empty data (shows "under review" in UI)
+    if (!hasReviewNotes && !hasCoinsAwarded) {
+      return json({
+        success: true,
+        data: {
+          id: submissionRecord.id,
+          notesToUser: '',
+          coinsAwarded: 0,
+          underReview: true // Flag to indicate it's awaiting review
+        }
+      });
+    }
+
     // Return the submission data (user can only access their own data due to ownership verification above)
     // Only return the fields needed for the UI - exclude sensitive personal data
     return json({
@@ -125,7 +148,8 @@ export async function GET({ params, cookies, request }) {
       data: {
         id: submissionRecord.id,
         notesToUser: String(submissionRecord.fields.notesToUser || '').substring(0, 1000), // Limit length
-        coinsAwarded: Math.max(0, Number(submissionRecord.fields.coinsAwarded || 0)) // Ensure non-negative
+        coinsAwarded: Math.max(0, Number(submissionRecord.fields.coinsAwarded || 0)), // Ensure non-negative
+        underReview: false
       }
     });
 
