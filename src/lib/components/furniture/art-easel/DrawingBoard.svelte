@@ -38,7 +38,7 @@
 		if (artworkData) {
 			const img = new Image();
 			img.onload = () => ctx.drawImage(img, 0, 0);
-			img.src = artworkData.data;
+			img.src = artworkData.url;
 		}
 		animateParticles();
 
@@ -158,7 +158,7 @@
 
 	function drawRainbow(x, y) {
 		const colors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
-		colors.forEach((color, i) => {
+		colors.forEach((color) => {
 			ctx.fillStyle = color;
 			ctx.globalAlpha = 0.6;
 			ctx.beginPath();
@@ -263,7 +263,7 @@
 
 	<div class="toolbar">
 		<div class="brush-selector">
-			{#each brushes as brush}
+			{#each brushes as brush (brush.type)}
 				<button
 					class="brush-btn"
 					class:selected={currentBrush === brush.type}
