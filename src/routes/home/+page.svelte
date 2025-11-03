@@ -263,11 +263,11 @@ onMount(() => {
 
 
 
-
 <!-- Navigation Buttons -->
 <NavigationButtons 
   onOpenFaq={() => { showFaqPopup = true; }}
 />
+
 
 <!-- Your Room -->
 <div class="user-room">
@@ -282,6 +282,8 @@ onMount(() => {
     onShipProject={handleShipProject}
   />
 </div>
+
+
 
 {#if showRouletteSpinWheel}
   <div class="page-level-spin-overlay">
