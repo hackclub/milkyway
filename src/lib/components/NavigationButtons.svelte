@@ -6,11 +6,11 @@
 <div class="zlayer bottom-buttons">
 	<div class="bottom-left-buttons">
 		<a href="/friends" class="bottom-button">
-			<img src="/friends.png" alt="Friends" />
-			<span>friends</span>
+			<img src="/room/cow_statue.png" alt="Explore" />
+			<span>explore</span>
 		</a>
-		<a href="" class="bottom-button disabled">
-			<img src="/room/cow_statue.png" alt="Crew" />
+		<a class="bottom-button disabled">
+			<img src="/friends.png" alt="Crew" />
 			<span>crew</span>
 		</a>
 	</div>
@@ -90,7 +90,6 @@
 		text-decoration: none;
 		transition: 0.2s;
 		cursor: pointer;
-		pointer-events: all;
 	}
 
 	.bottom-right-buttons {
