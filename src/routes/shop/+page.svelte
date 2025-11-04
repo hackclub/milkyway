@@ -29,7 +29,7 @@ async function loadShopData() {
     // Check if voting is closed (Monday EST)
     const now = new Date();
     const estWeekday = getESTWeekday(now);
-    const isClosed = estWeekday === 2; // Monday = 1
+    const isClosed = estWeekday === 1; // Monday = 1
     
     // Load shop items
     const shopResponse = await fetch('/api/get-shop-items');
@@ -363,7 +363,8 @@ onDestroy(() => {
                         {#if isVotingClosed}
                             <p>Time until voting opens</p>
                         {:else}
-                            <p>Vote on the top three items to be added to the shop next week!</p>
+                            <p>Vote on the three items to be added to the shop next week!</p>
+                            <p>The top three items that have filled their vote quota will be selected</p>
                         {/if}
                     </div>
                     {#each votingItems as item}
