@@ -5,6 +5,7 @@
 	import ExpandableButton from '$lib/components/ExpandableButton.svelte';
 	import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
 	import { FURNITURE_TYPES } from '$lib/furniture-catalog';
+	import Notifications from '$lib/components/Notifications.svelte';
 
 	let {
 		projectList = $bindable([]),
@@ -42,6 +43,19 @@
 	let isSaving = $state(false);
 	let dragStartPos = $state({ x: 0, y: 0 });
 	let dragOffset = $state({ x: 0, y: 0 });
+	let notifications = $state([]);
+
+	$effect(() => {
+		fetch('/api/get-user-notifications')
+			.then((res) => res.json())
+			.then((data) => {
+				notifications = data.notifications;
+			})
+			.catch((err) => {
+				console.error('Failed to fetch notifications:', err);
+				notifications = [];
+			});
+	});
 
 	// Floor bounds - true rhombus shape (diamond)
 	// Based on: top (0,0), left (-300,150), right (300,150), bottom (0,300)
@@ -698,6 +712,12 @@
 			}}
 		/>
 	{/if}
+
+	{#if !hideControls}
+		<div class="notifications">
+			<Notifications {notifications} />
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -838,5 +858,12 @@
 
 	.edit-mode-btn .btn-text {
 		white-space: nowrap;
+	}
+
+	.notifications {
+		position: absolute;
+		bottom: calc(50vh - 150px);
+		right: calc(50vw - 630px);
+		z-index: 100;
 	}
 </style>

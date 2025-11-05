@@ -5,7 +5,7 @@ import { base } from '$lib/server/db.js';
 import { getUserInfoBySessionId } from '$lib/server/auth.js';
 import { verifyFurnitureOwnership } from '$lib/server/furniture.js';
 
-// POST - Upload project image using Airtable's uploadAttachment API
+// POST - Upload canvas image using Airtable's uploadAttachment API
 export async function POST({ request, locals, cookies }) {
 	try {
 		if (!locals.user) {
@@ -14,13 +14,12 @@ export async function POST({ request, locals, cookies }) {
 
 		// Rate limiting: 10 image uploads per minute
 		const clientId = getClientIdentifier(request, cookies);
-		console.log(clientId.slice(8));
 
 		if (!checkRateLimit(`image-upload:${clientId}`, 10, 60000)) {
 			return json({ error: 'Too many image upload requests' }, { status: 429 });
 		}
 
-		const userInfo = await getUserInfoBySessionId(clientId.slice(8));
+		const userInfo = await getUserInfoBySessionId(cookies.get('sessionid'));
 
 		const username = userInfo.username;
 		const email = userInfo.email;
