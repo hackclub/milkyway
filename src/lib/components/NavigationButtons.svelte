@@ -6,7 +6,7 @@
 <div class="zlayer bottom-buttons">
 	<div class="bottom-left-buttons">
 		<a href="/friends" class="bottom-button">
-			<img src="/room/cow_statue.png" alt="Explore" />
+			<img src="/explore.png" alt="Explore" />
 			<span>explore</span>
 		</a>
 		<a class="bottom-button disabled">

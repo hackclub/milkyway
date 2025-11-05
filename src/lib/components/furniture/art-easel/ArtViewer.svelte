@@ -1,16 +1,16 @@
 <script>
-	import { onMount } from 'svelte';
-
 	let { artworkData } = $props();
 	let canvasElement;
 
-	onMount(() => {
-		let ctx = canvasElement.getContext('2d');
-		const img = new Image();
-		img.src = artworkData.url;
-		img.onload = () => {
-			ctx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
-		};
+	$effect(() => {
+		if (artworkData.url && canvasElement) {
+			let ctx = canvasElement.getContext('2d');
+			const img = new Image();
+			img.src = artworkData.url;
+			img.onload = () => {
+				ctx.drawImage(img, 0, 0, canvasElement.width, canvasElement.height);
+			};
+		}
 	});
 </script>
 

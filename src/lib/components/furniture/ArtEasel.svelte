@@ -1,6 +1,7 @@
 <script>
 	import ArtViewer from '$lib/components/furniture/art-easel/ArtViewer.svelte';
 	import DrawingBoard from '$lib/components/furniture/art-easel/DrawingBoard.svelte';
+	import { onMount } from 'svelte';
 
 	let { data, mode, id } = $props();
 
@@ -21,6 +22,25 @@
 			alert('Error saving artwork. Please try again.');
 		}
 	}
+
+	onMount(() => {
+		fetch(artworkData.url).catch(() => {
+			fetch('/api/get-canvas-image', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ id: id })
+			})
+				.then((response) => response.json())
+				.then((data) => {
+					artworkData.url = data.url;
+				})
+				.catch((err) => {
+					console.error('Error fetching artwork data:', err);
+				});
+		});
+	});
 </script>
 
 <div class="art-easel">
