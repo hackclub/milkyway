@@ -195,6 +195,9 @@ async function createUserFromEmail(email, referrer = null, ipAddress = null) {
   // Add IP address if provided
   if (ipAddress) {
     userData['ip'] = ipAddress;
+    console.log('Storing IP address for new user:', ipAddress);
+  } else {
+    console.log('No IP address provided for new user');
   }
 
   const newUser = await base('User').create(userData);
@@ -243,6 +246,7 @@ async function getUserRecordIdByUsername(username) {
  * Get user info by username
  * WARNING: Returns email field for server-side use ONLY
  * NEVER send the returned object directly to the client without removing email!
+ * NOTE: IP address is intentionally NOT included here to prevent accidental exposure
  */
 export async function getUserInfoByUsername(username) {
   const escapedUsername = escapeAirtableFormula(username);

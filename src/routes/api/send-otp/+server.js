@@ -4,9 +4,9 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
 import { createOTPRecord } from '$lib/server/auth.js';
-import { isValidEmail, checkRateLimit, getClientIdentifier, sanitizeErrorMessage } from '$lib/server/security.js';
+import { isValidEmail, checkRateLimit, getClientIdentifier, getRealClientIP, sanitizeErrorMessage } from '$lib/server/security.js';
 
-export async function POST({ request, cookies, getClientAddress }) {
+export async function POST({ request, cookies }) {
 
   const { email, referrer } = await request.json();
   
@@ -24,8 +24,9 @@ export async function POST({ request, cookies, getClientAddress }) {
   }
 
   try {
-    // Get client IP address
-    const ipAddress = getClientAddress();
+    // Get real client IP address (handles proxy headers)
+    const ipAddress = getRealClientIP(request);
+    console.log('Captured REAL client IP address:', ipAddress);
     await createOTPRecord(email, referrer, ipAddress);
     return json({ success: true }); // success!!
 
