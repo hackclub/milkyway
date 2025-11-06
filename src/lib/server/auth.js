@@ -285,6 +285,21 @@ export async function getUserCoinsAndStellarships(userId) {
   };
 }
 
+/**
+ * @param {string} userId
+ * Get count of users who were referred by this user
+ */
+export async function getReferralCountByEmail(email) {
+
+  const records = await base('User')
+    .select({
+      filterByFormula: `FIND("${email}", ARRAYJOIN({referrer}, ","))`,
+    })
+    .all();
+
+  return records.length;
+}
+
 
 
 // generate 6-digit otp
