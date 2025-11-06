@@ -45,6 +45,7 @@ export async function getUserInfoBySessionId(sessionid) {
     coins: fields.coins,
     stellarships: fields.stellarships,
     paintchips: fields.paintchips,
+    referrals: fields.referrals,
     lastHackatimeUpdate: fields.lastHackatimeUpdate,
     githubUsername: fields.githubUsername,
     birthday: fields.birthday,

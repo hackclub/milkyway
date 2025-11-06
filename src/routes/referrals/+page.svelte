@@ -247,7 +247,7 @@ main {
   background-image: url("/referrals/way.png");
   background-repeat: repeat-x;
   background-size: contain;
-  background-position: -1080px 0;
+  background-position: -115vh 0;
   height: 100vh;
   width: 500vh;
   box-sizing: border-box;
