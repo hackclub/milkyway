@@ -11,6 +11,7 @@
 		onRemoveFromRoom,
 		isRoomEditing = false,
 		isInteractable,
+		wallOnly,
 		furnitureComponent,
 		readOnly = false,
 		data,
@@ -138,9 +139,11 @@
 
 	{#if selected && isRoomEditing && !readOnly}
 		<div class="furniture-controls">
-			<button class="rotate-furniture-btn" onclick={toggleFlip} aria-label="Flip furniture">
-				↻
-			</button>
+			{#if !wallOnly}
+				<button class="rotate-furniture-btn" onclick={toggleFlip} aria-label="Flip furniture">
+					↻
+				</button>
+			{/if}
 			<button
 				class="delete-furniture-btn"
 				onclick={() => {
@@ -260,6 +263,20 @@
 		display: flex;
 		gap: 8px;
 		z-index: 1500;
+		align-items: center;
+	}
+
+	.wall-only-badge {
+		padding: 6px 12px 10px;
+		border: 2px solid var(--orange);
+		border-radius: 50px;
+		background: var(--blue);
+		color: white;
+		font-family: inherit;
+		font-size: 0.9em;
+		font-weight: bold;
+		white-space: nowrap;
+		line-height: 1;
 	}
 
 	.rotate-furniture-btn,

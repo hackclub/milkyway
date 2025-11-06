@@ -86,16 +86,18 @@
 	});
 </script>
 
-<div>
-	<h4>{notifications.length} Notifications</h4>
-	<ul>
-		{#each notifications as notification (notification.id)}
-			<li class="notification-item" use:intersectionObserver={notification}>
-				{@html parseBasicMarkdown(notification.message)}
-			</li>
-		{/each}
-	</ul>
-</div>
+{#if notifications.length !== 0}
+	<div>
+		<h4>{notifications.length} Notifications</h4>
+		<ul>
+			{#each notifications as notification (notification.id)}
+				<li class="notification-item" use:intersectionObserver={notification}>
+					{@html parseBasicMarkdown(notification.message)}
+				</li>
+			{/each}
+		</ul>
+	</div>
+{/if}
 
 <style>
 	h4 {

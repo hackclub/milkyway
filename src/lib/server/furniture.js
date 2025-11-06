@@ -75,12 +75,21 @@ export async function createFurniture(userId, furnitureData) {
 		// New furniture starts in inventory (not placed)
 		const position = 'inventory';
 
+		if (furnitureData.isInteractable) {
+			/** @type {any} */
+			const fieldsToCreate = {
+				user: [userId],
+				type: furnitureType,
+				position: position,
+				data: JSON.stringify({ name: username })
+			};
+		}
+
 		/** @type {any} */
 		const fieldsToCreate = {
 			user: [userId],
 			type: furnitureType,
-			position: position,
-			data: JSON.stringify({ name: username })
+			position: position
 		};
 
 		const record = /** @type {any} */ (await base('Furniture').create(fieldsToCreate));

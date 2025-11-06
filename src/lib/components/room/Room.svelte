@@ -60,10 +60,10 @@
 	// Floor bounds - true rhombus shape (diamond)
 	// Based on: top (0,0), left (-300,150), right (300,150), bottom (0,300)
 	const FLOOR_BOUNDS = {
-		topY: 0, // Top point of the rhombus
-		middleY: 150, // Widest point (middle)
-		bottomY: 300, // Bottom point of the rhombus
-		maxWidth: 560 // Width at the middle (300 on each side)
+		topY: 0,
+		middleY: 150,
+		bottomY: 300,
+		maxWidth: 560
 	};
 
 	// Calculate allowed X range based on Y position (rhombus/diamond shape)
@@ -91,6 +91,45 @@
 			minX: -width / 2,
 			maxX: width / 2
 		};
+	}
+
+	/**
+	 * @param {number} x
+	 * @param {number} y
+	 */
+	function snapToWall(x, y) {
+		// Left wall: from top (0, 0) to left-middle (-280, 150)
+		// Right wall: from top (0, 0) to right-middle (280, 150)
+
+		const WALL_OFFSET = 30;
+
+		const isLeftWall = x < 0;
+
+		const WALL_SLOPE = FLOOR_BOUNDS.middleY / (FLOOR_BOUNDS.maxWidth / 2); // 150/280 ≈ 0.536
+		const Y_AT_MIDDLE = -25;
+		const X_AT_MIDDLE = FLOOR_BOUNDS.maxWidth / 2 - WALL_OFFSET;
+
+		const Y_INTERCEPT = Y_AT_MIDDLE - WALL_SLOPE * X_AT_MIDDLE;
+
+		if (isLeftWall) {
+			const MIN_X = -250;
+			const MAX_X = -WALL_OFFSET;
+			const clampedX = Math.max(MIN_X, Math.min(MAX_X, x));
+
+			const snappedY = WALL_SLOPE * Math.abs(clampedX) + Y_INTERCEPT;
+
+			return { x: clampedX, y: snappedY, flipped: false };
+		} else {
+			const MIN_X = WALL_OFFSET;
+			const MAX_X = 250;
+			const clampedX = Math.max(MIN_X, Math.min(MAX_X, x));
+
+			// Y = slope * X + intercept
+			const snappedY = WALL_SLOPE * clampedX + Y_INTERCEPT;
+
+			// Right wall: flipped
+			return { x: clampedX, y: snappedY, flipped: true };
+		}
 	}
 
 	// Function to handle egg selection (for clicks, not drag)
@@ -430,15 +469,15 @@
 		let newX = mouseX - dragOffset.x;
 		let newY = mouseY - dragOffset.y;
 
-		// Apply Y bounds first
-		newY = clamp(newY, FLOOR_BOUNDS.topY, FLOOR_BOUNDS.bottomY);
-
-		// Get allowed X range based on Y position (rhombus shape)
-		const xRange = getAllowedXRange(newY);
-		newX = clamp(newX, xRange.minX, xRange.maxX);
-
 		// Find the project and update its position
 		if (selectedEggForMove) {
+			// Apply Y bounds first
+			newY = clamp(newY, FLOOR_BOUNDS.topY, FLOOR_BOUNDS.bottomY);
+
+			// Get allowed X range based on Y position (rhombus shape)
+			const xRange = getAllowedXRange(newY);
+			newX = clamp(newX, xRange.minX, xRange.maxX);
+
 			const projectIndex = projectList.findIndex((p) => p.id === selectedEggForMove);
 			if (projectIndex !== -1) {
 				projectList[projectIndex] = {
@@ -453,11 +492,39 @@
 		if (selectedFurnitureForMove) {
 			const furnitureIndex = furnitureList.findIndex((f) => f.id === selectedFurnitureForMove);
 			if (furnitureIndex !== -1) {
-				furnitureList[furnitureIndex] = {
-					...furnitureList[furnitureIndex],
-					x: newX,
-					y: newY
-				};
+				const furniture = furnitureList[furnitureIndex];
+
+				// Check if this furniture type is wall-only
+				const furnitureType = FURNITURE_TYPES.find((ft) => ft.type === String(furniture.type));
+				const isWallOnly = furnitureType?.wallOnly || false;
+
+				// Apply wall constraint if needed
+				if (isWallOnly) {
+					// For wall-only furniture, don't apply normal floor bounds
+					// Just snap directly to the wall and get the flip state
+					const snapped = snapToWall(newX, newY);
+					newX = snapped.x;
+					newY = snapped.y;
+
+					// Auto-flip based on which wall the furniture is on
+					furnitureList[furnitureIndex] = {
+						...furnitureList[furnitureIndex],
+						x: newX,
+						y: newY,
+						flipped: snapped.flipped
+					};
+				} else {
+					// Apply normal floor bounds for regular furniture
+					newY = clamp(newY, FLOOR_BOUNDS.topY, FLOOR_BOUNDS.bottomY);
+					const xRange = getAllowedXRange(newY);
+					newX = clamp(newX, xRange.minX, xRange.maxX);
+
+					furnitureList[furnitureIndex] = {
+						...furnitureList[furnitureIndex],
+						x: newX,
+						y: newY
+					};
+				}
 			}
 		}
 	}
@@ -653,6 +720,7 @@
 				?.component || null}
 			showFurnitureSidebar={(v) => (showFurnitureSidebar = v)}
 			data={furnitureList[furnitureList.findIndex((f) => f.id === furniture.id)].data}
+			wallOnly={FURNITURE_TYPES.find((f) => f.type === String(furniture.type))?.wallOnly || false}
 			{readOnly}
 		/>
 	{/each}

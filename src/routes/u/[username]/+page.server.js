@@ -28,10 +28,12 @@ export async function load({ params, locals }) {
 			};
 		}
 
-		try {
-			await notifyUser(userInfo.recId, `**${locals.user.username}** viewed your profile!.`);
-		} catch (err) {
-			console.error('Error sending profile view notification:', err);
+		if (userInfo.username != locals.user.username) {
+			try {
+				await notifyUser(userInfo.recId, `**${locals.user.username}** viewed your profile!.`);
+			} catch (err) {
+				console.error('Error sending profile view notification:', err);
+			}
 		}
 
 		// Fetch user's projects and furniture using the SAME functions as /friends

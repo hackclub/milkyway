@@ -10,6 +10,7 @@
  * @property {number} cost - Cost in paintchips
  * @property {boolean} purchasable - Whether item can be purchased (false = reward-only)
  * @property {boolean} isInteractable - Whether item has interactive functionality
+ * @property {boolean} wallOnly - Whether item can only be placed on walls
  * @property {import('svelte').SvelteComponent} component - Optional Svelte component for interactive furniture
  */
 
@@ -54,6 +55,7 @@ export const FURNITURE_TYPES = [
 		cost: 30,
 		isInteractable: true,
 		component: BulletinBoard,
+		wallOnly: true,
 		purchasable: true
 	}
 ];
