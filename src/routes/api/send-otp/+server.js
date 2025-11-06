@@ -6,7 +6,7 @@ import { base } from '$lib/server/db.js';
 import { createOTPRecord } from '$lib/server/auth.js';
 import { isValidEmail, checkRateLimit, getClientIdentifier, sanitizeErrorMessage } from '$lib/server/security.js';
 
-export async function POST({ request, cookies }) {
+export async function POST({ request, cookies, getClientAddress }) {
 
   const { email, referrer } = await request.json();
   
@@ -24,7 +24,9 @@ export async function POST({ request, cookies }) {
   }
 
   try {
-    await createOTPRecord(email, referrer);
+    // Get client IP address
+    const ipAddress = getClientAddress();
+    await createOTPRecord(email, referrer, ipAddress);
     return json({ success: true }); // success!!
 
   } catch (err) {

@@ -36,6 +36,7 @@ export async function getUserInfoBySessionId(sessionid) {
   
   // Return full user object with email for server-side use
   // Mark with __serverOnly flag as a reminder not to expose to frontend
+  // NOTE: IP address is intentionally NOT included here to prevent accidental exposure
   return {
     recId: records[0].id,
     email: fields.email, // SERVER SIDE ONLY - do not pass to frontend
@@ -78,7 +79,7 @@ export function sanitizeUserForFrontend(serverUser) {
     improve: serverUser.improve || '',
     address: serverUser.address || null,
     idv: serverUser.idv || null,
-    // DO NOT include: email, lastHackatimeUpdate, __serverOnly, or other internal fields
+    // DO NOT include: email, ip, lastHackatimeUpdate, __serverOnly, or other internal fields
   };
 }
 
@@ -128,8 +129,9 @@ export async function verifyOTPAndCreateSession(email, otp) {
 /**
  * @param {string} email
  * @param {string | null} referrer
+ * @param {string | null} ipAddress
  */
-export async function createOTPRecord(email, referrer = null) {
+export async function createOTPRecord(email, referrer = null, ipAddress = null) {
     const otp = generateOTP();
     const token = generateToken();
     const expiry = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins expiry for otp
@@ -147,7 +149,7 @@ export async function createOTPRecord(email, referrer = null) {
     catch (error) {
       console.log(error)
       console.log("tried to create user")
-      userRecordId = await createUserFromEmail(email, referrer);
+      userRecordId = await createUserFromEmail(email, referrer, ipAddress);
     }
 
     console.log("creating OTP record...")
@@ -167,8 +169,9 @@ export async function createOTPRecord(email, referrer = null) {
 /**
  * @param {string} email
  * @param {string | null} referrer
+ * @param {string | null} ipAddress
  */
-async function createUserFromEmail(email, referrer = null) {
+async function createUserFromEmail(email, referrer = null, ipAddress = null) {
   // If referrer is provided, find the referrer's record ID
   let referrerRecordId = null;
   if (referrer) {
@@ -187,6 +190,11 @@ async function createUserFromEmail(email, referrer = null) {
   // Add referrer if found
   if (referrerRecordId) {
     userData['referrer'] = [referrerRecordId];
+  }
+
+  // Add IP address if provided
+  if (ipAddress) {
+    userData['ip'] = ipAddress;
   }
 
   const newUser = await base('User').create(userData);
@@ -286,7 +294,7 @@ export async function getUserCoinsAndStellarships(userId) {
 }
 
 /**
- * @param {string} userId
+ * @param {string} email
  * Get count of users who were referred by this user
  */
 export async function getReferralCountByEmail(email) {
