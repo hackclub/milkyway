@@ -25,7 +25,14 @@ export async function GET({ url, request, cookies }) {
     let page = pageParam ? parseInt(pageParam, 10) : 1;
     if (isNaN(page) || page < 1) page = 1;
     
-    const sortBy = sortParam === 'hours' ? 'hours' : 'coins';
+    // Support sorting by coins, hours, or referrals
+    let sortBy = 'coins';
+    if (sortParam === 'hours') {
+      sortBy = 'hours';
+    } else if (sortParam === 'referrals') {
+      sortBy = 'referrals';
+    }
+    
     const userList = await getUsersSortedByCoins(limit, page, sortBy);
     
     return json({
