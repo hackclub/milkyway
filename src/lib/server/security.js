@@ -143,6 +143,56 @@ function cleanupRateLimitStore() {
 }
 
 /**
+ * Get real client IP address (handles proxy headers)
+ * @param {any} request - SvelteKit request object
+ * @returns {string} - Client IP address
+ */
+export function getRealClientIP(request) {
+  // Debug: Log all relevant headers
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const cfIP = request.headers.get('cf-connecting-ip');
+  const realIP = request.headers.get('x-real-ip');
+  const trueClientIP = request.headers.get('true-client-ip');
+  
+  console.log('IP Detection Debug:', {
+    'x-forwarded-for': forwardedFor,
+    'cf-connecting-ip': cfIP,
+    'x-real-ip': realIP,
+    'true-client-ip': trueClientIP
+  });
+  
+  // Check proxy headers first (for Cloudflare, Nginx, etc.)
+  if (forwardedFor) {
+    // X-Forwarded-For can contain multiple IPs, the first one is the client
+    const clientIP = forwardedFor.split(',')[0].trim();
+    console.log('Using X-Forwarded-For:', clientIP);
+    return clientIP;
+  }
+  
+  // Check CF-Connecting-IP (Cloudflare)
+  if (cfIP) {
+    console.log('Using CF-Connecting-IP:', cfIP);
+    return cfIP;
+  }
+  
+  // Check True-Client-IP (Cloudflare Enterprise)
+  if (trueClientIP) {
+    console.log('Using True-Client-IP:', trueClientIP);
+    return trueClientIP;
+  }
+  
+  // Check X-Real-IP (Nginx)
+  if (realIP) {
+    console.log('Using X-Real-IP:', realIP);
+    return realIP;
+  }
+  
+  // Fallback to unknown if no headers found
+  console.log('No proxy headers found, IP is unknown');
+  return 'unknown';
+}
+
+/**
  * Get client identifier for rate limiting (IP or session)
  * @param {any} request - SvelteKit request object
  * @param {any} cookies - SvelteKit cookies object
@@ -156,9 +206,7 @@ export function getClientIdentifier(request, cookies) {
   }
   
   // Fall back to IP address
-  const ip = request.headers.get('x-forwarded-for') || 
-             request.headers.get('x-real-ip') || 
-             'unknown';
+  const ip = getRealClientIP(request);
   return `ip:${ip}`;
 }
 

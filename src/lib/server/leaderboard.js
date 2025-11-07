@@ -2,17 +2,23 @@ import { base } from '$lib/server/db.js'
 import { escapeAirtableFormula } from '$lib/server/security.js';
 
 /**
- * Get users sorted by a field (coins or totalHours) using Airtable server-side sort.
+ * Get users sorted by a field (coins, totalHours, or referrals) using Airtable server-side sort.
  * Note: sorting by hours expects a `totalHours` field on the User table.
+ * Note: sorting by referrals expects a `referrals` field on the User table.
  * @param {number} [limit=100] - Maximum number of users to return
  * @param {number} [page=1]
- * @param {'coins'|'hours'} [sortBy='coins']
+ * @param {'coins'|'hours'|'referrals'} [sortBy='coins']
  */
 export async function getUsersSortedByCoins(limit = 100, page = 1, sortBy = 'coins') {
     const pageSize = Number(limit) || 100;
     const targetPage = Math.max(1, Number(page) || 1);
 
-    const sortField = sortBy === 'hours' ? 'totalHours' : 'coins';
+    let sortField = 'coins';
+    if (sortBy === 'hours') {
+      sortField = 'totalHours';
+    } else if (sortBy === 'referrals') {
+      sortField = 'referrals';
+    }
 
     const opts = {
       sort: [{ field: sortField, direction: 'desc' }],
@@ -52,7 +58,8 @@ export async function getUsersSortedByCoins(limit = 100, page = 1, sortBy = 'coi
     return (pageRecords || []).map(record => ({
         username: record.fields.username,
         coins: record.fields.coins || 0,
-        hours: record.fields.totalHours || 0
+        hours: record.fields.totalHours || 0,
+        referrals: record.fields.referrals || 0
     }));
 
 }

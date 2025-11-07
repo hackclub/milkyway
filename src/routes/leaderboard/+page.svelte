@@ -4,7 +4,7 @@ import { onMount } from 'svelte';
 let users = $state(/** @type {any[]} */ ([]));
 let isLoading = $state(true);
 let currentPage = $state(1);
-let sortBy = $state('coins'); // 'coins' or 'hours'
+let sortBy = $state('coins'); // 'coins', 'hours', or 'referrals'
 
 async function loadLeaderboardData() {
     try {
@@ -35,8 +35,11 @@ function nextPage() {
     loadLeaderboardData();
 }
 
+/**
+ * @param {string} mode
+ */
 function setSort(mode) {
-    if (mode !== 'hours' && mode !== 'coins') return;
+    if (mode !== 'hours' && mode !== 'coins' && mode !== 'referrals') return;
     sortBy = mode;
     currentPage = 1;
     isLoading = true;
@@ -53,6 +56,9 @@ function prevPage() {
     }
 }
 
+/**
+ * @param {string} username
+ */
 function viewUserProfile(username) {
   window.location.href = `/u/${username}`;
 }
@@ -87,6 +93,12 @@ function viewUserProfile(username) {
                                     <span class="sort-arrow">{sortBy === 'coins' ? '▾' : ' '}</span>
 									</div>
                                 </div>
+                                <div class="col-referrals" role="button" tabindex="0" onclick={() => setSort('referrals')}>
+									<div class="referrals-button">
+                                    <span>Referrals</span>
+                                    <span class="sort-arrow">{sortBy === 'referrals' ? '▾' : ' '}</span>
+									</div>
+                                </div>
             </div>
             {#if isLoading}
                 <div class="loading">Loading...</div>
@@ -100,6 +112,7 @@ function viewUserProfile(username) {
                         <div class="col-name">{u.username}</div>
                         <div class="col-hours">{Math.trunc(u.hours)}</div>
                         <div class="col-coins">{u.coins}</div>
+                        <div class="col-referrals">{u.referrals}</div>
                     </div>
                 {/each}
                 </div>
@@ -142,8 +155,8 @@ function viewUserProfile(username) {
 
     .leaderboard-header {
         display: grid;
-        /* rank / name / hours / coins */
-        grid-template-columns: 48px 1fr 120px 120px;
+        /* rank / name / hours / coins / referrals */
+        grid-template-columns: 48px 1fr 120px 120px 120px;
         gap: 12px;
         width: 100%;
         align-items: center;
@@ -155,6 +168,7 @@ function viewUserProfile(username) {
     .leaderboard-header .col-name { font-weight: 800; justify-self: start; text-align: left; }
     .leaderboard-header .col-hours { font-weight: 800; justify-self: center; text-align: center; }
     .leaderboard-header .col-coins { font-weight: 800; justify-self: center; text-align: center; }
+    .leaderboard-header .col-referrals { font-weight: 800; justify-self: center; text-align: center; }
 
     .user {
         background-color: #d5e2f6;
@@ -164,7 +178,7 @@ function viewUserProfile(username) {
 		padding-left: 18px;
 		padding-right: 10px;
         display: grid;
-        grid-template-columns: 48px 1fr 120px 120px;
+        grid-template-columns: 48px 1fr 120px 120px 120px;
         gap: 12px;
         font-size: large;
         margin-top: 8px;
@@ -179,7 +193,7 @@ function viewUserProfile(username) {
 		padding-left: 18px;
 		padding-right: 10px;
         display: grid;
-        grid-template-columns: 48px 1fr 120px 120px;
+        grid-template-columns: 48px 1fr 120px 120px 120px;
         gap: 12px;
         font-size: large;
         margin-top: 8px;
@@ -187,7 +201,7 @@ function viewUserProfile(username) {
         align-items: center;
             transition: transform 0.08s ease, box-shadow 0.08s ease;
     }
-	.hours-button, .coins-button {
+	.hours-button, .coins-button, .referrals-button {
 		padding: 6px;
 		padding-left: 14px;
 		padding-right: 16px;
@@ -195,7 +209,7 @@ function viewUserProfile(username) {
 		background-color: #d5e2f6;
 		border: 3px solid #81a0f7;
 	}
-	.hours-button:hover, .coins-button:hover {
+	.hours-button:hover, .coins-button:hover, .referrals-button:hover {
 		cursor: pointer;
 	}
     /* Ensure cell contents are vertically centered within each grid cell */
@@ -204,6 +218,7 @@ function viewUserProfile(username) {
     .user .col-name { justify-self: start; text-align: left; font-weight:800; }
     .user .col-hours { justify-self: center; text-align: center; }
     .user .col-coins { justify-self: center; text-align: center; font-weight: 800; }
+    .user .col-referrals { justify-self: center; text-align: center; font-weight: 800; }
         .user:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 10px rgba(0,0,0,0.08);
