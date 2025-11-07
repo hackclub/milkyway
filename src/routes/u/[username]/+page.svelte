@@ -1,5 +1,6 @@
 <script>
 	import Room from '$lib/components/room/Room.svelte';
+	import ReportUserModal from '$lib/components/ReportUserModal.svelte';
 	import { onMount } from 'svelte';
 
 	let { data } = $props();
@@ -12,6 +13,7 @@
 	let followLoading = $state(false);
 	let loading = $state(false);
 	let userData = $state(data.user);
+	let showReportModal = $state(false);
 
 	// Track profile views to prevent duplicate notifications
 	onMount(() => {
@@ -140,19 +142,26 @@
 					</div>
 				</div>
 				{#if !data.isLoggedIn || (data.isLoggedIn && data.currentUser?.username !== userData.username)}
-					<button
-						class="follow-button"
-						class:following={isFollowing}
-						class:sign-in-button={!data.isLoggedIn}
-						disabled={followLoading || loading}
-						onclick={handleFollowClick}
-					>
-						{#if !data.isLoggedIn}
-							Sign in to follow
-						{:else}
-							{followLoading ? '...' : isFollowing ? 'Unfollow' : 'Follow'}
+					<div class="action-buttons">
+						<button
+							class="follow-button"
+							class:following={isFollowing}
+							class:sign-in-button={!data.isLoggedIn}
+							disabled={followLoading || loading}
+							onclick={handleFollowClick}
+						>
+							{#if !data.isLoggedIn}
+								Sign in to follow
+							{:else}
+								{followLoading ? '...' : isFollowing ? 'Unfollow' : 'Follow'}
+							{/if}
+						</button>
+						{#if data.isLoggedIn}
+							<button class="report-button" onclick={() => (showReportModal = true)} title="Report">
+								Report
+							</button>
 						{/if}
-					</button>
+					</div>
 				{/if}
 			</div>
 		</div>
@@ -181,6 +190,14 @@
 		</div>
 	{/if}
 </main>
+
+{#if showReportModal && userData}
+	<ReportUserModal
+		targetUserId={userData.recId}
+		targetUsername={userData.username}
+		onClose={() => (showReportModal = false)}
+	/>
+{/if}
 
 <style>
 	main {
@@ -294,6 +311,27 @@
 		cursor: not-allowed;
 	}
 
+	.report-button {
+		padding: 10px 20px;
+		background-color: #ff9800;
+		color: white;
+		border: none;
+		border-radius: 8px;
+		font-family: inherit;
+		font-size: 0.95em;
+		font-weight: bold;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.report-button:hover {
+		background-color: #f57c00;
+		transform: scale(1.05);
+	}
+
 	.user-room {
 		width: 100%;
 		height: 100%;
@@ -358,6 +396,12 @@
 		width: 1px;
 		height: 28px;
 		background-color: rgba(200, 200, 200, 0.5);
+	}
+
+	.action-buttons {
+		display: flex;
+		gap: 12px;
+		align-items: center;
 	}
 
 	.back-button-container {
