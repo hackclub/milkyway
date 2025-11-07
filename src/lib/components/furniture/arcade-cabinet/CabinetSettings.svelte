@@ -179,6 +179,8 @@
 		setgame: {
 			description: 'Set the game for the arcade cabinet',
 			execute: (args) => {
+				return 'setgame: command currently disabled for security reasons.';
+
 				if (!args[0]) return 'setgame: missing game url parameter';
 
 				let newGameUrl;
@@ -195,16 +197,20 @@
 					if (!vfs[newGameUrl.pathname] || vfs[newGameUrl.pathname].type !== 'file') {
 						return 'setgame: invalid internal URL. File does not exist in VFS.';
 					}
-					console.log(`internal path: ${newGameUrl.pathname}`);
 					gameUrl = vfs[newGameUrl.pathname].content;
-					console.log(`gameUrl: ${gameUrl}`);
-					vfs['/home/game.url'].content =
-						`READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.\n\n\n${newGameUrl}`;
+					vfs['/home/game.url'] = {
+						...vfs['/home/game.url'],
+						content: `READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.\n\n\n${newGameUrl.pathname}`
+					};
+					vfs = vfs;
 				} else {
 					gameUrl = newGameUrl.toString();
 					console.log(`gameUrl: ${gameUrl}`);
-					vfs['/home/game.url'].content =
-						`READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.\n\n\n${gameUrl}`;
+					vfs['/home/game.url'] = {
+						...vfs['/home/game.url'],
+						content: `READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.\n\n\n${gameUrl}`
+					};
+					vfs = vfs;
 				}
 
 				return null;

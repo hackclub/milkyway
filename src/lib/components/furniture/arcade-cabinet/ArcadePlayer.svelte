@@ -4,13 +4,19 @@
 	let { terminalData } = $props();
 	let iframeElement;
 
-	onMount(() => {
+	$effect(() => {
 		iframeElement.src = terminalData.gameUrl;
 		try {
 			new URL(terminalData.gameUrl);
 		} catch {
 			iframeElement.srcdoc = terminalData.gameUrl;
 			iframeElement.src = '';
+		}
+	});
+
+	onMount(() => {
+		if (iframeElement) {
+			iframeElement.focus();
 		}
 	});
 </script>

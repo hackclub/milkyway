@@ -1,10 +1,39 @@
 <script>
 	import ArcadePlayer from '$lib/components/furniture/arcade-cabinet/ArcadePlayer.svelte';
 	import CabinetSettings from '$lib/components/furniture/arcade-cabinet/CabinetSettings.svelte';
+	import { onMount } from 'svelte';
+	import interfaceHtml from '$lib/components/furniture/arcade-cabinet/interface.html?raw';
 
 	let { data, mode, id } = $props();
 
-	let arcadeData = $state(data ? JSON.parse(data) : '');
+	let arcadeData = $state(data ? JSON.parse(data) : {});
+
+	onMount(() => {
+		if (!arcadeData.vfs) {
+			arcadeData.vfs = {
+				'/': { type: 'dir', children: ['home', 'cabinet.html'] },
+				'/home': { type: 'dir', children: ['readme.txt', 'game.url'] },
+				'/home/readme.txt': {
+					type: 'file',
+					content: 'hai!!\nType "help" for available commands.'
+				},
+				'/home/game.url': {
+					type: 'file',
+					content: `READONLY: This file is used by the arcade cabinet to determine which game to load. Use the 'setgame' command to change the game URL.\n\n\n`
+				},
+				'/cabinet.html': {
+					type: 'file',
+					content: interfaceHtml
+				}
+			};
+			arcadeData = arcadeData;
+		}
+
+		if (arcadeData.gameUrl === undefined) {
+			arcadeData.gameUrl = arcadeData.vfs['/cabinet.html'].content;
+			arcadeData = arcadeData;
+		}
+	});
 
 	async function onSave(newArcadeData) {
 		try {

@@ -449,45 +449,31 @@
 		const games = [
 			{
 				id: 1,
-				title: "Space Invaders",
+				title: "TRIH3AZEL",
 				icon: "👾",
-				description: "Classic arcade shooter"
+				url: "https://html.itch.zone/html/15289483/Export/index.html",
+				description: "(seizure warning) 'is this what shrooms feel like' - itch.io commenter"
 			},
 			{
 				id: 2,
-				title: "Pac-Man",
-				icon: "🟡",
-				description: "Eat all the dots!"
+				title: "Dash",
+				icon: "🏃‍♂️",
+				url: "https://html-classic.itch.zone/html/15457974/index.html",
+				description: "tomb of the mask inspired game"
 			},
 			{
 				id: 3,
-				title: "Tetris",
-				icon: "🟦",
-				description: "Block puzzle game"
+				title: "World Travel Adventure",
+				icon: "🌍",
+				url: "https://html.itch.zone/html/15325930/index.html",
+				description: "simple platformer that has you travel the world!"
 			},
 			{
 				id: 4,
-				title: "Pong",
-				icon: "🏓",
-				description: "The original arcade game"
-			},
-			{
-				id: 5,
-				title: "Snake",
-				icon: "🐍",
-				description: "Grow and don't hit walls"
-			},
-			{
-				id: 6,
-				title: "Breakout",
-				icon: "🧱",
-				description: "Break all the bricks!"
-			},
-			{
-				id: 7,
-				title: "Galaga",
-				icon: "🚀",
-				description: "Space shooter classic"
+				title: "Scrapyard Survivor",
+				icon: "🤖",
+				url: "https://my-first-game-tv9t.vercel.app/",
+				description: "collect scraps and repair yourself while avoiding drones to escape the scrapyard!"
 			}
 		];
 
@@ -622,8 +608,7 @@
 
 		function launchGame(game) {
 			console.log('Launching game:', game.title);
-			const message = `🎮 ${game.title}\n\n${game.description}\n\nGame launching soon!`;
-			alert(message);
+			window.location.href = game.url;
 		}
 
 		function setupKeyboardControls() {
