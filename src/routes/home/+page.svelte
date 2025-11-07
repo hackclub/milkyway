@@ -274,6 +274,11 @@
 		}}
 	/>
 
+	<!-- Referral Button -->
+	<a href="/referrals" class="referral-button">
+		<img src="/referrals.png" alt="Referrals" />
+	</a>
+
 	<!-- Your Room -->
 	<div class="user-room">
 		<Room
@@ -346,5 +351,18 @@
 		height: 100vh !important;
 		z-index: 200 !important;
 		background-color: #000 !important;
+	}
+
+	.referral-button {
+		position: fixed;
+		top: 32px;
+		right: 32px;
+		z-index: 100;
+		cursor: pointer;
+	}
+	.referral-button img {
+		display: block;
+		height: 150px;
+		width: auto;
 	}
 </style>
