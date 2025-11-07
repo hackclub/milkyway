@@ -19,6 +19,7 @@
 	let propertiesPosition = $state({ x: 20, y: 20 });
 	let propertiesDragOffset = $state({ x: 0, y: 0 });
 	let propertiesPanelElement;
+	let propertiesMinimized = $state(false);
 
 	const CANVAS_WIDTH = 714;
 	const CANVAS_HEIGHT = 500;
@@ -178,15 +179,16 @@
 		}
 
 		if (propertiesDragging && propertiesPanelElement) {
-			const editorContainer = propertiesPanelElement.parentElement;
-			const containerRect = editorContainer.getBoundingClientRect();
+			const bulletinBoardEditor = propertiesPanelElement.closest('.bulletin-board-editor');
+			const editorRect = bulletinBoardEditor.getBoundingClientRect();
 			const panelRect = propertiesPanelElement.getBoundingClientRect();
 
-			const newX = event.clientX - containerRect.left - propertiesDragOffset.x;
-			const newY = event.clientY - containerRect.top - propertiesDragOffset.y;
+			const newX = event.clientX - editorRect.left - propertiesDragOffset.x;
+			const newY = event.clientY - editorRect.top - propertiesDragOffset.y;
 
-			propertiesPosition.x = Math.max(0, Math.min(newX, containerRect.width - panelRect.width));
-			propertiesPosition.y = Math.max(0, Math.min(newY, containerRect.height - panelRect.height));
+			// Allow panel to move freely within the bulletin board editor bounds
+			propertiesPosition.x = Math.max(0, Math.min(newX, editorRect.width - panelRect.width));
+			propertiesPosition.y = Math.max(0, Math.min(newY, editorRect.height - panelRect.height));
 		}
 	}
 
@@ -229,9 +231,13 @@
 		selectedComponent = null;
 	}
 
+	function togglePropertiesMinimize() {
+		propertiesMinimized = !propertiesMinimized;
+	}
+
 	function startPropertiesDrag(event) {
 		if (!propertiesPanelElement) return;
-		if (event.target.closest('.close-btn')) return;
+		if (event.target.closest('.close-btn') || event.target.closest('.minimize-btn')) return;
 
 		event.preventDefault();
 		propertiesDragging = true;
@@ -346,18 +352,30 @@
 				{/each}
 			</div>
 		</div>
+	</div>
 
-		{#if selectedComponent}
-			<div
-				class="properties-panel"
-				class:dragging={propertiesDragging}
-				bind:this={propertiesPanelElement}
-				style="left: {propertiesPosition.x}px; top: {propertiesPosition.y}px;"
-			>
-				<div class="properties-header" onmousedown={startPropertiesDrag}>
-					<h3>Properties</h3>
+	{#if selectedComponent}
+		<div
+			class="properties-panel"
+			class:dragging={propertiesDragging}
+			class:minimized={propertiesMinimized}
+			bind:this={propertiesPanelElement}
+			style="left: {propertiesPosition.x}px; top: {propertiesPosition.y}px;"
+		>
+			<div class="properties-header" onmousedown={startPropertiesDrag}>
+				<h3>Properties</h3>
+				<div class="header-buttons">
+					<button
+						class="minimize-btn"
+						onclick={togglePropertiesMinimize}
+						title={propertiesMinimized ? 'Expand' : 'Minimize'}
+					>
+						{propertiesMinimized ? '▼' : '▲'}
+					</button>
 					<button class="close-btn" onclick={closeProperties}>✕</button>
 				</div>
+			</div>
+			{#if !propertiesMinimized}
 				<div class="properties-content">
 					<div class="property-group">
 						<label>X Position:</label>
@@ -460,9 +478,9 @@
 						</div>
 					{/if}
 				</div>
-			</div>
-		{/if}
-	</div>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -735,6 +753,16 @@
 		will-change: transform;
 	}
 
+	.properties-panel.minimized {
+		max-height: 50px;
+		width: auto;
+		min-width: 200px;
+	}
+
+	.properties-panel.minimized .properties-content {
+		display: none;
+	}
+
 	.properties-panel.dragging {
 		cursor: grabbing;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
@@ -757,6 +785,32 @@
 	.properties-header h3 {
 		margin: 0;
 		font-size: 18px;
+		color: #333;
+	}
+
+	.header-buttons {
+		display: flex;
+		gap: 4px;
+	}
+
+	.minimize-btn {
+		background: none;
+		border: none;
+		font-size: 18px;
+		color: #666;
+		cursor: pointer;
+		padding: 0;
+		width: 30px;
+		height: 30px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		transition: background-color 0.2s;
+	}
+
+	.minimize-btn:hover {
+		background-color: #e0e0e0;
 		color: #333;
 	}
 
