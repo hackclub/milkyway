@@ -18,10 +18,15 @@
 
 	let canvasWidth = $state(800);
 	let canvasHeight = $state(600);
-	let containerWidth = $state(0);
+
+	// Undo/Redo state
+	let history = $state([]);
+	let historyStep = $state(-1);
+	let isDrawingStroke = $state(false);
 
 	const brushes = [
 		{ type: 'simple', icon: '✏️', name: 'Pencil' },
+		{ type: 'eraser', icon: '🧹', name: 'Eraser' },
 		{ type: 'sparkle', icon: '✨', name: 'Sparkles' },
 		{ type: 'confetti', icon: '🎊', name: 'Confetti' },
 		{ type: 'rainbow', icon: '🌈', name: 'Rainbow Trail' },
@@ -37,9 +42,14 @@
 		ctx = canvas.getContext('2d');
 		if (artworkData) {
 			const img = new Image();
-			img.onload = () => ctx.drawImage(img, 0, 0);
+			img.onload = () => {
+				ctx.drawImage(img, 0, 0);
+				saveToHistory();
+			};
 			img.crossOrigin = 'anonymous';
 			img.src = artworkData.url;
+		} else {
+			saveToHistory();
 		}
 		animateParticles();
 
@@ -47,6 +57,46 @@
 			window.removeEventListener('resize', updateCanvasSize);
 		};
 	});
+
+	function hexToRgb(hex) {
+		const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+		return result
+			? {
+					r: parseInt(result[1], 16),
+					g: parseInt(result[2], 16),
+					b: parseInt(result[3], 16)
+				}
+			: { r: 117, g: 70, b: 104 };
+	}
+
+	function rgbToHex(r, g, b) {
+		return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+	}
+
+	function getLighterColor(hex, factor = 0.3) {
+		const rgb = hexToRgb(hex);
+		const lighter = {
+			r: Math.min(255, Math.round(rgb.r + (255 - rgb.r) * factor)),
+			g: Math.min(255, Math.round(rgb.g + (255 - rgb.g) * factor)),
+			b: Math.min(255, Math.round(rgb.b + (255 - rgb.b) * factor))
+		};
+		return rgbToHex(lighter.r, lighter.g, lighter.b);
+	}
+
+	function getDarkerColor(hex, factor = 0.3) {
+		const rgb = hexToRgb(hex);
+		const darker = {
+			r: Math.round(rgb.r * (1 - factor)),
+			g: Math.round(rgb.g * (1 - factor)),
+			b: Math.round(rgb.b * (1 - factor))
+		};
+		return rgbToHex(darker.r, darker.g, darker.b);
+	}
+
+	function getComplementaryColor(hex) {
+		const rgb = hexToRgb(hex);
+		return rgbToHex(255 - rgb.r, 255 - rgb.g, 255 - rgb.b);
+	}
 
 	function updateCanvasSize() {
 		if (!canvas) return;
@@ -59,7 +109,6 @@
 
 		canvasWidth = Math.max(300, Math.min(800, maxWidth));
 		canvasHeight = Math.round(canvasWidth / aspectRatio);
-		containerWidth = maxWidth;
 
 		canvas.width = canvasWidth;
 		canvas.height = canvasHeight;
@@ -67,6 +116,7 @@
 
 	function startDrawing(e) {
 		isDrawing = true;
+		isDrawingStroke = true;
 		const rect = canvas.getBoundingClientRect();
 		lastX = e.clientX - rect.left;
 		lastY = e.clientY - rect.top;
@@ -74,6 +124,10 @@
 	}
 
 	function stopDrawing() {
+		if (isDrawing && isDrawingStroke) {
+			saveToHistory();
+			isDrawingStroke = false;
+		}
 		isDrawing = false;
 	}
 
@@ -87,6 +141,9 @@
 		switch (currentBrush) {
 			case 'simple':
 				drawSimple(x, y);
+				break;
+			case 'eraser':
+				drawEraser(x, y);
 				break;
 			case 'sparkle':
 				drawSparkle(x, y);
@@ -113,6 +170,10 @@
 	}
 
 	function drawSimple(x, y) {
+		const dx = x - lastX;
+		const dy = y - lastY;
+		const distance = Math.sqrt(dx * dx + dy * dy);
+
 		ctx.strokeStyle = currentColor;
 		ctx.lineWidth = brushSize;
 		ctx.lineCap = 'round';
@@ -122,98 +183,431 @@
 		ctx.moveTo(lastX, lastY);
 		ctx.lineTo(x, y);
 		ctx.stroke();
-	}
 
-	function drawSparkle(x, y) {
-		ctx.fillStyle = currentColor;
-		ctx.shadowColor = currentColor;
-		ctx.beginPath();
-		const spikes = 5;
-		const outerRadius = brushSize;
-		const innerRadius = brushSize / 2;
-		for (let i = 0; i < spikes * 2; i++) {
-			const angle = (i * Math.PI) / spikes;
-			const radius = i % 2 === 0 ? outerRadius : innerRadius;
-			const px = x + Math.cos(angle) * radius;
-			const py = y + Math.sin(angle) * radius;
-			if (i === 0) ctx.moveTo(px, py);
-			else ctx.lineTo(px, py);
-		}
-		ctx.closePath();
-		ctx.fill();
-	}
+		const steps = Math.max(1, Math.floor(distance / 2));
+		for (let i = 0; i < steps; i++) {
+			const t = i / steps;
+			const px = lastX + dx * t;
+			const py = lastY + dy * t;
 
-	function drawConfetti(x, y) {
-		const colors = ['#FF6B9D', '#C44569', '#F8B500', '#4ECDC4', '#95E1D3', '#F38181'];
-		for (let i = 0; i < 8; i++) {
-			particles.push({
-				x,
-				y,
-				vx: (Math.random() - 0.5) * 8,
-				vy: Math.random() * -5 - 2,
-				life: 60,
-				color: colors[Math.floor(Math.random() * colors.length)]
-			});
-		}
-	}
+			const offsetX = (Math.random() - 0.5) * brushSize * 0.3;
+			const offsetY = (Math.random() - 0.5) * brushSize * 0.3;
 
-	function drawRainbow(x, y) {
-		const colors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
-		colors.forEach((color) => {
-			ctx.fillStyle = color;
-			ctx.globalAlpha = 0.6;
-			ctx.beginPath();
-			ctx.arc(
-				x + (Math.random() - 0.5) * 20,
-				y + (Math.random() - 0.5) * 20,
-				brushSize / 2,
-				0,
-				Math.PI * 2
-			);
-			ctx.fill();
-		});
-		ctx.globalAlpha = 1;
-	}
-
-	function drawBubble(x, y) {
-		ctx.strokeStyle = currentColor;
-		ctx.lineWidth = 3;
-		ctx.globalAlpha = 0.4;
-		ctx.beginPath();
-		ctx.arc(x, y, brushSize, 0, Math.PI * 2);
-		ctx.stroke();
-
-		ctx.fillStyle = 'white';
-		ctx.globalAlpha = 0.6;
-		ctx.beginPath();
-		ctx.arc(x - brushSize / 3, y - brushSize / 3, brushSize / 4, 0, Math.PI * 2);
-		ctx.fill();
-		ctx.globalAlpha = 1;
-	}
-
-	function drawSpray(x, y) {
-		for (let i = 0; i < 15; i++) {
-			const offsetX = (Math.random() - 0.5) * brushSize * 2;
-			const offsetY = (Math.random() - 0.5) * brushSize * 2;
 			ctx.fillStyle = currentColor;
-			ctx.globalAlpha = Math.random() * 0.8;
+			ctx.globalAlpha = Math.random() * 0.3 + 0.1;
 			ctx.beginPath();
-			ctx.arc(x + offsetX, y + offsetY, 1, 0, Math.PI * 2);
+			ctx.arc(px + offsetX, py + offsetY, Math.random() * 0.5, 0, Math.PI * 2);
 			ctx.fill();
 		}
 		ctx.globalAlpha = 1;
 	}
 
-	function drawNeon(x, y) {
-		ctx.strokeStyle = currentColor;
+	function drawEraser(x, y) {
+		ctx.globalCompositeOperation = 'destination-out';
 		ctx.lineWidth = brushSize;
-		ctx.shadowBlur = 20;
-		ctx.shadowColor = currentColor;
 		ctx.lineCap = 'round';
+		ctx.lineJoin = 'round';
+		ctx.globalAlpha = 1;
+
 		ctx.beginPath();
 		ctx.moveTo(lastX, lastY);
 		ctx.lineTo(x, y);
 		ctx.stroke();
+
+		ctx.globalAlpha = 0.2;
+		ctx.lineWidth = brushSize * 1.1;
+		ctx.beginPath();
+		ctx.moveTo(lastX, lastY);
+		ctx.lineTo(x, y);
+		ctx.stroke();
+
+		ctx.globalAlpha = 1;
+		ctx.globalCompositeOperation = 'source-over';
+	}
+
+	function drawSparkle(x, y) {
+		const numSparkles = Math.random() > 0.5 ? 2 : 1;
+
+		for (let s = 0; s < numSparkles; s++) {
+			const offsetX = (Math.random() - 0.5) * brushSize;
+			const offsetY = (Math.random() - 0.5) * brushSize;
+			const sparkleX = x + offsetX;
+			const sparkleY = y + offsetY;
+			const rotation = Math.random() * Math.PI * 2;
+			const size = (Math.random() * 0.5 + 0.5) * brushSize * 0.8;
+
+			ctx.shadowBlur = 15;
+			ctx.shadowColor = currentColor;
+			ctx.fillStyle = currentColor;
+			ctx.globalAlpha = 0.3;
+
+			ctx.beginPath();
+			const spikes = 8;
+			for (let i = 0; i < spikes * 2; i++) {
+				const angle = (i * Math.PI) / spikes + rotation;
+				const radius = i % 2 === 0 ? size : size / 3;
+				const px = sparkleX + Math.cos(angle) * radius;
+				const py = sparkleY + Math.sin(angle) * radius;
+				if (i === 0) ctx.moveTo(px, py);
+				else ctx.lineTo(px, py);
+			}
+			ctx.closePath();
+			ctx.fill();
+
+			ctx.globalAlpha = 0.9;
+			ctx.shadowBlur = 8;
+			ctx.beginPath();
+			for (let i = 0; i < spikes * 2; i++) {
+				const angle = (i * Math.PI) / spikes + rotation;
+				const radius = i % 2 === 0 ? size * 0.6 : size / 4;
+				const px = sparkleX + Math.cos(angle) * radius;
+				const py = sparkleY + Math.sin(angle) * radius;
+				if (i === 0) ctx.moveTo(px, py);
+				else ctx.lineTo(px, py);
+			}
+			ctx.closePath();
+			ctx.fill();
+
+			ctx.fillStyle = getLighterColor(currentColor, 0.7);
+			ctx.globalAlpha = 0.8;
+			ctx.shadowBlur = 5;
+			ctx.shadowColor = getLighterColor(currentColor, 0.7);
+			ctx.beginPath();
+			ctx.arc(sparkleX, sparkleY, size * 0.15, 0, Math.PI * 2);
+			ctx.fill();
+		}
+
+		ctx.globalAlpha = 1;
+		ctx.shadowBlur = 0;
+	}
+
+	function drawConfetti(x, y) {
+		const baseColor = currentColor;
+		const lighterColor = getLighterColor(baseColor, 0.4);
+		const lighterColor2 = getLighterColor(baseColor, 0.7);
+		const complementaryColor = getComplementaryColor(baseColor);
+		const lightComplementary = getLighterColor(complementaryColor, 0.4);
+
+		const vibrantLight = getLighterColor(baseColor, 0.85);
+		const vibrantComplementary = getLighterColor(complementaryColor, 0.7);
+
+		const colors = [
+			vibrantLight,
+			lighterColor2,
+			lighterColor,
+			vibrantComplementary,
+			lightComplementary,
+			complementaryColor,
+			baseColor,
+			getLighterColor(baseColor, 0.2)
+		];
+		const shapes = ['rect', 'circle', 'triangle', 'star', 'diamond'];
+
+		const numPieces = Math.floor(brushSize / 3) + 3;
+		for (let i = 0; i < numPieces; i++) {
+			const offsetX = (Math.random() - 0.5) * brushSize * 1.5;
+			const offsetY = (Math.random() - 0.5) * brushSize * 1.5;
+			const pieceX = x + offsetX;
+			const pieceY = y + offsetY;
+			const color = colors[Math.floor(Math.random() * colors.length)];
+			const shape = shapes[Math.floor(Math.random() * shapes.length)];
+			const size = Math.random() * brushSize * 0.4 + brushSize * 0.2;
+			const rotation = Math.random() * Math.PI * 2;
+
+			ctx.save();
+			ctx.translate(pieceX, pieceY);
+			ctx.rotate(rotation);
+			ctx.fillStyle = color;
+			ctx.globalAlpha = 0.85;
+
+			ctx.shadowColor = color;
+			ctx.shadowBlur = 12;
+			ctx.shadowOffsetX = 0;
+			ctx.shadowOffsetY = 0;
+
+			ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+			ctx.shadowBlur = 3;
+			ctx.shadowOffsetX = 1;
+			ctx.shadowOffsetY = 1;
+
+			switch (shape) {
+				case 'circle':
+					ctx.beginPath();
+					ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+					ctx.fill();
+					break;
+				case 'rect':
+					ctx.fillRect(-size / 2, -size / 2, size, size * 1.5);
+					break;
+				case 'triangle':
+					ctx.beginPath();
+					ctx.moveTo(0, -size / 2);
+					ctx.lineTo(size / 2, size / 2);
+					ctx.lineTo(-size / 2, size / 2);
+					ctx.closePath();
+					ctx.fill();
+					break;
+				case 'diamond':
+					ctx.beginPath();
+					ctx.moveTo(0, -size / 2);
+					ctx.lineTo(size / 2, 0);
+					ctx.lineTo(0, size / 2);
+					ctx.lineTo(-size / 2, 0);
+					ctx.closePath();
+					ctx.fill();
+					break;
+				case 'star':
+					ctx.beginPath();
+					for (let j = 0; j < 10; j++) {
+						const radius = j % 2 === 0 ? size / 2 : size / 4;
+						const angle = (j * Math.PI) / 5;
+						const px = Math.cos(angle) * radius;
+						const py = Math.sin(angle) * radius;
+						if (j === 0) ctx.moveTo(px, py);
+						else ctx.lineTo(px, py);
+					}
+					ctx.closePath();
+					ctx.fill();
+					break;
+			}
+
+			// highlight
+			ctx.globalAlpha = 0.5;
+			ctx.shadowBlur = 8;
+			ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+			ctx.fillStyle = getLighterColor(color, 0.7);
+			ctx.beginPath();
+			ctx.arc(-size * 0.15, -size * 0.15, size * 0.2, 0, Math.PI * 2);
+			ctx.fill();
+
+			ctx.restore();
+		}
+
+		ctx.globalAlpha = 1;
+		ctx.shadowBlur = 0;
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
+	}
+
+	function drawRainbow(x, y) {
+		const baseColor = currentColor;
+		const colors = [
+			getDarkerColor(baseColor, 0.5),
+			getDarkerColor(baseColor, 0.3),
+			baseColor,
+			getLighterColor(baseColor, 0.2),
+			getLighterColor(baseColor, 0.4),
+			getLighterColor(baseColor, 0.6),
+			getLighterColor(baseColor, 0.8)
+		];
+		const dx = x - lastX;
+		const dy = y - lastY;
+		const angle = Math.atan2(dy, dx);
+
+		// multiple layers
+		for (let layer = 0; layer < 2; layer++) {
+			colors.forEach((color, index) => {
+				const offset = (index - colors.length / 2) * (brushSize / colors.length);
+				const perpAngle = angle + Math.PI / 2;
+				const offsetX = Math.cos(perpAngle) * offset;
+				const offsetY = Math.sin(perpAngle) * offset;
+
+				ctx.strokeStyle = color;
+				ctx.lineWidth = (brushSize / colors.length) * (layer === 0 ? 1.5 : 1);
+				ctx.globalAlpha = layer === 0 ? 0.4 : 0.7;
+				ctx.lineCap = 'round';
+				ctx.shadowBlur = 8;
+				ctx.shadowColor = color;
+
+				ctx.beginPath();
+				ctx.moveTo(lastX + offsetX, lastY + offsetY);
+				ctx.lineTo(x + offsetX, y + offsetY);
+				ctx.stroke();
+			});
+		}
+
+		// sparkles
+		if (Math.random() > 0.7) {
+			ctx.fillStyle = getLighterColor(currentColor, 0.8);
+			ctx.globalAlpha = 0.9;
+			ctx.shadowBlur = 10;
+			ctx.shadowColor = getLighterColor(currentColor, 0.8);
+			ctx.beginPath();
+			ctx.arc(
+				x + (Math.random() - 0.5) * brushSize,
+				y + (Math.random() - 0.5) * brushSize,
+				2,
+				0,
+				Math.PI * 2
+			);
+			ctx.fill();
+		}
+
+		ctx.globalAlpha = 1;
+		ctx.shadowBlur = 0;
+	}
+
+	function drawBubble(x, y) {
+		const numBubbles = Math.random() > 0.6 ? 1 : Math.random() > 0.3 ? 2 : 0;
+
+		for (let i = 0; i < numBubbles; i++) {
+			const offsetX = (Math.random() - 0.5) * brushSize;
+			const offsetY = (Math.random() - 0.5) * brushSize;
+			const bubbleX = x + offsetX;
+			const bubbleY = y + offsetY;
+			const radius = Math.random() * brushSize * 0.7 + brushSize * 0.3;
+
+			const gradient = ctx.createRadialGradient(
+				bubbleX - radius * 0.3,
+				bubbleY - radius * 0.3,
+				radius * 0.1,
+				bubbleX,
+				bubbleY,
+				radius
+			);
+			gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+			gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.3)');
+			gradient.addColorStop(0.7, `${currentColor}40`);
+			gradient.addColorStop(1, `${currentColor}80`);
+
+			ctx.fillStyle = gradient;
+			ctx.globalAlpha = 0.5;
+			ctx.beginPath();
+			ctx.arc(bubbleX, bubbleY, radius, 0, Math.PI * 2);
+			ctx.fill();
+
+			const iridescenceColors = [
+				getLighterColor(currentColor, 0.6),
+				getComplementaryColor(currentColor),
+				getLighterColor(getComplementaryColor(currentColor), 0.4),
+				getDarkerColor(currentColor, 0.2)
+			];
+			ctx.strokeStyle = iridescenceColors[Math.floor(Math.random() * iridescenceColors.length)];
+			ctx.lineWidth = 2;
+			ctx.globalAlpha = 0.6;
+			ctx.beginPath();
+			ctx.arc(bubbleX, bubbleY, radius, 0, Math.PI * 2);
+			ctx.stroke();
+
+			ctx.fillStyle = getLighterColor(currentColor, 0.9);
+			ctx.globalAlpha = 0.9;
+			ctx.beginPath();
+			ctx.arc(bubbleX - radius * 0.35, bubbleY - radius * 0.35, radius * 0.25, 0, Math.PI * 2);
+			ctx.fill();
+
+			ctx.globalAlpha = 0.6;
+			ctx.beginPath();
+			ctx.arc(bubbleX + radius * 0.2, bubbleY + radius * 0.3, radius * 0.12, 0, Math.PI * 2);
+			ctx.fill();
+		}
+
+		ctx.globalAlpha = 1;
+	}
+
+	function drawSpray(x, y) {
+		const baseRadius = brushSize * 2;
+		const density = brushSize * 8;
+
+		const numClouds = Math.max(2, Math.floor(brushSize / 5));
+
+		for (let c = 0; c < numClouds; c++) {
+			const cloudOffsetX = (Math.random() - 0.5) * brushSize * 0.3;
+			const cloudOffsetY = (Math.random() - 0.5) * brushSize * 0.3;
+			const cloudCenterX = x + cloudOffsetX;
+			const cloudCenterY = y + cloudOffsetY;
+
+			for (let i = 0; i < density; i++) {
+				const angle = Math.random() * Math.PI * 2;
+
+				const randomValue = Math.random();
+				const distance = Math.pow(randomValue, 0.6) * baseRadius;
+
+				const offsetX = Math.cos(angle) * distance;
+				const offsetY = Math.sin(angle) * distance;
+
+				const edgeFactor = distance / baseRadius;
+				const dotSize = Math.max(0.3, Math.random() * (2 - edgeFactor * 1.5) + 0.5);
+
+				const edgeAlpha = Math.max(0.05, (1 - edgeFactor) * (0.4 + Math.random() * 0.4));
+
+				ctx.fillStyle = currentColor;
+				ctx.globalAlpha = edgeAlpha;
+				ctx.beginPath();
+				ctx.arc(cloudCenterX + offsetX, cloudCenterY + offsetY, dotSize, 0, Math.PI * 2);
+				ctx.fill();
+			}
+		}
+
+		const coreDensity = Math.floor(brushSize * 2);
+		for (let i = 0; i < coreDensity; i++) {
+			const angle = Math.random() * Math.PI * 2;
+			const distance = Math.random() * Math.random() * brushSize * 0.4;
+			const offsetX = Math.cos(angle) * distance;
+			const offsetY = Math.sin(angle) * distance;
+
+			const dotSize = Math.random() * 1.5 + 0.8;
+			ctx.fillStyle = currentColor;
+			ctx.globalAlpha = Math.random() * 0.7 + 0.3;
+			ctx.beginPath();
+			ctx.arc(x + offsetX, y + offsetY, dotSize, 0, Math.PI * 2);
+			ctx.fill();
+		}
+
+		ctx.globalAlpha = 1;
+	}
+
+	function drawNeon(x, y) {
+		const neonColor = getLighterColor(currentColor, 0.6);
+		const brightColor = getLighterColor(currentColor, 0.9);
+
+		ctx.lineCap = 'round';
+		ctx.lineJoin = 'round';
+
+		ctx.strokeStyle = neonColor;
+		ctx.lineWidth = brushSize * 3;
+		ctx.shadowBlur = 40;
+		ctx.shadowColor = neonColor;
+		ctx.globalAlpha = 0.2;
+		ctx.beginPath();
+		ctx.moveTo(lastX, lastY);
+		ctx.lineTo(x, y);
+		ctx.stroke();
+
+		ctx.lineWidth = brushSize * 2;
+		ctx.shadowBlur = 25;
+		ctx.globalAlpha = 0.4;
+		ctx.beginPath();
+		ctx.moveTo(lastX, lastY);
+		ctx.lineTo(x, y);
+		ctx.stroke();
+
+		ctx.lineWidth = brushSize * 1.2;
+		ctx.shadowBlur = 15;
+		ctx.globalAlpha = 0.8;
+		ctx.beginPath();
+		ctx.moveTo(lastX, lastY);
+		ctx.lineTo(x, y);
+		ctx.stroke();
+
+		ctx.lineWidth = brushSize * 0.6;
+		ctx.shadowBlur = 8;
+		ctx.globalAlpha = 1;
+		ctx.beginPath();
+		ctx.moveTo(lastX, lastY);
+		ctx.lineTo(x, y);
+		ctx.stroke();
+
+		ctx.strokeStyle = brightColor;
+		ctx.lineWidth = brushSize * 0.3;
+		ctx.shadowBlur = 10;
+		ctx.shadowColor = neonColor;
+		ctx.globalAlpha = 0.9;
+		ctx.beginPath();
+		ctx.moveTo(lastX, lastY);
+		ctx.lineTo(x, y);
+		ctx.stroke();
+
+		ctx.globalAlpha = 1;
 		ctx.shadowBlur = 0;
 	}
 
@@ -223,13 +617,64 @@
 		particles = particles.filter((p) => {
 			p.x += p.vx;
 			p.y += p.vy;
-			p.vy += 0.3;
+			p.vy += 0.3; // gravity
 			p.life--;
 
+			if (p.rotation !== undefined) {
+				p.rotation += p.rotationSpeed;
+			}
+
 			if (p.life > 0) {
+				ctx.globalAlpha = p.life / (p.maxLife || 60);
 				ctx.fillStyle = p.color;
-				ctx.globalAlpha = p.life / 60;
-				ctx.fillRect(p.x, p.y, 4, 8);
+
+				ctx.save();
+				ctx.translate(p.x, p.y);
+				if (p.rotation !== undefined) {
+					ctx.rotate(p.rotation);
+				}
+
+				switch (p.shape) {
+					case 'circle':
+						ctx.beginPath();
+						ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+						ctx.fill();
+						break;
+					case 'triangle':
+						ctx.beginPath();
+						ctx.moveTo(0, -p.size / 2);
+						ctx.lineTo(p.size / 2, p.size / 2);
+						ctx.lineTo(-p.size / 2, p.size / 2);
+						ctx.closePath();
+						ctx.fill();
+						break;
+					case 'diamond':
+						ctx.beginPath();
+						ctx.moveTo(0, -p.size / 2);
+						ctx.lineTo(p.size / 2, 0);
+						ctx.lineTo(0, p.size / 2);
+						ctx.lineTo(-p.size / 2, 0);
+						ctx.closePath();
+						ctx.fill();
+						break;
+					case 'star':
+						ctx.beginPath();
+						for (let i = 0; i < 10; i++) {
+							const radius = i % 2 === 0 ? p.size / 2 : p.size / 4;
+							const angle = (i * Math.PI) / 5;
+							const px = Math.cos(angle) * radius;
+							const py = Math.sin(angle) * radius;
+							if (i === 0) ctx.moveTo(px, py);
+							else ctx.lineTo(px, py);
+						}
+						ctx.closePath();
+						ctx.fill();
+						break;
+					default: // rect
+						ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 1.5);
+				}
+
+				ctx.restore();
 				ctx.globalAlpha = 1;
 				return true;
 			}
@@ -246,6 +691,45 @@
 	function clearCanvas() {
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		showClearConfirm = false;
+		saveToHistory();
+	}
+
+	function saveToHistory() {
+		history = history.slice(0, historyStep + 1);
+
+		const imageData = canvas.toDataURL();
+		history.push(imageData);
+		historyStep = history.length - 1;
+
+		if (history.length > 50) {
+			history.shift();
+			historyStep--;
+		}
+	}
+
+	function undo() {
+		if (historyStep > 0) {
+			historyStep--;
+			restoreFromHistory();
+		}
+	}
+
+	function redo() {
+		if (historyStep < history.length - 1) {
+			historyStep++;
+			restoreFromHistory();
+		}
+	}
+
+	function restoreFromHistory() {
+		if (history[historyStep]) {
+			const img = new Image();
+			img.onload = () => {
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				ctx.drawImage(img, 0, 0);
+			};
+			img.src = history[historyStep];
+		}
 	}
 </script>
 
@@ -288,6 +772,22 @@
 				<span class="size-value">{brushSize}</span>
 			</div>
 
+			<button
+				class="action-btn undo-btn"
+				onclick={undo}
+				disabled={historyStep <= 0}
+				title="Undo (Ctrl+Z)"
+			>
+				↶
+			</button>
+			<button
+				class="action-btn redo-btn"
+				onclick={redo}
+				disabled={historyStep >= history.length - 1}
+				title="Redo (Ctrl+Y)"
+			>
+				↷
+			</button>
 			<button class="action-btn clear-btn" onclick={confirmClear}>Clear</button>
 			<button
 				class="action-btn save-btn"
@@ -306,7 +806,7 @@
 	<div class="popup-overlay" onclick={() => (showClearConfirm = false)}>
 		<div class="popup-content" onclick={(e) => e.stopPropagation()}>
 			<h3>Clear Canvas?</h3>
-			<p>Are you sure you want to clear your artwork? This cannot be undone!</p>
+			<p>Are you sure you want to clear your artwork?</p>
 			<div class="popup-buttons">
 				<button class="action-btn cancel-btn" onclick={() => (showClearConfirm = false)}>
 					Cancel
@@ -447,6 +947,27 @@
 		background: #ff6b6b;
 		color: white;
 		border-color: #cc5555;
+	}
+
+	.undo-btn,
+	.redo-btn {
+		background: #74b9ff;
+		color: white;
+		border-color: #0984e3;
+	}
+
+	.undo-btn:disabled,
+	.redo-btn:disabled {
+		background: #b2bec3;
+		border-color: #636e72;
+		cursor: not-allowed;
+		opacity: 0.5;
+	}
+
+	.undo-btn:disabled:hover,
+	.redo-btn:disabled:hover {
+		transform: none;
+		box-shadow: none;
 	}
 
 	.save-btn {
