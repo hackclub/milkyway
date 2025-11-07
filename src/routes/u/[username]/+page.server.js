@@ -4,7 +4,7 @@ import { getUserFurnitureByEmail } from '$lib/server/furniture.js';
 import { getUserProjectsByEmail } from '$lib/server/projects.js';
 import { notifyUser } from '$lib/server/notifications.js';
 
-export async function load({ params, locals }) {
+export async function load({ params, locals, url }) {
 	try {
 		// Fetch user info by username
 		console.log('Fetching user info for:', params.username);
@@ -28,9 +28,11 @@ export async function load({ params, locals }) {
 			};
 		}
 
-		if (userInfo.username != locals.user.username) {
+		const skipNotification = url.searchParams.get('skipNotification') === 'true';
+
+		if (locals.user && userInfo.username !== locals.user.username && !skipNotification) {
 			try {
-				await notifyUser(userInfo.recId, `**${locals.user.username}** viewed your profile!.`);
+				await notifyUser(userInfo.recId, `**${locals.user.username}** viewed your profile!`);
 			} catch (err) {
 				console.error('Error sending profile view notification:', err);
 			}

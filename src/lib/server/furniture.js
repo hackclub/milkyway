@@ -55,6 +55,47 @@ export async function getUserFurnitureByEmail(userEmail) {
 }
 
 /**
+ * Get a specific furniture item by ID
+ * @param {string} furnitureId - The furniture's record ID
+ * @returns {Promise<Object|null>} Furniture object or null if not found
+ */
+export async function getFurnitureById(furnitureId) {
+	try {
+		const record = await base('Furniture').find(furnitureId);
+
+		// Parse position data (format: "x,y,flipped" or "inventory" for unplaced items)
+		const positionStr =
+			typeof record.fields.position === 'string' ? record.fields.position : 'inventory';
+		const isPlaced = positionStr !== 'inventory';
+
+		let x = 0,
+			y = 0,
+			flipped = false;
+		if (isPlaced) {
+			const positionParts = positionStr.split(',');
+			x = parseFloat(positionParts[0]) || 0;
+			y = parseFloat(positionParts[1]) || 0;
+			flipped = positionParts[2] === '1';
+		}
+
+		return {
+			id: record.id,
+			type: record.fields.type || 'cow_statue',
+			position: record.fields.position || 'inventory',
+			x: x,
+			y: y,
+			data: record.fields.data,
+			flipped: flipped,
+			isPlaced: isPlaced,
+			created: record.fields.Created
+		};
+	} catch (error) {
+		console.error('Error fetching furniture by ID:', error);
+		return null;
+	}
+}
+
+/**
  * Create a new furniture item in Airtable
  * @param {string} userId - The user's record ID
  * @param {any} furnitureData - Furniture data to create
@@ -92,7 +133,7 @@ export async function createFurniture(userId, furnitureData) {
 			position: position
 		};
 
-		const record = /** @type {any} */ (await base('Furniture').create(fieldsToCreate));
+		const record = await base('Furniture').create(fieldsToCreate);
 
 		return {
 			id: record.id,

@@ -74,9 +74,54 @@ export async function PUT({ request, locals }) {
 			return json({ success: false, error: 'Furniture ID required' }, { status: 400 });
 		}
 
-		// Verify ownership
 		const isOwner = await verifyFurnitureOwnership(furnitureId, locals.user.email);
-		if (!isOwner) {
+
+		let canEdit = false;
+
+		const { getFurnitureById } = await import('$lib/server/furniture.js');
+		const furnitureItem = await getFurnitureById(furnitureId);
+
+		if (furnitureItem && furnitureItem.type === 'sticky_note') {
+			try {
+				const noteData = furnitureItem.data ? JSON.parse(furnitureItem.data) : {};
+
+				if (updates.data !== undefined) {
+					if (noteData.author === locals.user.recId || !noteData.author) {
+						canEdit = true;
+					} else {
+						return json(
+							{
+								success: false,
+								error: 'Only the note author can edit the message'
+							},
+							{ status: 403 }
+						);
+					}
+				}
+
+				// Only the room owner can move the sticky note
+				if (updates.position !== undefined) {
+					if (isOwner) {
+						canEdit = true;
+					} else {
+						return json(
+							{
+								success: false,
+								error: 'Only the room owner can move sticky notes'
+							},
+							{ status: 403 }
+						);
+					}
+				}
+			} catch (e) {
+				console.error('Error parsing sticky note data:', e);
+				return json({ success: false, error: 'Invalid sticky note data' }, { status: 400 });
+			}
+		} else {
+			canEdit = isOwner;
+		}
+
+		if (!canEdit) {
 			return json({ success: false, error: 'Not authorized' }, { status: 403 });
 		}
 
@@ -105,7 +150,27 @@ export async function DELETE({ request, locals }) {
 
 		// Verify ownership
 		const isOwner = await verifyFurnitureOwnership(furnitureId, locals.user.email);
+
+		// Sticky notes can be deleted by their author OR room owner
+		let canDelete = isOwner;
+
 		if (!isOwner) {
+			const { getFurnitureById } = await import('$lib/server/furniture.js');
+			const furnitureToDelete = await getFurnitureById(furnitureId);
+
+			if (furnitureToDelete && furnitureToDelete.type === 'sticky_note') {
+				try {
+					const noteData = furnitureToDelete.data ? JSON.parse(furnitureToDelete.data) : {};
+					if (noteData.author === locals.user.recId) {
+						canDelete = true;
+					}
+				} catch (e) {
+					console.error('Error parsing sticky note data:', e);
+				}
+			}
+		}
+
+		if (!canDelete) {
 			return json({ success: false, error: 'Not authorized' }, { status: 403 });
 		}
 

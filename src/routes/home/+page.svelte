@@ -281,6 +281,7 @@
 			bind:furnitureList
 			bind:isCreateOpen
 			{user}
+			currentUser={user}
 			onShowPromptPopup={showPromptPopupHandler}
 			onOpenRouletteSpin={openRouletteSpinHandler}
 			onDeleteProject={() => {}}

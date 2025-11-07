@@ -15,13 +15,17 @@
 		furnitureComponent,
 		readOnly = false,
 		data,
-		showFurnitureSidebar
+		showFurnitureSidebar,
+		roomOwner = null,
+		currentUser = null
 	} = $props();
 
+	/** @type {HTMLElement} */
 	let componentContainer;
 	let isModalOpen = $state(false);
 	let isFlipped = $derived(furnitureInfo.flipped || false);
 
+	/** @type {Record<string, string>} */
 	const furnitureStrokeMap = {
 		beanbag_white: 'beanbag_stroke.svg',
 		beanbag_yellow: 'beanbag_stroke.svg',
@@ -36,7 +40,6 @@
 		sofa_red: 'sofa_stroke.svg',
 		cow_statue: 'cow_statue_stroke.svg'
 	};
-
 	const hasFlippedImage = ['cow_statue'];
 
 	const furnitureAssets = $derived(() => {
@@ -84,26 +87,84 @@
 		}
 	}
 
+	/**
+	 * @param {'view' | 'edit'} mode
+	 */
 	async function openModal(mode) {
 		isModalOpen = true;
 		await tick();
 		mount(furnitureComponent, {
 			target: componentContainer,
-			props: { data: data, mode: mode, id: furnitureInfo.id }
+			props: {
+				data: data,
+				mode: mode,
+				id: furnitureInfo.id,
+				roomOwner: roomOwner?.recId || null,
+				currentUser: currentUser
+			}
 		});
 		showFurnitureSidebar(false);
 	}
 
-	function closeModal() {
+	async function closeModal() {
 		isModalOpen = false;
+
+		// Check if this is an empty sticky note and delete it
+		if (furnitureInfo.type === 'sticky_note') {
+			try {
+				const noteData = furnitureInfo.data ? JSON.parse(furnitureInfo.data) : {};
+				if (!noteData.message || !noteData.message.trim()) {
+					const response = await fetch('/api/furniture', {
+						method: 'DELETE',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							furnitureId: furnitureInfo.id
+						})
+					});
+
+					const result = await response.json();
+
+					if (result.success) {
+						if (typeof window !== 'undefined') {
+							const url = new URL(window.location.href);
+							if (!url.searchParams.has('skipNotification')) {
+								url.searchParams.set('skipNotification', 'true');
+								window.location.href = url.toString();
+							} else {
+								location.reload();
+							}
+						}
+					}
+				}
+			} catch (e) {
+				console.error('Error checking empty sticky note:', e);
+			}
+		}
+
 		if (isRoomEditing) {
 			showFurnitureSidebar(true);
 		}
 	}
+
+	$effect(() => {
+		if (typeof window !== 'undefined' && furnitureInfo.type === 'sticky_note') {
+			const autoOpenId = sessionStorage.getItem('autoOpenStickyNote');
+			if (autoOpenId === furnitureInfo.id) {
+				// Clear the flag
+				sessionStorage.removeItem('autoOpenStickyNote');
+				// Open in edit mode
+				openModal('edit');
+			}
+		}
+	});
 </script>
 
 <div
-	class="furniture-item {selected ? 'selected' : ''} {isRoomEditing ? 'editing-mode' : ''}"
+	class="furniture-item {selected ? 'selected' : ''} {isRoomEditing ? 'editing-mode' : ''} {wallOnly
+		? 'wall-only'
+		: ''}"
 	style:--x={x}
 	style:--y={y}
 	style:--z={Math.round(y)}
@@ -185,6 +246,11 @@
 		transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px));
 	}
 
+	/* Wall-only items should always appear on top of floor items */
+	.furniture-item.wall-only {
+		z-index: 400;
+	}
+
 	.modal-overlay {
 		position: fixed;
 		top: 0;
@@ -207,6 +273,11 @@
 
 	.furniture-item.selected {
 		z-index: calc(1000 + var(--z));
+	}
+
+	/* Selected wall-only items */
+	.furniture-item.wall-only.selected {
+		z-index: 1400;
 	}
 
 	.furniture-item.editing-mode {
@@ -264,19 +335,6 @@
 		gap: 8px;
 		z-index: 1500;
 		align-items: center;
-	}
-
-	.wall-only-badge {
-		padding: 6px 12px 10px;
-		border: 2px solid var(--orange);
-		border-radius: 50px;
-		background: var(--blue);
-		color: white;
-		font-family: inherit;
-		font-size: 0.9em;
-		font-weight: bold;
-		white-space: nowrap;
-		line-height: 1;
 	}
 
 	.rotate-furniture-btn,

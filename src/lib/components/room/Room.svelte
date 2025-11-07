@@ -12,6 +12,7 @@
 		furnitureList = $bindable([]),
 		isCreateOpen = $bindable(false),
 		user,
+		currentUser = null,
 		onShowPromptPopup,
 		onOpenRouletteSpin,
 		onDeleteProject,
@@ -26,6 +27,8 @@
 	let showFurnitureSidebar = $state(false);
 	let selectedEggForMove = $state(null);
 	let selectedFurnitureForMove = $state(null);
+	let isPlacingStickyNote = $state(false);
+	let stickyNotePreviewPos = $state({ x: 0, y: 0, flipped: false });
 
 	// References to ProjectEgg components for calling their methods
 	/** @type {any[]} */
@@ -448,6 +451,12 @@
 	 * @param {MouseEvent} e
 	 */
 	function handleMouseMove(e) {
+		// Handle sticky note preview
+		if (isPlacingStickyNote) {
+			handleStickyNotePreview(e);
+			return;
+		}
+
 		if (!isMouseDown) return;
 
 		// Start dragging if mouse is down and moves
@@ -647,6 +656,80 @@
 	function handleFurnitureUpdate(updatedFurnitureList) {
 		furnitureList = updatedFurnitureList;
 	}
+
+	function startPlacingStickyNote() {
+		isPlacingStickyNote = true;
+	}
+
+	function cancelPlacingStickyNote() {
+		isPlacingStickyNote = false;
+	}
+
+	/**
+	 * @param {MouseEvent} e
+	 */
+	function handleStickyNotePreview(e) {
+		if (!isPlacingStickyNote) return;
+
+		const roomElement = e.currentTarget;
+		if (!(roomElement instanceof HTMLElement)) return;
+
+		const rect = roomElement.getBoundingClientRect();
+		const mouseX = e.clientX - rect.left - rect.width / 2;
+		const mouseY = e.clientY - rect.top - rect.height / 2;
+
+		// Snap to wall for sticky note placement
+		const snapped = snapToWall(mouseX, mouseY);
+		stickyNotePreviewPos = snapped;
+	}
+
+	/**
+	 * @param {MouseEvent} e
+	 */
+	async function placeStickyNote(e) {
+		if (!isPlacingStickyNote) return;
+
+		e.stopPropagation();
+
+		try {
+			const response = await fetch('/api/place-sticky-note', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					targetUsername: user.username,
+					x: stickyNotePreviewPos.x,
+					y: stickyNotePreviewPos.y,
+					flipped: stickyNotePreviewPos.flipped
+				})
+			});
+
+			const result = await response.json();
+
+			if (result.success) {
+				if (result.shouldOpenEditor && result.furniture.id) {
+					sessionStorage.setItem('autoOpenStickyNote', result.furniture.id);
+				}
+
+				// Preserve skipNotification parameter to prevent duplicate profile view notifications
+				if (typeof window !== 'undefined') {
+					const url = new URL(window.location.href);
+					if (!url.searchParams.has('skipNotification')) {
+						url.searchParams.set('skipNotification', 'true');
+						window.location.href = url.toString();
+					} else {
+						location.reload();
+					}
+				}
+			} else {
+				alert(`Failed to place sticky note: ${result.error}`);
+			}
+		} catch (error) {
+			console.error('Error placing sticky note:', error);
+			alert('Failed to place sticky note. Please try again.');
+		}
+	}
 </script>
 
 <svelte:window onmouseup={handleMouseUp} />
@@ -654,8 +737,14 @@
 <div
 	class="zlayer room {isEditingRoom ? 'editing' : ''} {isDragging
 		? 'dragging'
-		: ''} {showFurnitureSidebar ? 'sidebar-open' : ''}"
-	onclick={() => {
+		: ''} {showFurnitureSidebar ? 'sidebar-open' : ''} {isPlacingStickyNote
+		? 'placing-sticky-note'
+		: ''}"
+	onclick={(e) => {
+		if (isPlacingStickyNote) {
+			placeStickyNote(e);
+			return;
+		}
 		if (!isEditingRoom) {
 			if (onSelectProject) {
 				onSelectProject(null);
@@ -722,37 +811,76 @@
 			data={furnitureList[furnitureList.findIndex((f) => f.id === furniture.id)].data}
 			wallOnly={FURNITURE_TYPES.find((f) => f.type === String(furniture.type))?.wallOnly || false}
 			{readOnly}
+			roomOwner={user}
+			{currentUser}
 		/>
 	{/each}
 
+	<!-- Sticky Note Preview -->
+	{#if isPlacingStickyNote}
+		<div
+			class="sticky-note-preview"
+			style:--x={stickyNotePreviewPos.x}
+			style:--y={stickyNotePreviewPos.y}
+			style:--z={Math.round(stickyNotePreviewPos.y)}
+		>
+			<img
+				class="sticky-note-preview-img {stickyNotePreviewPos.flipped ? 'css-flipped' : ''}"
+				src="/landing/stickynote.png"
+				alt="Sticky note preview"
+			/>
+		</div>
+	{/if}
+
 	{#if !hideControls}
-		{#if !isEditingRoom}
+		{#if !isEditingRoom && !isPlacingStickyNote}
 			<div
 				class="fab-container"
 				onclick={(e) => e.stopPropagation()}
 				onkeydown={(e) => e.stopPropagation()}
 				role="presentation"
 			>
-				<ExpandableButton
-					icon="+"
-					expandedText="create new project"
-					expandedWidth="165px"
-					onClick={() => {
-						isCreateOpen = !isCreateOpen;
-					}}
-				/>
+				{#if !readOnly}
+					<ExpandableButton
+						icon="+"
+						expandedText="create new project"
+						expandedWidth="165px"
+						onClick={() => {
+							isCreateOpen = !isCreateOpen;
+						}}
+					/>
 
-				<ExpandableButton
-					icon="✎"
-					expandedText="edit room"
-					expandedWidth="112px"
-					onClick={() => {
-						enterEditMode();
-						showFurnitureSidebar = true;
-					}}
-				/>
+					<ExpandableButton
+						icon="✎"
+						expandedText="edit room"
+						expandedWidth="112px"
+						onClick={() => {
+							enterEditMode();
+							showFurnitureSidebar = true;
+						}}
+					/>
+				{:else if currentUser && currentUser.username !== user.username}
+					<ExpandableButton
+						icon="📝"
+						expandedText="place sticky note"
+						expandedWidth="165px"
+						onClick={startPlacingStickyNote}
+					/>
+				{/if}
 			</div>
-		{:else}
+		{:else if isPlacingStickyNote}
+			<div
+				class="edit-mode-controls"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => e.stopPropagation()}
+				role="presentation"
+			>
+				<p>placing sticky note →</p>
+				<button class="edit-mode-btn discard-edit-btn" onclick={cancelPlacingStickyNote}>
+					<span class="btn-text">cancel 🗑️</span>
+				</button>
+			</div>
+		{:else if isEditingRoom}
 			<div
 				class="edit-mode-controls"
 				onclick={(e) => e.stopPropagation()}
@@ -933,5 +1061,30 @@
 		bottom: calc(50vh - 150px);
 		right: calc(50vw - 630px);
 		z-index: 100;
+	}
+
+	.sticky-note-preview {
+		position: absolute;
+		z-index: 500; /* High z-index to always appear on top */
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px));
+		pointer-events: none;
+		opacity: 0.7;
+	}
+
+	.sticky-note-preview-img {
+		width: 80px;
+		height: auto;
+		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+	}
+
+	.sticky-note-preview-img.css-flipped {
+		transform: scaleX(-1);
+	}
+
+	.room.placing-sticky-note {
+		cursor: crosshair;
 	}
 </style>

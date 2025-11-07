@@ -17,6 +17,7 @@
 import ArtEasel from '$lib/components/furniture/ArtEasel.svelte';
 import ArcadeCabinet from '$lib/components/furniture/ArcadeCabinet.svelte';
 import BulletinBoard from '$lib/components/furniture/BulletinBoard.svelte';
+import StickyNote from '$lib/components/furniture/StickyNote.svelte';
 
 /** @type {FurnitureType[]} */
 export const FURNITURE_TYPES = [
@@ -57,6 +58,15 @@ export const FURNITURE_TYPES = [
 		component: BulletinBoard,
 		wallOnly: true,
 		purchasable: true
+	},
+	{
+		type: 'sticky_note',
+		name: 'sticky note',
+		cost: 0,
+		isInteractable: true,
+		component: StickyNote,
+		wallOnly: true,
+		purchasable: false
 	}
 ];
 
