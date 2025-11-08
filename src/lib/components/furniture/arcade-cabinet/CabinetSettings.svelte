@@ -11,7 +11,7 @@
 	let historyIndex = $state(-1);
 	let isLoading = $state(false);
 
-	let gameUrl = $state(terminalData?.gameUrl || '');
+	let gameUrl = $state(terminalData?.gameUrl);
 
 	let vfs = $state(
 		terminalData?.vfs || {
@@ -343,7 +343,7 @@
 		</div>
 
 		<div class="terminal-body" bind:this={terminal}>
-			{#each history as entry}
+			{#each history as entry (entry)}
 				{#if entry.type === 'system'}
 					<div class="line system">{entry.content}</div>
 				{:else if entry.type === 'input'}
