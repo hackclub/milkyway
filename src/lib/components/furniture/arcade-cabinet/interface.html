@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Mimi Arcade</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: 'Futura', sans-serif;
+			background: #fbf2bf;
+			color: #2d2d2d;
+			overflow: hidden;
+			height: 100vh;
+		}
+
+		.arcade-container {
+			display: flex;
+			flex-direction: column;
+			height: 100vh;
+			padding: 20px;
+			gap: 20px;
+		}
+
+		.arcade-header {
+			text-align: center;
+			font-family: 'Comic Sans MS', cursive;
+			padding: 25px 0;
+			background: #ffb3d9;
+			border-radius: 20px;
+			border: 4px solid #ff69b4;
+			box-shadow: 0 4px 0 #d14a91;
+		}
+
+		.arcade-header h1 {
+			font-size: 3em;
+			text-transform: uppercase;
+			letter-spacing: 3px;
+			color: #fff;
+			text-shadow: 3px 3px 0 #d14a91;
+		}
+
+		.games-carousel {
+			flex: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			position: relative;
+			overflow: hidden;
+			width: 100%;
+		}
+
+		.games-track {
+			display: flex;
+			gap: 30px;
+			padding: 20px 50vw;
+			transition: transform 0.3s ease;
+			will-change: transform;
+		}
+
+		.game-card {
+			min-width: 250px;
+			width: 250px;
+			height: 350px;
+			background: #fff;
+			border: 4px solid #ddd;
+			border-radius: 20px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 20px;
+			cursor: pointer;
+			transition: all 0.2s ease;
+			position: relative;
+			flex-shrink: 0;
+			box-shadow: 0 4px 0 #ccc;
+		}
+
+		.game-card:hover {
+			transform: translateY(-5px);
+			border-color: #ffb3d9;
+			box-shadow: 0 8px 0 #ffb3d9;
+		}
+
+		.game-card.selected {
+			transform: translateY(-8px) scale(1.05);
+			border-color: #ff69b4;
+			background: #fff5fa;
+			box-shadow: 0 10px 0 #ff69b4;
+		}
+
+		.game-icon {
+			width: 120px;
+			height: 120px;
+			background: #ffe6f2;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 60px;
+			margin-bottom: 20px;
+			border: 3px solid #ffb3d9;
+		}
+
+		.game-title {
+			font-size: 1.5em;
+			text-align: center;
+			margin-bottom: 10px;
+			color: #ff1493;
+			font-weight: bold;
+		}
+
+		.game-description {
+			font-size: 0.9em;
+			text-align: center;
+			color: #666;
+		}
+
+		.nav-arrow {
+			position: absolute;
+			top: 50%;
+			transform: translateY(-50%);
+			width: 60px;
+			height: 60px;
+			background: #ff69b4;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			font-size: 24px;
+			color: #fff;
+			transition: all 0.2s ease;
+			z-index: 10;
+			box-shadow: 0 4px 0 #d14a91;
+			user-select: none;
+		}
+
+		.nav-arrow:hover {
+			background: #ff69b4;
+			transform: translateY(-50%) scale(1.1);
+		}
+
+		.nav-arrow:active {
+			transform: translateY(-48%) scale(0.95);
+			box-shadow: 0 2px 0 #d14a91;
+		}
+
+		.nav-arrow.left {
+			left: 20px;
+		}
+
+		.nav-arrow.right {
+			right: 20px;
+		}
+
+
+		.game-card::before {
+			content: '';
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			width: 15px;
+			height: 15px;
+			background: #ffe6f2;
+			border-radius: 50%;
+			opacity: 0.5;
+		}
+
+		.game-card.selected::before {
+			background: #ff69b4;
+			opacity: 1;
+		}
+
+		.particle {
+			position: fixed;
+			pointer-events: none;
+			z-index: 1;
+			width: 30px;
+			height: 30px;
+			opacity: 0;
+			animation: popInOut 4s ease-in-out infinite;
+		}
+
+		.particle img {
+			width: 100%;
+			height: 100%;
+			object-fit: contain;
+		}
+
+		@keyframes popInOut {
+			0% {
+				opacity: 0;
+				transform: scale(0) rotate(0deg);
+			}
+			10% {
+				opacity: 1;
+				transform: scale(1) rotate(10deg);
+			}
+			50% {
+				opacity: 1;
+				transform: scale(1) rotate(-10deg);
+			}
+			90% {
+				opacity: 1;
+				transform: scale(1) rotate(5deg);
+			}
+			100% {
+				opacity: 0;
+				transform: scale(0) rotate(0deg);
+			}
+		}
+
+		/* Responsive Design for Small Screens */
+		@media (max-width: 768px) {
+			.arcade-container {
+				padding: 10px;
+				gap: 10px;
+			}
+
+			.arcade-header {
+				display: none;
+			}
+
+			.game-card {
+				min-width: 180px;
+				width: 180px;
+				height: 260px;
+				padding: 15px;
+				border: 3px solid #ddd;
+				border-radius: 15px;
+				box-shadow: 0 3px 0 #ccc;
+			}
+
+			.game-card:hover {
+				transform: translateY(-3px);
+				box-shadow: 0 5px 0 #ffb3d9;
+			}
+
+			.game-card.selected {
+				transform: translateY(-5px) scale(1.05);
+				box-shadow: 0 7px 0 #ff69b4;
+			}
+
+			.game-icon {
+				width: 80px;
+				height: 80px;
+				font-size: 40px;
+				margin-bottom: 12px;
+				border: 2px solid #ffb3d9;
+			}
+
+			.game-title {
+				font-size: 1.1em;
+				margin-bottom: 8px;
+			}
+
+			.game-description {
+				font-size: 0.8em;
+			}
+
+			.nav-arrow {
+				width: 45px;
+				height: 45px;
+				font-size: 18px;
+				box-shadow: 0 3px 0 #d14a91;
+			}
+
+			.nav-arrow:active {
+				transform: translateY(-48%) scale(0.95);
+				box-shadow: 0 1px 0 #d14a91;
+			}
+
+			.nav-arrow.left {
+				left: 5px;
+			}
+
+			.nav-arrow.right {
+				right: 5px;
+			}
+
+			.games-track {
+				gap: 15px;
+				padding: 10px 50vw;
+			}
+
+			.particle {
+				width: 20px;
+				height: 20px;
+			}
+		}
+
+		@media (max-width: 480px) {
+			.arcade-container {
+				padding: 8px;
+				gap: 8px;
+			}
+
+			.arcade-header {
+				padding: 12px 8px;
+				border-radius: 12px;
+				border: 2px solid #ff69b4;
+				box-shadow: 0 2px 0 #d14a91;
+			}
+
+			.arcade-header h1 {
+				font-size: 1.5em;
+				letter-spacing: 1px;
+				text-shadow: 2px 2px 0 #d14a91;
+			}
+
+			.game-card {
+				min-width: 140px;
+				width: 140px;
+				height: 200px;
+				padding: 10px;
+				border: 2px solid #ddd;
+				border-radius: 12px;
+				box-shadow: 0 2px 0 #ccc;
+			}
+
+			.game-card:hover {
+				transform: translateY(-2px);
+				box-shadow: 0 4px 0 #ffb3d9;
+			}
+
+			.game-card.selected {
+				transform: translateY(-4px) scale(1.05);
+				box-shadow: 0 5px 0 #ff69b4;
+			}
+
+			.game-icon {
+				width: 60px;
+				height: 60px;
+				font-size: 30px;
+				margin-bottom: 8px;
+				border: 2px solid #ffb3d9;
+			}
+
+			.game-title {
+				font-size: 0.9em;
+				margin-bottom: 6px;
+			}
+
+			.game-description {
+				font-size: 0.7em;
+			}
+
+			.nav-arrow {
+				width: 35px;
+				height: 35px;
+				font-size: 14px;
+				box-shadow: 0 2px 0 #d14a91;
+			}
+
+			.nav-arrow:active {
+				transform: translateY(-48%) scale(0.95);
+				box-shadow: 0 1px 0 #d14a91;
+			}
+
+			.nav-arrow.left {
+				left: 3px;
+			}
+
+			.nav-arrow.right {
+				right: 3px;
+			}
+
+			.games-track {
+				gap: 10px;
+				padding: 8px 50vw;
+			}
+
+			.game-card::before {
+				width: 10px;
+				height: 10px;
+				top: 6px;
+				left: 6px;
+			}
+
+			.particle {
+				width: 15px;
+				height: 15px;
+			}
+		}
+
+		@media (max-width: 360px) {
+			.arcade-header h1 {
+				font-size: 1.2em;
+			}
+
+			.game-card {
+				min-width: 120px;
+				width: 120px;
+				height: 180px;
+				padding: 8px;
+			}
+
+			.game-icon {
+				width: 50px;
+				height: 50px;
+				font-size: 24px;
+				margin-bottom: 6px;
+			}
+
+			.game-title {
+				font-size: 0.8em;
+				margin-bottom: 4px;
+			}
+
+			.game-description {
+				font-size: 0.65em;
+			}
+
+			.nav-arrow {
+				width: 30px;
+				height: 30px;
+				font-size: 12px;
+			}
+
+			.games-track {
+				gap: 8px;
+				padding: 6px 50vw;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="arcade-container">
+		<div class="arcade-header">
+			<h1 id="arcade-title">Mimi Arcade</h1>
+		</div>
+
+		<div class="games-carousel">
+			<div id="left-arrow" class="nav-arrow left" onclick="navigateGames(-1)">⬅</div>
+			<div class="games-track" id="gamesTrack">
+			</div>
+			<div id="right-arrow" class="nav-arrow right" onclick="navigateGames(1)">⮕</div>
+		</div>
+	</div>
+
+	<script>
+		const games = [
+			{
+				id: 1,
+				title: "TRIH3AZEL",
+				icon: "👾",
+				url: "https://html.itch.zone/html/15289483/Export/index.html",
+				description: "(seizure warning) 'is this what shrooms feel like' - itch.io commenter"
+			},
+			{
+				id: 2,
+				title: "Dash",
+				icon: "🏃‍♂️",
+				url: "https://html-classic.itch.zone/html/15457974/index.html",
+				description: "tomb of the mask inspired game"
+			},
+			{
+				id: 3,
+				title: "World Travel Adventure",
+				icon: "🌍",
+				url: "https://html.itch.zone/html/15325930/index.html",
+				description: "simple platformer that has you travel the world!"
+			},
+			{
+				id: 4,
+				title: "Scrapyard Survivor",
+				icon: "🤖",
+				url: "https://my-first-game-tv9t.vercel.app/",
+				description: "collect scraps and repair yourself while avoiding drones to escape the scrapyard!"
+			}
+		];
+
+		let currentIndex = 0;
+
+		function createParticles() {
+			const particles = [
+				`<img src="https://github.com/hackclub/milkyway/blob/main/static/mimi.png?raw=true" alt="mimi!">`
+			];
+
+			const particleCount = 15;
+
+			for (let i = 0; i < particleCount; i++) {
+				const particle = document.createElement('div');
+				particle.className = 'particle';
+
+				const randomParticle = particles[Math.floor(Math.random() * particles.length)];
+				particle.innerHTML = randomParticle;
+
+				particle.style.left = Math.random() * 100 + '%';
+				particle.style.top = Math.random() * 100 + '%';
+
+				particle.style.animationDelay = Math.random() * 4 + 's';
+
+				particle.style.animationDuration = (3 + Math.random() * 2) + 's';
+
+				const size = 30 + Math.random() * 40;
+				particle.style.width = size + 'px';
+				particle.style.height = size + 'px';
+
+				document.body.appendChild(particle);
+			}
+
+			setInterval(() => {
+				const allParticles = document.querySelectorAll('.particle');
+				if (allParticles.length > 0) {
+					const randomIndex = Math.floor(Math.random() * allParticles.length);
+					const particle = allParticles[randomIndex];
+
+					particle.style.left = Math.random() * 100 + '%';
+					particle.style.top = Math.random() * 100 + '%';
+
+					const size = 30 + Math.random() * 40;
+					particle.style.width = size + 'px';
+					particle.style.height = size + 'px';
+				}
+			}, 2000);
+		}
+
+		function init() {
+			renderGames();
+
+			// Delay to ensure DOM is fully rendered before centering
+			setTimeout(() => {
+				updateSelection();
+			}, 10);
+
+			setupKeyboardControls();
+			createParticles();
+
+			// Handle window resize for responsive carousel
+			let resizeTimeout;
+			window.addEventListener('resize', () => {
+				clearTimeout(resizeTimeout);
+				resizeTimeout = setTimeout(() => {
+					updateSelection();
+				}, 100);
+			});
+		}
+
+		function renderGames() {
+			const track = document.getElementById('gamesTrack');
+			track.innerHTML = '';
+
+			games.forEach((game, index) => {
+				const card = document.createElement('div');
+				card.className = 'game-card';
+				card.setAttribute('data-index', index);
+				card.innerHTML = `
+					<div class="game-icon">${game.icon}</div>
+					<div class="game-title">${game.title}</div>
+					<div class="game-description">${game.description}</div>
+				`;
+				card.onclick = () => selectGame(index);
+				track.appendChild(card);
+			});
+		}
+
+		function navigateGames(direction) {
+			currentIndex += direction;
+			if (currentIndex < 0) currentIndex = games.length - 1;
+			if (currentIndex >= games.length) currentIndex = 0;
+			updateSelection();
+		}
+
+		function updateSelection() {
+			const cards = document.querySelectorAll('.game-card');
+			cards.forEach((card, index) => {
+				card.classList.toggle('selected', index === currentIndex);
+			});
+
+			const carousel = document.querySelector('.games-carousel');
+			const track = document.getElementById('gamesTrack');
+
+			// Dynamically get card width and gap from the actual rendered card
+			const firstCard = cards[0];
+			if (!firstCard) return;
+
+			const cardWidth = firstCard.offsetWidth;
+			const trackStyle = window.getComputedStyle(track);
+			const gap = parseInt(trackStyle.gap) || 30;
+
+			const totalCardWidth = cardWidth + gap;
+
+			// Calculate the offset to center the selected card
+			const carouselCenter = carousel.offsetWidth / 2;
+			const cardCenter = cardWidth / 2;
+
+			// Position the track so the selected card is centered
+			const offset = carouselCenter - cardCenter - (currentIndex * totalCardWidth);
+
+			track.style.transform = `translateX(${offset}px)`;
+		}
+
+		function selectGame(index) {
+			currentIndex = index;
+			updateSelection();
+			setTimeout(() => {
+				launchGame(games[index]);
+			}, 200);
+		}
+
+		function launchGame(game) {
+			console.log('Launching game:', game.title);
+			window.location.href = game.url;
+		}
+
+		function setupKeyboardControls() {
+			document.addEventListener('keydown', (e) => {
+				switch(e.key) {
+					case 'ArrowLeft':
+						e.preventDefault();
+						animateArrow('left');
+						navigateGames(-1);
+						break;
+					case 'ArrowRight':
+						e.preventDefault();
+						animateArrow('right');
+						navigateGames(1);
+						break;
+					case 'Enter':
+						e.preventDefault();
+						launchGame(games[currentIndex]);
+						break;
+				}
+			});
+
+			// Add touch swipe support
+			let touchStartX = 0;
+			let touchEndX = 0;
+
+			const track = document.getElementById('gamesTrack');
+
+			track.addEventListener('touchstart', (e) => {
+				touchStartX = e.changedTouches[0].screenX;
+			});
+
+			track.addEventListener('touchend', (e) => {
+				touchEndX = e.changedTouches[0].screenX;
+				handleSwipe();
+			});
+
+			function handleSwipe() {
+				const swipeThreshold = 50;
+				if (touchEndX < touchStartX - swipeThreshold) {
+					// Swipe left - go to next
+					navigateGames(1);
+				}
+				if (touchEndX > touchStartX + swipeThreshold) {
+					// Swipe right - go to previous
+					navigateGames(-1);
+				}
+			}
+		}
+
+		function animateArrow(direction) {
+			const arrow = document.getElementById(`${direction}-arrow`);
+			arrow.style.transform = 'translateY(-48%) scale(0.95)';
+			arrow.style.boxShadow = '0 2px 0 #d14a91';
+
+			setTimeout(() => {
+				arrow.style.transform = 'translateY(-50%) scale(1)';
+				arrow.style.boxShadow = '0 4px 0 #d14a91';
+			}, 150);
+		}
+
+		init();
+	</script>
+</body>
+</html>
+

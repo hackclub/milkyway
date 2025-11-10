@@ -5,5 +5,6 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	preview: {
 		allowedHosts: true
-	}
+	},
+	assetsInclude: ['**/*.html']
 });

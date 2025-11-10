@@ -1,236 +1,368 @@
 <script>
-  let { 
-    furnitureInfo = $bindable(), 
-    x, 
-    y, 
-    selected = $bindable(false), 
-    onSelect, 
-    onMouseDown = null, 
-    onRemoveFromRoom, 
-    isRoomEditing = false, 
-    readOnly = false
-  } = $props();
+	import { mount, tick } from 'svelte';
 
-  // Use derived state that stays in sync with furnitureInfo.flipped
-  let isFlipped = $derived(furnitureInfo.flipped || false);
+	let {
+		furnitureInfo = $bindable(),
+		x,
+		y,
+		selected = $bindable(false),
+		onSelect,
+		onMouseDown = null,
+		onRemoveFromRoom,
+		isRoomEditing = false,
+		isInteractable,
+		wallOnly,
+		furnitureComponent,
+		readOnly = false,
+		data,
+		showFurnitureSidebar,
+		roomOwner = null,
+		currentUser = null
+	} = $props();
 
-  // Map furniture types to their SVG stroke files
-  // Some furniture share the same stroke, and some don't have strokes
-  /** @type {Record<string, string>} */
-  const furnitureStrokeMap = {
-    'beanbag_white': 'beanbag_stroke.svg',
-    'beanbag_yellow': 'beanbag_stroke.svg',
-    'bed_simple_blue': 'bed_stroke.svg',
-    'bed_simple_green': 'bed_stroke.svg',
-    'bed_simple_red': 'bed_stroke.svg',
-    'bed_simple_yellow': 'bed_stroke.svg',
-    'bedside_round': 'bedside_round_stroke.svg',
-    'bedside_white': 'bedside_stroke.svg',
-    'bedside_wooden': 'bedside_stroke.svg',
-    'sofa_blue': 'sofa_stroke.svg',
-    'sofa_red': 'sofa_stroke.svg',
-    'cow_statue': 'cow_statue_stroke.svg'
-  };
+	/** @type {HTMLElement} */
+	let componentContainer;
+	let isModalOpen = $state(false);
+	let isFlipped = $derived(furnitureInfo.flipped || false);
 
-  // Only cow_statue has a physical _flipped.png file
-  const hasFlippedImage = ['cow_statue'];
+	/** @type {Record<string, string>} */
+	const furnitureStrokeMap = {
+		beanbag_white: 'beanbag_stroke.svg',
+		beanbag_yellow: 'beanbag_stroke.svg',
+		bed_simple_blue: 'bed_stroke.svg',
+		bed_simple_green: 'bed_stroke.svg',
+		bed_simple_red: 'bed_stroke.svg',
+		bed_simple_yellow: 'bed_stroke.svg',
+		bedside_round: 'bedside_round_stroke.svg',
+		bedside_white: 'bedside_stroke.svg',
+		bedside_wooden: 'bedside_stroke.svg',
+		sofa_blue: 'sofa_stroke.svg',
+		sofa_red: 'sofa_stroke.svg',
+		cow_statue: 'cow_statue_stroke.svg'
+	};
+	const hasFlippedImage = ['cow_statue'];
 
-  // Get furniture assets based on type and flipped state
-  const furnitureAssets = $derived(() => {
-    const type = String(furnitureInfo.type || 'cow_statue');
-    const hasPhysicalFlip = hasFlippedImage.includes(type);
-    const suffix = (isFlipped && hasPhysicalFlip) ? '_flipped' : '';
-    
-    // Get stroke SVG
-    const strokeFile = furnitureStrokeMap[type] || 'cow_statue_stroke.svg';
-    const strokeSuffix = (isFlipped && type === 'cow_statue') ? '_flipped' : '';
-    const strokePath = strokeFile.replace('_stroke.svg', `${strokeSuffix}_stroke.svg`);
-    
-    return {
-      image: `/room/${type}${suffix}.png`,
-      stroke: `/room/${strokePath}`,
-      useCssFlip: isFlipped && !hasPhysicalFlip
-    };
-  });
+	const furnitureAssets = $derived(() => {
+		const type = String(furnitureInfo.type || 'cow_statue');
+		const hasPhysicalFlip = hasFlippedImage.includes(type);
+		const suffix = isFlipped && hasPhysicalFlip ? '_flipped' : '';
 
-  // Toggle flip
-  async function toggleFlip() {
-    const newFlippedState = !isFlipped;
-    
-    // Optimistically update local state
-    furnitureInfo.flipped = newFlippedState;
-    
-    // Update the furniture in the database
-    try {
-      const response = await fetch('/api/furniture', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          furnitureId: furnitureInfo.id,
-          updates: {
-            position: `${Math.round(x)},${Math.round(y)},${newFlippedState ? '1' : '0'}`
-          }
-        })
-      });
+		const strokeFile = furnitureStrokeMap[type] || 'cow_statue_stroke.svg';
+		const strokeSuffix = isFlipped && type === 'cow_statue' ? '_flipped' : '';
+		const strokePath = strokeFile.replace('_stroke.svg', `${strokeSuffix}_stroke.svg`);
 
-      const result = await response.json();
-      
-      if (!result.success) {
-        console.error('Failed to update furniture flip:', result.error);
-        // Revert on failure
-        furnitureInfo.flipped = !newFlippedState;
-      }
-    } catch (error) {
-      console.error('Error updating furniture flip:', error);
-      // Revert on failure
-      furnitureInfo.flipped = !newFlippedState;
-    }
-  }
+		return {
+			image: `/room/${type}${suffix}.png`,
+			stroke: `/room/${strokePath}`,
+			useCssFlip: isFlipped && !hasPhysicalFlip
+		};
+	});
+
+	async function toggleFlip() {
+		const newFlippedState = !isFlipped;
+		furnitureInfo.flipped = newFlippedState;
+
+		try {
+			const response = await fetch('/api/furniture', {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					furnitureId: furnitureInfo.id,
+					updates: {
+						position: `${Math.round(x)},${Math.round(y)},${newFlippedState ? '1' : '0'}`
+					}
+				})
+			});
+
+			const result = await response.json();
+			if (!result.success) {
+				console.error('Failed to update furniture flip:', result.error);
+				furnitureInfo.flipped = !newFlippedState;
+			}
+		} catch (error) {
+			console.error('Error updating furniture flip:', error);
+			furnitureInfo.flipped = !newFlippedState;
+		}
+	}
+
+	/**
+	 * @param {'view' | 'edit'} mode
+	 */
+	async function openModal(mode) {
+		isModalOpen = true;
+		await tick();
+		mount(furnitureComponent, {
+			target: componentContainer,
+			props: {
+				data: data,
+				mode: mode,
+				id: furnitureInfo.id,
+				roomOwner: roomOwner?.recId || null,
+				currentUser: currentUser
+			}
+		});
+		showFurnitureSidebar(false);
+	}
+
+	async function closeModal() {
+		isModalOpen = false;
+
+		// Check if this is an empty sticky note and delete it
+		if (furnitureInfo.type === 'sticky_note') {
+			try {
+				const noteData = furnitureInfo.data ? JSON.parse(furnitureInfo.data) : {};
+				if (!noteData.message || !noteData.message.trim()) {
+					const response = await fetch('/api/furniture', {
+						method: 'DELETE',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							furnitureId: furnitureInfo.id
+						})
+					});
+
+					const result = await response.json();
+
+					if (result.success) {
+						if (typeof window !== 'undefined') {
+							const url = new URL(window.location.href);
+							if (!url.searchParams.has('skipNotification')) {
+								url.searchParams.set('skipNotification', 'true');
+								window.location.href = url.toString();
+							} else {
+								location.reload();
+							}
+						}
+					}
+				}
+			} catch (e) {
+				console.error('Error checking empty sticky note:', e);
+			}
+		}
+
+		if (isRoomEditing) {
+			showFurnitureSidebar(true);
+		}
+	}
+
+	$effect(() => {
+		if (typeof window !== 'undefined' && furnitureInfo.type === 'sticky_note') {
+			const autoOpenId = sessionStorage.getItem('autoOpenStickyNote');
+			if (autoOpenId === furnitureInfo.id) {
+				// Clear the flag
+				sessionStorage.removeItem('autoOpenStickyNote');
+				// Open in edit mode
+				openModal('edit');
+			}
+		}
+	});
 </script>
 
-<div 
-  class="furniture-item {selected ? 'selected' : ''} {isRoomEditing ? 'editing-mode' : ''}" 
-  style:--x={x} 
-  style:--y={y}
-  style:--z={Math.round(y)}
-  onclick={(e) => {
-    e.stopPropagation();
-    if (isRoomEditing && onSelect) onSelect();
-  }}
-  onmousedown={(e) => {
-    if (isRoomEditing && onMouseDown) {
-      e.stopPropagation();
-      onMouseDown(e);
-    }
-  }}
-  role="button"
-  tabindex={isRoomEditing ? 0 : -1}
+<div
+	class="furniture-item {selected ? 'selected' : ''} {isRoomEditing ? 'editing-mode' : ''} {wallOnly
+		? 'wall-only'
+		: ''}"
+	style:--x={x}
+	style:--y={y}
+	style:--z={Math.round(y)}
+	onclick={(e) => {
+		e.stopPropagation();
+		if (isRoomEditing && onSelect) onSelect();
+		if (!isRoomEditing && isInteractable) {
+			openModal('view');
+		}
+	}}
+	onmousedown={(e) => {
+		if (isRoomEditing && onMouseDown) {
+			e.stopPropagation();
+			onMouseDown(e);
+		}
+	}}
+	role="button"
+	tabindex={isRoomEditing ? 0 : -1}
 >
-  <img 
-    class="furniture-img {furnitureAssets().useCssFlip ? 'css-flipped' : ''}" 
-    src={furnitureAssets().image} 
-    alt="Furniture" 
-  />
+	<img
+		class="furniture-img {furnitureAssets().useCssFlip ? 'css-flipped' : ''}"
+		src={furnitureAssets().image}
+		alt="Furniture"
+	/>
 
-  {#if isRoomEditing}
-    <img 
-      class="furniture-stroke {furnitureAssets().useCssFlip ? 'css-flipped' : ''}"
-      src={furnitureAssets().stroke} 
-      alt="Furniture outline" 
-    />
-  {/if}
+	{#if isRoomEditing}
+		<img
+			class="furniture-stroke {furnitureAssets().useCssFlip ? 'css-flipped' : ''}"
+			src={furnitureAssets().stroke}
+			alt="Furniture outline"
+		/>
+	{/if}
 
-  {#if selected && isRoomEditing && !readOnly}
-    <div class="furniture-controls">
-      <button class="rotate-furniture-btn" onclick={toggleFlip} aria-label="Flip furniture">
-        ↻
-      </button>
-      <button class="delete-furniture-btn" onclick={() => { if (onRemoveFromRoom) onRemoveFromRoom(furnitureInfo.id); }} aria-label="Remove furniture from room">
-        🗑️
-      </button>
-    </div>
-  {/if}
+	{#if selected && isRoomEditing && !readOnly}
+		<div class="furniture-controls">
+			{#if !wallOnly}
+				<button class="rotate-furniture-btn" onclick={toggleFlip} aria-label="Flip furniture">
+					↻
+				</button>
+			{/if}
+			<button
+				class="delete-furniture-btn"
+				onclick={() => {
+					if (onRemoveFromRoom) onRemoveFromRoom(furnitureInfo.id);
+				}}
+				aria-label="Remove furniture from room"
+			>
+				🗑️
+			</button>
+			{#if isInteractable}
+				<button
+					class="interact-furniture-btn"
+					onclick={() => {
+						openModal('edit');
+					}}
+					aria-label="Interact with furniture"
+				>
+					✍️
+				</button>
+			{/if}
+		</div>
+	{/if}
 </div>
 
+{#if isModalOpen}
+	<div class="modal-overlay" onclick={closeModal}></div>
+	<div class="furniture-component-container" bind:this={componentContainer}></div>
+{/if}
+
 <style>
-.furniture-item {
-  position: absolute;
-  z-index: calc(100 + var(--z));
+	.furniture-item {
+		position: absolute;
+		z-index: calc(100 + var(--z));
 
-  display: flex;
-  justify-content: center;
-  align-items: center;
+		display: flex;
+		justify-content: center;
+		align-items: center;
 
-  transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px));
-}
+		transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px));
+	}
 
-.furniture-item.selected {
-  z-index: calc(1000 + var(--z));
-}
+	/* Wall-only items should always appear on top of floor items */
+	.furniture-item.wall-only {
+		z-index: 400;
+	}
 
-.furniture-item.editing-mode {
-  cursor: grab;
-}
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.5);
+		z-index: 9998;
+		cursor: pointer;
+	}
 
-.furniture-item.editing-mode.selected {
-  cursor: grab;
-}
+	.furniture-component-container {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 9999 !important;
+		pointer-events: auto;
+	}
 
-.furniture-item.editing-mode .furniture-img {
-  pointer-events: none;
-}
+	.furniture-item.selected {
+		z-index: calc(1000 + var(--z));
+	}
 
-.furniture-item.editing-mode.selected .furniture-img {
-  filter: drop-shadow(-6px -6px 0 var(--orange)) drop-shadow(6px -6px 0 var(--orange)) drop-shadow(-6px 6px 0 var(--orange)) drop-shadow(6px 6px 0 var(--orange));
-}
+	/* Selected wall-only items */
+	.furniture-item.wall-only.selected {
+		z-index: 1400;
+	}
 
-.furniture-img {
-  width: auto;
-  height: auto;
-  position: absolute;
-  transition: filter 0.2s;
-  transform: scale(0.3);
-}
+	.furniture-item.editing-mode {
+		cursor: grab;
+	}
 
-.furniture-img.css-flipped {
-  transform: scale(0.3) scaleX(-1);
-}
+	.furniture-item.editing-mode.selected {
+		cursor: grab;
+	}
 
-.furniture-stroke {
-  position: absolute;
-  width: auto;
-  height: auto;
-  transform: scale(0.3);
-}
+	.furniture-item.editing-mode .furniture-img {
+		pointer-events: none;
+	}
 
-.furniture-stroke.css-flipped {
-  transform: scale(0.3) scaleX(-1);
-}
+	.furniture-item.editing-mode.selected .furniture-img {
+		filter: drop-shadow(-6px -6px 0 var(--orange)) drop-shadow(6px -6px 0 var(--orange))
+			drop-shadow(-6px 6px 0 var(--orange)) drop-shadow(6px 6px 0 var(--orange));
+	}
 
-.furniture-item.editing-mode:hover .furniture-img, 
-.furniture-item.editing-mode.selected .furniture-img {
-  filter: drop-shadow(-6px -6px 0 var(--orange)) drop-shadow(6px -6px 0 var(--orange)) drop-shadow(-6px 6px 0 var(--orange)) drop-shadow(6px 6px 0 var(--orange));
-}
+	.furniture-img {
+		width: auto;
+		height: auto;
+		position: absolute;
+		transition: filter 0.2s;
+		transform: scale(0.3);
+	}
 
-/* Furniture controls */
-.furniture-controls {
-  position: absolute;
-  top: -50px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  z-index: 1500;
-}
+	.furniture-img.css-flipped {
+		transform: scale(0.3) scaleX(-1);
+	}
 
-.rotate-furniture-btn,
-.delete-furniture-btn {
-  padding: 6px 12px 10px;
-  border: 2px solid var(--orange);
-  border-radius: 50px;
-  background: var(--yellow);
-  color: var(--orange);
-  font-family: inherit;
-  font-size: 1em;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  line-height: 1;
-}
+	.furniture-stroke {
+		position: absolute;
+		width: auto;
+		height: auto;
+		transform: scale(0.3);
+	}
 
-.rotate-furniture-btn:hover {
-  background: var(--orange);
-  color: white;
-  transform: rotate(180deg);
-}
+	.furniture-stroke.css-flipped {
+		transform: scale(0.3) scaleX(-1);
+	}
 
-.delete-furniture-btn:hover {
-  background: #ff4444;
-  border-color: #ff4444;
-  color: white;
-}
+	.furniture-item.editing-mode:hover .furniture-img,
+	.furniture-item.editing-mode.selected .furniture-img {
+		filter: drop-shadow(-6px -6px 0 var(--orange)) drop-shadow(6px -6px 0 var(--orange))
+			drop-shadow(-6px 6px 0 var(--orange)) drop-shadow(6px 6px 0 var(--orange));
+	}
+
+	.furniture-controls {
+		position: absolute;
+		top: -50px;
+		left: 50%;
+		transform: translateX(-50%);
+		display: flex;
+		gap: 8px;
+		z-index: 1500;
+		align-items: center;
+	}
+
+	.rotate-furniture-btn,
+	.delete-furniture-btn,
+	.interact-furniture-btn {
+		padding: 6px 12px 10px;
+		border: 2px solid var(--orange);
+		border-radius: 50px;
+		background: var(--yellow);
+		color: var(--orange);
+		font-family: inherit;
+		font-size: 1em;
+		font-weight: bold;
+		cursor: pointer;
+		transition: all 0.2s;
+		white-space: nowrap;
+		line-height: 1;
+	}
+
+	.rotate-furniture-btn:hover {
+		background: var(--orange);
+		color: white;
+		transform: rotate(180deg);
+	}
+
+	.delete-furniture-btn:hover {
+		background: #ff4444;
+		border-color: #ff4444;
+		color: white;
+	}
 </style>
-

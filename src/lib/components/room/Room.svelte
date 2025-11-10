@@ -3,12 +3,15 @@ import FloorTile from '$lib/components/FloorTile.svelte';
 import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
 import FurnitureItem from '$lib/components/room/FurnitureItem.svelte';
 import ExpandableButton from '$lib/components/ExpandableButton.svelte';
+	import { FURNITURE_TYPES } from '$lib/furniture-catalog';
+	import Notifications from '$lib/components/Notifications.svelte';
 
 let {
   projectList = $bindable([]),
   furnitureList = $bindable([]),
   isCreateOpen = $bindable(false),
   user,
+		currentUser = null,
   onShowPromptPopup,
   onOpenRouletteSpin,
   onDeleteProject,
@@ -16,13 +19,14 @@ let {
   readOnly = false,
   selectedProjectId = null,
   onSelectProject = null,
-  hideControls = false,
-  showFurnitureSidebar = $bindable(false)
+		hideControls = false,
+		showFurnitureSidebar = $bindable(false)
 } = $props();
 
 let isEditingRoom = $state(false);
 let selectedEggForMove = $state(null);
 let selectedFurnitureForMove = $state(null);
+	let isPlacingStickyNote = $state(false);
 
 // References to ProjectEgg components for calling their methods
 /** @type {any[]} */
@@ -74,6 +78,45 @@ function getAllowedXRange(y) {
     minX: -width / 2,
     maxX: width / 2
   };
+}
+
+/**
+ * @param {number} x
+ * @param {number} y
+ */
+function snapToWall(x, y) {
+  // Left wall: from top (0, 0) to left-middle (-280, 150)
+  // Right wall: from top (0, 0) to right-middle (280, 150)
+
+  const WALL_OFFSET = 30;
+
+  const isLeftWall = x < 0;
+
+  const WALL_SLOPE = FLOOR_BOUNDS.middleY / (FLOOR_BOUNDS.maxWidth / 2); // 150/280 ≈ 0.536
+  const Y_AT_MIDDLE = -25;
+  const X_AT_MIDDLE = FLOOR_BOUNDS.maxWidth / 2 - WALL_OFFSET;
+
+  const Y_INTERCEPT = Y_AT_MIDDLE - WALL_SLOPE * X_AT_MIDDLE;
+
+  if (isLeftWall) {
+    const MIN_X = -250;
+    const MAX_X = -WALL_OFFSET;
+    const clampedX = Math.max(MIN_X, Math.min(MAX_X, x));
+
+    const snappedY = WALL_SLOPE * Math.abs(clampedX) + Y_INTERCEPT;
+
+    return { x: clampedX, y: snappedY, flipped: false };
+  } else {
+    const MIN_X = WALL_OFFSET;
+    const MAX_X = 250;
+    const clampedX = Math.max(MIN_X, Math.min(MAX_X, x));
+
+    // Y = slope * X + intercept
+    const snappedY = WALL_SLOPE * clampedX + Y_INTERCEPT;
+
+    // Right wall: flipped
+    return { x: clampedX, y: snappedY, flipped: true };
+  }
 }
 
 // Function to handle egg selection (for clicks, not drag)
@@ -390,6 +433,12 @@ function clamp(value, min, max) {
  * @param {MouseEvent} e
  */
 function handleMouseMove(e) {
+  // Handle sticky note preview
+  if (isPlacingStickyNote) {
+    handleStickyNotePreview(e);
+    return;
+  }
+  
   if (!isMouseDown) return;
   
   // Start dragging if mouse is down and moves
@@ -411,15 +460,15 @@ function handleMouseMove(e) {
   let newX = mouseX - dragOffset.x;
   let newY = mouseY - dragOffset.y;
   
-  // Apply Y bounds first
-  newY = clamp(newY, FLOOR_BOUNDS.topY, FLOOR_BOUNDS.bottomY);
-  
-  // Get allowed X range based on Y position (rhombus shape)
-  const xRange = getAllowedXRange(newY);
-  newX = clamp(newX, xRange.minX, xRange.maxX);
-  
   // Find the project and update its position
   if (selectedEggForMove) {
+    // Apply Y bounds first
+    newY = clamp(newY, FLOOR_BOUNDS.topY, FLOOR_BOUNDS.bottomY);
+    
+    // Get allowed X range based on Y position (rhombus shape)
+    const xRange = getAllowedXRange(newY);
+    newX = clamp(newX, xRange.minX, xRange.maxX);
+    
     const projectIndex = projectList.findIndex(p => p.id === selectedEggForMove);
     if (projectIndex !== -1) {
       projectList[projectIndex] = {
@@ -434,11 +483,39 @@ function handleMouseMove(e) {
   if (selectedFurnitureForMove) {
     const furnitureIndex = furnitureList.findIndex(f => f.id === selectedFurnitureForMove);
     if (furnitureIndex !== -1) {
-      furnitureList[furnitureIndex] = {
-        ...furnitureList[furnitureIndex],
-        x: newX,
-        y: newY
-      };
+      const furniture = furnitureList[furnitureIndex];
+      
+      // Check if this furniture type is wall-only
+      const furnitureType = FURNITURE_TYPES.find(ft => ft.type === String(furniture.type));
+      const isWallOnly = furnitureType?.wallOnly || false;
+      
+      // Apply wall constraint if needed
+      if (isWallOnly) {
+        // For wall-only furniture, don't apply normal floor bounds
+        // Just snap directly to the wall and get the flip state
+        const snapped = snapToWall(newX, newY);
+        newX = snapped.x;
+        newY = snapped.y;
+        
+        // Auto-flip based on which wall the furniture is on
+        furnitureList[furnitureIndex] = {
+          ...furnitureList[furnitureIndex],
+          x: newX,
+          y: newY,
+          flipped: snapped.flipped
+        };
+      } else {
+        // Apply normal floor bounds for regular furniture
+        newY = clamp(newY, FLOOR_BOUNDS.topY, FLOOR_BOUNDS.bottomY);
+        const xRange = getAllowedXRange(newY);
+        newX = clamp(newX, xRange.minX, xRange.maxX);
+        
+        furnitureList[furnitureIndex] = {
+          ...furnitureList[furnitureIndex],
+          x: newX,
+          y: newY
+        };
+      }
     }
   }
 }
@@ -550,16 +627,113 @@ function handleMouseUp() {
  * @param {any[]} updatedFurnitureList
  */
 function handleFurnitureUpdate(updatedFurnitureList) {
-  furnitureList = updatedFurnitureList;
+	furnitureList = updatedFurnitureList;
 }
 
+let stickyNotePreviewPos = $state({ x: 0, y: 0, flipped: false });
+/** @type {any[]} */
+let notifications = $state([]);
+
+$effect(() => {
+	fetch('/api/get-user-notifications')
+		.then((res) => res.json())
+		.then((data) => {
+			notifications = data.notifications;
+		})
+		.catch((err) => {
+			console.error('Failed to fetch notifications:', err);
+			notifications = [];
+		});
+});
+
+function startPlacingStickyNote() {
+	isPlacingStickyNote = true;
+}
+
+function cancelPlacingStickyNote() {
+	isPlacingStickyNote = false;
+}
+
+/**
+ * @param {MouseEvent} e
+ */
+function handleStickyNotePreview(e) {
+	if (!isPlacingStickyNote) return;
+
+	const roomElement = e.currentTarget;
+	if (!(roomElement instanceof HTMLElement)) return;
+
+	const rect = roomElement.getBoundingClientRect();
+	const mouseX = e.clientX - rect.left - rect.width / 2;
+	const mouseY = e.clientY - rect.top - rect.height / 2;
+
+	// Snap to wall for sticky note placement
+	const snapped = snapToWall(mouseX, mouseY);
+	stickyNotePreviewPos = snapped;
+}
+
+/**
+ * @param {MouseEvent} e
+ */
+async function placeStickyNote(e) {
+	if (!isPlacingStickyNote) return;
+
+	e.stopPropagation();
+
+	try {
+		const response = await fetch('/api/place-sticky-note', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				targetUsername: user.username,
+				x: stickyNotePreviewPos.x,
+				y: stickyNotePreviewPos.y,
+				flipped: stickyNotePreviewPos.flipped
+			})
+		});
+
+		const result = await response.json();
+
+		if (result.success) {
+			if (result.shouldOpenEditor && result.furniture.id) {
+				sessionStorage.setItem('autoOpenStickyNote', result.furniture.id);
+			}
+
+			// Preserve skipNotification parameter to prevent duplicate profile view notifications
+			if (typeof window !== 'undefined') {
+				const url = new URL(window.location.href);
+				if (!url.searchParams.has('skipNotification')) {
+					url.searchParams.set('skipNotification', 'true');
+					window.location.href = url.toString();
+				} else {
+					location.reload();
+				}
+			}
+		} else {
+			alert(`Failed to place sticky note: ${result.error}`);
+		}
+	} catch (error) {
+		console.error('Error placing sticky note:', error);
+		alert('Failed to place sticky note. Please try again.');
+	}
+}
 </script>
 
 <svelte:window onmouseup={handleMouseUp} />
 
 <div 
-  class="zlayer room {isEditingRoom ? 'editing' : ''} {isDragging ? 'dragging' : ''} {showFurnitureSidebar ? 'sidebar-open' : ''}" 
-  onclick={() => { 
+	class="zlayer room {isEditingRoom ? 'editing' : ''} {isDragging
+		? 'dragging'
+		: ''} {showFurnitureSidebar ? 'sidebar-open' : ''} {isPlacingStickyNote
+		? 'placing-sticky-note'
+		: ''}"
+	onclick={(e) => {
+		if (isPlacingStickyNote) {
+			placeStickyNote(e);
+			return;
+		}
     if (!isEditingRoom) {
       if (onSelectProject) {
         onSelectProject(null);
@@ -573,78 +747,129 @@ function handleFurnitureUpdate(updatedFurnitureList) {
   onmousedown={handleMouseDown}
   role="presentation"
 >
+	<img aria-hidden="true" class="room-bg" src="/room_draft.png" alt="Room background" />
 
-  <img aria-hidden="true" class="room-bg" src="/room_draft.png" alt="Room background" />
+	<FloorTile></FloorTile>
 
-  <FloorTile></FloorTile>
+	{#if (!projectList || projectList.length === 0) && !readOnly}
+		<button
+			class="new-project"
+			onclick={(e) => {
+				e.stopPropagation();
+				isCreateOpen = !isCreateOpen;
+			}}>you don't have any projects yet. create something new?</button
+		>
+	{/if}
 
-  {#if (!projectList || projectList.length === 0) && !readOnly}
-    <button class="new-project" onclick={(e) => { e.stopPropagation(); isCreateOpen = !isCreateOpen }}>you don't have any projects yet. create something new?</button>
-  {/if}
+	{#each projectList as project, index}
+		<ProjectEgg
+			bind:projInfo={projectList[index]}
+			x={project.x}
+			y={project.y}
+			selected={isEditingRoom ? selectedEggForMove === project.id : selectedEggId === project.id}
+			onSelect={() => selectEggForClick(project.id)}
+			onMouseDown={(/** @type {MouseEvent} */ e) => selectEggForDrag(project.id, e)}
+			{onShowPromptPopup}
+			onDelete={deleteProjectHandler}
+			{onOpenRouletteSpin}
+			onShipProject={handleShipProject}
+			{user}
+			isRoomEditing={isEditingRoom}
+			{readOnly}
+			bind:this={projectEggRefs[index]}
+		/>
+	{/each}
 
-  {#each projectList as project, index}
+	{#each furnitureList.filter((f) => f.isPlaced) as furniture, index}
+		<FurnitureItem
+			bind:furnitureInfo={furnitureList[furnitureList.findIndex((f) => f.id === furniture.id)]}
+			x={furniture.x}
+			y={furniture.y}
+			selected={isEditingRoom
+				? selectedFurnitureForMove === furniture.id
+				: selectedFurnitureId === furniture.id}
+			onSelect={() => selectFurnitureForClick(furniture.id)}
+			onMouseDown={(/** @type {MouseEvent} */ e) => selectFurnitureForDrag(furniture.id, e)}
+			onRemoveFromRoom={removeFurnitureFromRoom}
+			isRoomEditing={isEditingRoom}
+			isInteractable={FURNITURE_TYPES.find((f) => f.type === String(furniture.type))
+				?.isInteractable || false}
+		furnitureComponent={FURNITURE_TYPES.find((f) => f.type === String(furniture.type))
+			?.component || null}
+		showFurnitureSidebar={(/** @type {boolean} */ v) => (showFurnitureSidebar = v)}
+		data={furnitureList[furnitureList.findIndex((f) => f.id === furniture.id)].data}
+		wallOnly={FURNITURE_TYPES.find((f) => f.type === String(furniture.type))?.wallOnly || false}
+			{readOnly}
+			roomOwner={user}
+			{currentUser}
+		/>
+	{/each}
 
-    <ProjectEgg 
-      bind:projInfo={projectList[index]} 
-      x={project.x} 
-      y={project.y}
-      selected={isEditingRoom ? (selectedEggForMove === project.id) : (selectedEggId === project.id)}
-      onSelect={() => selectEggForClick(project.id)}
-      onMouseDown={(/** @type {MouseEvent} */ e) => selectEggForDrag(project.id, e)}
-      onShowPromptPopup={onShowPromptPopup}
-      onDelete={deleteProjectHandler}
-      onOpenRouletteSpin={onOpenRouletteSpin}
-      onShipProject={handleShipProject}
-      user={user}
-      isRoomEditing={isEditingRoom}
-      readOnly={readOnly}
-      bind:this={projectEggRefs[index]}
-    />
+	<!-- Sticky Note Preview -->
+	{#if isPlacingStickyNote}
+		<div
+			class="sticky-note-preview"
+			style:--x={stickyNotePreviewPos.x}
+			style:--y={stickyNotePreviewPos.y}
+			style:--z={Math.round(stickyNotePreviewPos.y)}
+		>
+			<img
+				class="sticky-note-preview-img {stickyNotePreviewPos.flipped ? 'css-flipped' : ''}"
+				src="/landing/stickynote.png"
+				alt="Sticky note preview"
+			/>
+		</div>
+	{/if}
 
-  {/each}
+	{#if !hideControls}
+		{#if !isEditingRoom && !isPlacingStickyNote}
+			<div
+				class="fab-container"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => e.stopPropagation()}
+				role="presentation"
+			>
+				{#if !readOnly}
+					<ExpandableButton
+						icon="+"
+						expandedText="create new project"
+						expandedWidth="165px"
+						onClick={() => {
+							isCreateOpen = !isCreateOpen;
+						}}
+					/>
 
-  {#each furnitureList.filter(f => f.isPlaced) as furniture, index}
-
-    <FurnitureItem 
-      bind:furnitureInfo={furnitureList[furnitureList.findIndex(f => f.id === furniture.id)]} 
-      x={furniture.x} 
-      y={furniture.y}
-      selected={isEditingRoom ? (selectedFurnitureForMove === furniture.id) : (selectedFurnitureId === furniture.id)}
-      onSelect={() => selectFurnitureForClick(furniture.id)}
-      onMouseDown={(/** @type {MouseEvent} */ e) => selectFurnitureForDrag(furniture.id, e)}
-      onRemoveFromRoom={removeFurnitureFromRoom}
-      isRoomEditing={isEditingRoom}
-      readOnly={readOnly}
-    />
-
-  {/each}
-
-  {#if !hideControls}
-    {#if !isEditingRoom}
-      <div 
-        class="fab-container" 
-        onclick={(e) => e.stopPropagation()}
-        onkeydown={(e) => e.stopPropagation()}
-        role="presentation"
-      >
-        <ExpandableButton 
-          icon="+" 
-          expandedText="create new project" 
-          expandedWidth="165px"
-          onClick={() => { isCreateOpen = !isCreateOpen }} 
-        />
-
-        <ExpandableButton 
-          icon="✎"
-          expandedText="edit room" 
-          expandedWidth="112px"
-          onClick={() => { 
-            enterEditMode();
-            showFurnitureSidebar = true;
-          }} 
-        />
-      </div>
-    {:else}
+					<ExpandableButton
+						icon="✎"
+						expandedText="edit room"
+						expandedWidth="112px"
+						onClick={() => {
+							enterEditMode();
+							showFurnitureSidebar = true;
+						}}
+					/>
+				{:else if currentUser && currentUser.username !== user.username}
+					<ExpandableButton
+						icon="📝"
+						expandedText="place sticky note"
+						expandedWidth="165px"
+						onClick={startPlacingStickyNote}
+					/>
+				{/if}
+			</div>
+		{:else if isPlacingStickyNote}
+			<div
+				class="edit-mode-controls"
+				onclick={(e) => e.stopPropagation()}
+				onkeydown={(e) => e.stopPropagation()}
+				role="presentation"
+			>
+				<p>placing sticky note →</p>
+				<button class="edit-mode-btn discard-edit-btn" onclick={cancelPlacingStickyNote}>
+					<span class="btn-text">cancel 🗑️</span>
+				</button>
+			</div>
+		{:else if isEditingRoom}
       <div 
         class="edit-mode-controls" 
         onclick={(e) => e.stopPropagation()}
@@ -659,9 +884,14 @@ function handleFurnitureUpdate(updatedFurnitureList) {
           <span class="btn-text">{isSaving ? 'saving...' : 'save'} 💾</span>
         </button>
       </div>
-    {/if}
-  {/if}
+		{/if}
+	{/if}
 
+	{#if !hideControls}
+		<div class="notifications">
+			<Notifications {notifications} />
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -803,5 +1033,36 @@ function handleFurnitureUpdate(updatedFurnitureList) {
 .edit-mode-btn .btn-text {
   white-space: nowrap;
 }
-</style>
 
+	.notifications {
+		position: absolute;
+		bottom: calc(50vh - 150px);
+		right: calc(50vw - 630px);
+		z-index: 100;
+	}
+
+	.sticky-note-preview {
+		position: absolute;
+		z-index: 500; /* High z-index to always appear on top */
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px));
+		pointer-events: none;
+		opacity: 0.7;
+	}
+
+	.sticky-note-preview-img {
+		width: 80px;
+		height: auto;
+		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+	}
+
+	.sticky-note-preview-img.css-flipped {
+		transform: scaleX(-1);
+	}
+
+	.room.placing-sticky-note {
+		cursor: crosshair;
+	}
+</style>
