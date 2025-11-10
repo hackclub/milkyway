@@ -26,7 +26,8 @@ let {
 let isEditingRoom = $state(false);
 let selectedEggForMove = $state(null);
 let selectedFurnitureForMove = $state(null);
-	let isPlacingStickyNote = $state(false);
+let isPlacingStickyNote = $state(false);
+let isPlacingStickyNoteLoading = $state(false);
 
 // References to ProjectEgg components for calling their methods
 /** @type {any[]} */
@@ -85,37 +86,47 @@ function getAllowedXRange(y) {
  * @param {number} y
  */
 function snapToWall(x, y) {
+  // Isometric walls: slanted parallelogram regions
+  // Top and bottom boundaries are parallel to the wall slope
   // Left wall: from top (0, 0) to left-middle (-280, 150)
   // Right wall: from top (0, 0) to right-middle (280, 150)
 
-  const WALL_OFFSET = 30;
-
+  const WALL_OFFSET = 0;
+  const WALL_HEIGHT = 250; // Vertical height of wall area
+  
   const isLeftWall = x < 0;
 
+  // Wall slope: follows isometric perspective
   const WALL_SLOPE = FLOOR_BOUNDS.middleY / (FLOOR_BOUNDS.maxWidth / 2); // 150/280 ≈ 0.536
-  const Y_AT_MIDDLE = -25;
-  const X_AT_MIDDLE = FLOOR_BOUNDS.maxWidth / 2 - WALL_OFFSET;
-
-  const Y_INTERCEPT = Y_AT_MIDDLE - WALL_SLOPE * X_AT_MIDDLE;
 
   if (isLeftWall) {
     const MIN_X = -250;
     const MAX_X = -WALL_OFFSET;
     const clampedX = Math.max(MIN_X, Math.min(MAX_X, x));
 
-    const snappedY = WALL_SLOPE * Math.abs(clampedX) + Y_INTERCEPT;
+    // Calculate top and bottom Y boundaries based on X position (parallel slopes)
+    // Top boundary: higher up as we go toward the center (less negative X)
+    const topY = WALL_SLOPE * Math.abs(clampedX) - 280;
+    // Bottom boundary: parallel to top, offset by wall height
+    const bottomY = topY + WALL_HEIGHT;
+    
+    const clampedY = Math.max(topY, Math.min(bottomY, y));
 
-    return { x: clampedX, y: snappedY, flipped: false };
+    return { x: clampedX, y: clampedY, flipped: false };
   } else {
     const MIN_X = WALL_OFFSET;
     const MAX_X = 250;
     const clampedX = Math.max(MIN_X, Math.min(MAX_X, x));
 
-    // Y = slope * X + intercept
-    const snappedY = WALL_SLOPE * clampedX + Y_INTERCEPT;
+    // Calculate top and bottom Y boundaries based on X position (parallel slopes)
+    // Top boundary: higher up as we go toward the center (less positive X)
+    const topY = WALL_SLOPE * clampedX - 280;
+    // Bottom boundary: parallel to top, offset by wall height
+    const bottomY = topY + WALL_HEIGHT;
+    
+    const clampedY = Math.max(topY, Math.min(bottomY, y));
 
-    // Right wall: flipped
-    return { x: clampedX, y: snappedY, flipped: true };
+    return { x: clampedX, y: clampedY, flipped: true };
   }
 }
 
@@ -652,13 +663,14 @@ function startPlacingStickyNote() {
 
 function cancelPlacingStickyNote() {
 	isPlacingStickyNote = false;
+	isPlacingStickyNoteLoading = false;
 }
 
 /**
  * @param {MouseEvent} e
  */
 function handleStickyNotePreview(e) {
-	if (!isPlacingStickyNote) return;
+	if (!isPlacingStickyNote || isPlacingStickyNoteLoading) return;
 
 	const roomElement = e.currentTarget;
 	if (!(roomElement instanceof HTMLElement)) return;
@@ -676,9 +688,11 @@ function handleStickyNotePreview(e) {
  * @param {MouseEvent} e
  */
 async function placeStickyNote(e) {
-	if (!isPlacingStickyNote) return;
+	if (!isPlacingStickyNote || isPlacingStickyNoteLoading) return;
 
 	e.stopPropagation();
+
+	isPlacingStickyNoteLoading = true;
 
 	try {
 		const response = await fetch('/api/place-sticky-note', {
@@ -712,9 +726,13 @@ async function placeStickyNote(e) {
 				}
 			}
 		} else {
+			isPlacingStickyNoteLoading = false;
+			isPlacingStickyNote = false;
 			alert(`Failed to place sticky note: ${result.error}`);
 		}
 	} catch (error) {
+		isPlacingStickyNoteLoading = false;
+		isPlacingStickyNote = false;
 		console.error('Error placing sticky note:', error);
 		alert('Failed to place sticky note. Please try again.');
 	}
@@ -808,7 +826,7 @@ async function placeStickyNote(e) {
 	<!-- Sticky Note Preview -->
 	{#if isPlacingStickyNote}
 		<div
-			class="sticky-note-preview"
+			class="sticky-note-preview {isPlacingStickyNoteLoading ? 'loading' : ''}"
 			style:--x={stickyNotePreviewPos.x}
 			style:--y={stickyNotePreviewPos.y}
 			style:--z={Math.round(stickyNotePreviewPos.y)}
@@ -818,6 +836,9 @@ async function placeStickyNote(e) {
 				src="/landing/stickynote.png"
 				alt="Sticky note preview"
 			/>
+			{#if isPlacingStickyNoteLoading}
+				<div class="loading-spinner">⏳</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -864,8 +885,8 @@ async function placeStickyNote(e) {
 				onkeydown={(e) => e.stopPropagation()}
 				role="presentation"
 			>
-				<p>placing sticky note →</p>
-				<button class="edit-mode-btn discard-edit-btn" onclick={cancelPlacingStickyNote}>
+				<p>{isPlacingStickyNoteLoading ? 'placing sticky note...' : 'click to place sticky note →'}</p>
+				<button class="edit-mode-btn discard-edit-btn" onclick={cancelPlacingStickyNote} disabled={isPlacingStickyNoteLoading}>
 					<span class="btn-text">cancel 🗑️</span>
 				</button>
 			</div>
@@ -1047,9 +1068,17 @@ async function placeStickyNote(e) {
 		display: flex;
 		justify-content: center;
 		align-items: center;
+		flex-direction: column;
+		gap: 8px;
 		transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px));
 		pointer-events: none;
 		opacity: 0.7;
+		transition: opacity 0.2s, transform 0.1s;
+	}
+
+	.sticky-note-preview.loading {
+		opacity: 1;
+		transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px)) scale(1.1);
 	}
 
 	.sticky-note-preview-img {
@@ -1058,8 +1087,38 @@ async function placeStickyNote(e) {
 		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 	}
 
+	.sticky-note-preview.loading .sticky-note-preview-img {
+		animation: pulse 0.8s ease-in-out infinite;
+		filter: drop-shadow(0 4px 8px rgba(255, 215, 0, 0.5));
+	}
+
 	.sticky-note-preview-img.css-flipped {
 		transform: scaleX(-1);
+	}
+
+	.loading-spinner {
+		font-size: 32px;
+		animation: spin 1.5s linear infinite;
+		pointer-events: none;
+		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+	}
+
+	@keyframes pulse {
+		0%, 100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.5;
+		}
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	.room.placing-sticky-note {

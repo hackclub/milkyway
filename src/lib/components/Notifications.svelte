@@ -63,6 +63,11 @@
 			.replace(/'/g, '&#x27;')
 			.replace(/\//g, '&#x2F;');
 
+		// Username links in bold: **username** -> clickable link
+		// This must be done BEFORE processing general bold markdown
+		// The regex /\*\*([a-zA-Z0-9_-]+)\*\*/g finds usernames wrapped in **
+		htmlText = htmlText.replace(/\*\*([a-zA-Z0-9_-]+)\*\*/g, '<strong><a href="&#x2F;u&#x2F;$1" class="username-link">$1</a></strong>');
+
 		// Strikethrough: ~~text~~ -> <del>text</del> (or <s>text</s>)
 		// The regex /~~(.*?)~~/g finds all instances of text wrapped in double tildes.
 		htmlText = htmlText.replace(/~~(.*?)~~/g, '<del>$1</del>');
@@ -122,5 +127,14 @@
 		word-wrap: break-word;
 		overflow-wrap: break-word;
 		max-width: 100%;
+	}
+
+	.notification-item :global(.username-link) {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.notification-item :global(.username-link:hover) {
+		text-decoration: underline;
 	}
 </style>

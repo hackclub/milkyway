@@ -7,7 +7,7 @@ import { notifyUser } from '$lib/server/notifications.js';
 export async function POST({ request, locals }) {
 	try {
 		if (!locals.user) {
-			return json({ success: false, error: 'Not authenticated' }, { status: 401 });
+			return json({ success: false, error: 'Not authenticated. Please log in to place sticky notes.' }, { status: 401 });
 		}
 
 		const { targetUsername, x, y, flipped } = await request.json();
@@ -19,7 +19,7 @@ export async function POST({ request, locals }) {
 		// Prevent placing sticky notes on your own room
 		if (targetUsername === locals.user.username) {
 			return json(
-				{ success: false, error: 'You cannot place sticky notes on your own room' },
+				{ success: false, error: 'You cannot place sticky notes on your own room!' },
 				{ status: 403 }
 			);
 		}

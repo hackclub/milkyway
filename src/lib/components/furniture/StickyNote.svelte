@@ -7,6 +7,7 @@
 	let isEditing = $state(mode === 'edit');
 	let message = $derived(noteData.message || '');
 	let isSaving = $state(false);
+	let saveStatus = $state('');
 
 	const canEdit = $derived(currentUser && currentUser.recId === noteData.author);
 	const canDelete = $derived(
@@ -32,6 +33,7 @@
 		}
 
 		isSaving = true;
+		saveStatus = 'Saving your note...';
 		try {
 			const updatedData = {
 				message: message.trim(),
@@ -56,16 +58,22 @@
 			if (result.success) {
 				noteData = updatedData;
 				isEditing = false;
-				reloadPage();
+				saveStatus = 'Saved! Refreshing page...';
+				// Small delay to show the success message
+				setTimeout(() => {
+					reloadPage();
+				}, 500);
 			} else {
 				console.error('Failed to save sticky note:', result.error);
+				isSaving = false;
+				saveStatus = '';
 				alert(`Failed to save sticky note: ${result.error || 'Please try again.'}`);
 			}
 		} catch (error) {
 			console.error('Error saving sticky note:', error);
-			alert('Error saving sticky note. Please try again.');
-		} finally {
 			isSaving = false;
+			saveStatus = '';
+			alert('Error saving sticky note. Please try again.');
 		}
 	}
 
@@ -147,6 +155,13 @@
 </script>
 
 <div class="sticky-note-container">
+	{#if isSaving}
+		<div class="saving-overlay">
+			<div class="saving-spinner">⏳</div>
+			<div class="saving-message">{saveStatus}</div>
+		</div>
+	{/if}
+	
 	{#if isEditing}
 		<div class="sticky-note-edit">
 			<h3>Write your message!!</h3>
@@ -156,7 +171,7 @@
 			<div class="edit-buttons">
 				<button class="cancel-btn" onclick={handleCancel} disabled={isSaving}> Cancel </button>
 				<button class="save-btn" onclick={saveNote} disabled={isSaving}>
-					{isSaving ? 'Saving...' : 'Save Note'}
+					Save Note
 				</button>
 			</div>
 		</div>
@@ -192,6 +207,7 @@
 
 <style>
 	.sticky-note-container {
+		position: relative;
 		background: linear-gradient(135deg, #fef9c7 0%, #fef1a8 100%);
 		border: 3px solid #f7c881;
 		border-radius: 4px;
@@ -200,6 +216,45 @@
 		max-width: 400px;
 		box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.2);
 		font-family: 'Futura', sans-serif;
+	}
+
+	.saving-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(254, 249, 199, 0.95);
+		backdrop-filter: blur(2px);
+		border-radius: 4px;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		gap: 15px;
+		z-index: 1000;
+		pointer-events: all;
+	}
+
+	.saving-spinner {
+		font-size: 48px;
+		animation: spin 2s linear infinite;
+	}
+
+	.saving-message {
+		font-size: 1.2rem;
+		font-weight: bold;
+		color: #333;
+		text-align: center;
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	.sticky-note-edit h3 {
