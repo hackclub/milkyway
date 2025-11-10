@@ -11,6 +11,7 @@ import SpinWheel from '$lib/components/prompts/roulette/SpinWheel.svelte';
 import CreateProject from '$lib/components/CreateProject.svelte';
 import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 import Announcements from '$lib/components/Announcements.svelte';
+import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
 
 let { data } = $props();
 
@@ -32,6 +33,7 @@ let rouletteSpinProgress = $state(/** @type {any} */ (null));
 let isCreateOpen = $state(false);
 let showShipOverlay = $state(false);
 let shipProjectInfo = $state(/** @type {any} */ (null));
+let showFurnitureSidebar = $state(false);
 
 
 // Calculate total hours and project count
@@ -274,12 +276,22 @@ onMount(() => {
   <img src="/referrals.png" alt="Referrals" />
 </a>
 
+<!-- Furniture Sidebar - Rendered at page level so it appears on top -->
+{#if showFurnitureSidebar}
+  <FurnitureSidebar 
+    bind:furnitureList={furnitureList}
+    {user}
+    onClose={() => { showFurnitureSidebar = false }}
+  />
+{/if}
+
 <!-- Your Room -->
 <div class="user-room">
   <Room 
     bind:projectList={projectList}
     bind:furnitureList={furnitureList}
     bind:isCreateOpen={isCreateOpen}
+    bind:showFurnitureSidebar={showFurnitureSidebar}
     {user}
     onShowPromptPopup={showPromptPopupHandler}
     onOpenRouletteSpin={openRouletteSpinHandler}

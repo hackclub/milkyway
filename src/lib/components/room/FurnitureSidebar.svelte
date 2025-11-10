@@ -352,7 +352,7 @@ onMount(() => {
 .furniture-sidebar {
   position: fixed;
   top: 0;
-  right: -150px;
+  right: 0;
   width: 450px;
   height: 100vh;
   background-color: #FBF2BF;
@@ -623,6 +623,8 @@ onMount(() => {
     height: 50vh;
     bottom: 0;
     top: auto;
+    right: 0;
+    left: 0;
     border-left: none;
     border-top: 4px solid #F7C881;
   }

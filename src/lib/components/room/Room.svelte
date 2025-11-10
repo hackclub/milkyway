@@ -3,7 +3,6 @@ import FloorTile from '$lib/components/FloorTile.svelte';
 import ProjectEgg from '$lib/components/room/ProjectEgg.svelte';
 import FurnitureItem from '$lib/components/room/FurnitureItem.svelte';
 import ExpandableButton from '$lib/components/ExpandableButton.svelte';
-import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
 
 let {
   projectList = $bindable([]),
@@ -17,11 +16,11 @@ let {
   readOnly = false,
   selectedProjectId = null,
   onSelectProject = null,
-  hideControls = false
+  hideControls = false,
+  showFurnitureSidebar = $bindable(false)
 } = $props();
 
 let isEditingRoom = $state(false);
-let showFurnitureSidebar = $state(false);
 let selectedEggForMove = $state(null);
 let selectedFurnitureForMove = $state(null);
 
@@ -662,16 +661,6 @@ function handleFurnitureUpdate(updatedFurnitureList) {
       </div>
     {/if}
   {/if}
-
-  <!-- Furniture Sidebar -->
-  {#if showFurnitureSidebar}
-    <FurnitureSidebar 
-      bind:furnitureList={furnitureList}
-      {user}
-      onClose={() => { showFurnitureSidebar = false }}
-    />
-  {/if}
-
 
 </div>
 
