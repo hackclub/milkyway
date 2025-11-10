@@ -23,6 +23,39 @@ export async function getListOfShopItems() {
   }));
 }
 
+export async function getListOfShopVotingItems() {
+  // Try to sort by a custom order field first, then fall back to name
+  let records;
+ 
+    records = await base('ShopVoting').select({
+      sort: [{ field: 'votes', direction: 'desc' }]
+    }).all();
+  
+  
+  return records.map(record => ({
+    id: record.id,
+    name: record.fields.name,
+    image: record.fields.image,
+    description: record.fields.description,
+    votes: record.fields.votes,
+    maxVotes: record.fields.maxVotes
+  }));
+}
+
+export async function getUserVotes(userId) {
+  try {
+    const record = await base('User').find(userId);
+      return {
+        id: record.id,
+        votes: record.fields.votes
+      };
+
+  } catch (error) {
+    console.error('Error fetching user votes:', error);
+    return [];
+  }
+}
+
 /**
  * Get a single shop item by ID
  * @param {string} shopItemId - The shop item's record ID
@@ -41,6 +74,27 @@ export async function getShopItem(shopItemId) {
       description: record.fields.description,
       type: record.fields.type,
       one_time: Boolean(record.fields['one-time'] || record.fields.one_time)
+    };
+  } catch (error) {
+    console.error('Error fetching shop item:', error);
+    throw new Error('Shop item not found');
+  }
+}
+
+/**
+ * Get a single shop item by ID
+ * @param {string} voteItemId - The shop item's record ID
+ * @returns {Promise<Object>} Shop item object
+ */
+export async function getVoteItem(voteItemId) {
+  try {
+    const record = await base('ShopVoting').find(voteItemId);
+    return {
+      id: record.id,
+      name: record.fields.name,
+      image: record.fields.image,
+      description: record.fields.description,
+      votes: record.fields.votes,
     };
   } catch (error) {
     console.error('Error fetching shop item:', error);
@@ -232,6 +286,8 @@ export async function createPurchase(userEmail, itemId, costs) {
   }
 }
 
+
+
 /**
  * Get user's purchase history
  * @param {string} userEmail - The user's email address
@@ -402,6 +458,84 @@ export async function completePurchase(userId, userEmail, itemId) {
       return {
         success: true,
         purchase,
+        currency: updatedCurrency,
+        item: shopItem
+      };
+    } catch (purchaseError) {
+      // ROLLBACK: If purchase recording fails, restore the user's currency
+      console.error('Purchase recording failed, rolling back currency:', purchaseError);
+      
+      try {
+        await rollbackCurrency(userId, costs);
+        console.log('Currency rollback successful');
+      } catch (rollbackError) {
+        console.error('CRITICAL: Currency rollback failed:', rollbackError);
+        // This is a critical error - user lost money but purchase wasn't recorded
+        // In production, you'd want to alert administrators
+      }
+      
+      throw purchaseError; // Re-throw the original error
+    }
+  } catch (error) {
+    console.error('Error completing purchase:', error);
+    throw error;
+  }
+}
+
+/**
+ * Complete a vote: deduct currency and record purchase
+ * @param {string} userId - The user's record ID
+ * @param {string} userEmail - The user's email address
+ * @param {string} itemId - The shop item's record ID
+ * @param {number} voteAmount - The amount of votes to purchase
+ * @returns {Promise<any>} Purchase result with updated currency
+ */
+export async function completeVote(userId, userEmail, itemId, voteAmount) {
+  try {
+    // SECURITY: Check for duplicate purchases within 30 seconds
+    const isDuplicate = await checkDuplicatePurchase(userEmail, itemId);
+    if (isDuplicate) {
+      throw new Error('Duplicate purchase detected. Please wait before purchasing the same item again.');
+    }
+
+    // Get shop item details
+    /** @type {any} */
+    const shopItem = await getVoteItem(itemId);
+    
+    // SECURITY: Validate item exists and has valid pricing
+    if (!shopItem) {
+      throw new Error('Invalid item');
+    }
+
+    
+    // Check if user has sufficient currency (fresh check)
+    const userCurrency = await getUserCurrency(userId);
+
+    
+    
+    if (userCurrency.coins < voteAmount ) {
+      throw new Error('Insufficient currency');
+    }
+     const costs = {
+      coins_cost: Number(voteAmount),
+      stellarships_cost: Number(0),
+      paintchips_cost: Number(0)
+    };
+    // SECURITY: Atomic transaction - deduct currency first, then record purchase
+    // If purchase recording fails, we'll rollback the currency
+    const updatedCurrency = await deductCurrency(userId, costs);
+
+
+    
+    try {
+      // Record purchase
+
+      const vote = (await base('ShopVoting').find(itemId)).updateFields({
+        votes: (shopItem.votes || 0) + voteAmount
+      });
+      
+      return {
+        success: true,
         currency: updatedCurrency,
         item: shopItem
       };

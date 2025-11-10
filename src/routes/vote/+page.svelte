@@ -1,29 +1,37 @@
 <script>
-import { onMount } from 'svelte';
+import { onMount, onDestroy } from 'svelte';
 
 let { data } = $props();
 
-let shopItems = $state(/** @type {any[]} */ ([]));
+let votingItems = $state(/** @type {any[]} */ ([]));
 let userCurrency = $state({ coins: 0, stellarships: 0, paintchips: 0 });
 let isLoading = $state(true);
-let isPurchasing = $state(false);
-let purchaseConfirmation = $state(/** @type {{item: any, message: string, canAfford: boolean} | null} */ (null));
+let isVoting = $state(false);
+let voteConfirmation = $state(/** @type {{item: any, message: string} | null} */ (null));
+let voteAmount = $state(1);
+const remainingVotes = $derived(voteConfirmation ? Math.max(0, (voteConfirmation.item?.maxVotes || 0) - (voteConfirmation.item?.votes || 0)) : 0);
 
 // Check if user is logged in
 let isLoggedIn = $state(!!data.user);
 
-// Filter items by type
-const prizesItems = $derived(shopItems.filter(item => item.type === 'prizes'));
-const furnitureItems = $derived(shopItems.filter(item => item.type === 'furniture'));
-
-async function loadShopData() {
+async function loadVotingData() {
   try {
-    // Load shop items
-    const shopResponse = await fetch('/api/get-shop-items');
+    // Check if voting is closed (Monday EST)
+    const now = new Date();
+    const estWeekday = getESTWeekday(now);
+    const isClosed = estWeekday === 1; // Monday = 1
     
-    if (shopResponse.ok) {
-      const shopResult = await shopResponse.json();
-      shopItems = shopResult.shopItems || [];
+    // Only load voting items if voting is open
+    if (!isClosed) {
+      const voteResponse = await fetch('/api/get-shop-vote-items')
+      if (voteResponse.ok) {
+        const voteResult = await voteResponse.json();
+        votingItems = voteResult.shopItems || [];
+      }
+      console.log('Voting Items:', votingItems);
+    } else {
+      // Clear voting items when closed
+      votingItems = [];
     }
 
     // Get user currency only if logged in
@@ -35,58 +43,48 @@ async function loadShopData() {
       };
     }
   } catch (error) {
-    console.error('Error loading shop data:', error);
+    console.error('Error loading voting data:', error);
   } finally {
     isLoading = false;
   }
 }
 
-function canAfford(/** @type {any} */ item) {
-  if (!isLoggedIn) return false; // Can't afford anything if not logged in
-  return (userCurrency.coins >= (item.coins_cost || 0)) &&
-         (userCurrency.stellarships >= (item.stellarships_cost || 0)) &&
-         (userCurrency.paintchips >= (item.paintchips_cost || 0));
-}
-
-function isOneTimeItem(/** @type {any} */ item) {
-  return Boolean(item.one_time);
-}
-
-function showPurchaseConfirmation(/** @type {any} */ item) {
+function showVoteConfirmation(/** @type {any} */ item) {
   if (!isLoggedIn) {
     // Redirect to login page
     window.location.href = '/';
     return;
   }
   
-  const totalCost = [];
-  if (item.coins_cost) totalCost.push(`${item.coins_cost} coins`);
-  if (item.stellarships_cost) totalCost.push(`${item.stellarships_cost} stellarships`);
-  if (item.paintchips_cost) totalCost.push(`${item.paintchips_cost} paintchips`);
+  if (isVotingClosed) {
+    return; // Don't allow voting when closed
+  }
   
-  purchaseConfirmation = {
+  voteAmount = 1; // Reset to 1 when opening
+  
+  voteConfirmation = {
     item,
-    message: `Are you sure you want to spend ${totalCost.join(', ')} on ${item.name}?`,
-    canAfford: canAfford(item)
+    message: `how many votes would you like to make for ${item.name} \n`,
   };
 }
 
-function hidePurchaseConfirmation() {
-  purchaseConfirmation = null;
+function hideVoteConfirmation() {
+  voteConfirmation = null;
 }
 
-async function confirmPurchase() {
-  if (!purchaseConfirmation || !purchaseConfirmation.canAfford) return;
+async function confirmVote() {
+  if (!voteConfirmation || voteAmount > userCurrency.coins) return;
   
-  isPurchasing = true;
+  isVoting = true;
   try {
-    const response = await fetch('/api/purchase-item', {
+    const response = await fetch('/api/vote-item', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        itemId: purchaseConfirmation.item.id
+        itemId: voteConfirmation.item.id,
+        voteAmount: voteAmount
       })
     });
 
@@ -96,37 +94,133 @@ async function confirmPurchase() {
       // Update user currency
       userCurrency = result.currency;
       // Show success message (you could add a toast notification here)
-      alert(`Successfully purchased ${purchaseConfirmation.item.name}!`);
+      alert(`Successfully voted for ${voteConfirmation.item.name}!`);
+      // Reload voting data to update vote counts
+      await loadVotingData();
     } else {
-      alert(`Purchase failed: ${result.error.message}`);
+      alert(`Vote failed: ${result.error.message}`);
     }
   } catch (error) {
-    console.error('Purchase error:', error);
-    alert('Purchase failed. Please try again.');
+    console.error('Vote error:', error);
+    alert('Vote failed. Please try again.');
   } finally {
-    isPurchasing = false;
-    hidePurchaseConfirmation();
+    isVoting = false;
+    hideVoteConfirmation();
   }
 }
 
-onMount(loadShopData);
+onMount(loadVotingData);
+
+// Countdown until midnight EST on Sunday (end of Sunday = Monday 00:00 EST)
+/** @type {string} */
+let countdown = $state('00:00:00');
+/** @type {ReturnType<typeof setInterval> | null} */
+let _countdownInterval = null;
+
+/**
+ * @param {Date} date
+ * @returns {{year:number,month:number,day:number,hour:number,minute:number,second:number}}
+ */
+function getESTPartsFor(date) {
+    /** @type {Intl.DateTimeFormat} */
+    const fmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+        hour12: false
+    });
+    /** @type {any} */
+    const parts = fmt.formatToParts(date).reduce((/** @type {any} */ acc, p) => {
+        if (p.type !== 'literal') acc[p.type] = Number(p.value);
+        return acc;
+    }, {});
+    return parts;
+}
+
+/** @param {Date} date */
+function getESTWeekday(date) {
+    const s = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(date);
+    /** @type {Record<string, number>} */
+    const map = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+    return map[s] ?? 0;
+}
+
+function computeCountdownString() {
+    const now = Date.now();
+    const nowDate = new Date(now);
+
+    // Determine EST weekday for "now"
+    const estWeekday = getESTWeekday(nowDate);
+    // If it's Monday, count to Tuesday (when voting opens). Otherwise count to Monday (when voting closes)
+    const targetWeekday = estWeekday === 1 ? 2 : 1; // Tuesday if Monday, otherwise Monday
+    let daysUntil = (targetWeekday - estWeekday + 7) % 7;
+    if (daysUntil === 0) daysUntil = 7; // next week's target day
+
+    const targetDayInstant = new Date(now + daysUntil * 24 * 60 * 60 * 1000);
+    const estParts = getESTPartsFor(targetDayInstant);
+
+    // estParts gives the EST date for the target day; compute timezone offset for that day
+    const candidateUtcForSample = Date.UTC(estParts.year, estParts.month - 1, estParts.day, estParts.hour || 0, estParts.minute || 0, estParts.second || 0);
+    const tzOffsetMs = candidateUtcForSample - targetDayInstant.getTime();
+
+    // Build midnight EST for that EST date (00:00:00) and convert to UTC epoch
+    const targetUtc = Date.UTC(estParts.year, estParts.month - 1, estParts.day, 0, 0, 0) - tzOffsetMs;
+
+    let diffMs = targetUtc - now;
+    if (diffMs < 0) diffMs = 0;
+
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const dd = String(days).padStart(2, '0');
+    const hh = String(hours).padStart(2, '0');
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+    return `${dd}:${hh}:${mm}:${ss}`;
+}
+
+// Check if it's currently Monday EST (voting is closed on Monday)
+let isVotingClosed = $state(false);
+
+function updateVotingStatus() {
+    const now = new Date();
+    const estWeekday = getESTWeekday(now);
+    isVotingClosed = estWeekday === 1; // Monday = 1
+}
+
+function startCountdown() {
+    countdown = computeCountdownString();
+    updateVotingStatus();
+    _countdownInterval = setInterval(() => {
+        countdown = computeCountdownString();
+        updateVotingStatus();
+    }, 1000); // update every second
+}
+
+onMount(() => {
+    startCountdown();
+});
+
+onDestroy(() => {
+    if (_countdownInterval) clearInterval(_countdownInterval);
+});
 </script>
 
 <svelte:head>
-  <title>Shop ✦ Milkyway</title>
+  <title>Vote ✦ Milkyway</title>
 </svelte:head>
 
-<main class="shop-page">
-    
-
-
+<main class="vote-page">
     <div class="axolotl-container">
         <img class="axolotl-top" src="/prompts/axolotl.png" alt="axolotl up top"/>
         <a class="back-button" href="/home">← back</a>
-        <div class="shop-title">
-            <h1>welcome to the shop!</h1>
+        <div class="vote-title">
+            <h1>vote for shop items!</h1>
             {#if isLoggedIn}
-                <div class="shop-header-controls">
+                <div class="vote-header-controls">
                     <div class="user-currency">
                         <div class="currency-item">
                             <img src="/coin.png" alt="coin" class="currency-icon" />
@@ -141,38 +235,44 @@ onMount(loadShopData);
                             <span>{userCurrency.paintchips}</span>
                         </div>
                     </div>
-                    <a href="/cart" class="cart-button">
-                        📦 order history
-                    </a>
                 </div>
             {:else}
                 <div class="login-prompt">
-                    <p class="login-message">🔒 <a href="/">Log in</a> to purchase items and view your currency</p>
+                    <p class="login-message">🔒 <a href="/">Log in</a> to vote and view your currency</p>
                 </div>
             {/if}
         </div>
     
         <!-- Tab Navigation -->
         <div class="tab-navigation">
-            <a href="/shop" class="tab-button active">
+            <a href="/shop" class="tab-button">
                 prizes
             </a>
-            <a href="/vote" class="tab-button">
+            <a href="/vote" class="tab-button active">
                 vote
             </a>
         </div>
     
-        <div class="shop-items-container">
+        <div class="vote-items-container">
             {#if isLoading}
                 <div class="loading-message">
-                    <p>Loading shop items...</p>
+                    <p>Loading voting items...</p>
                 </div>
-            {:else if prizesItems.length > 0}
-                {#each prizesItems as item}
-                    <div class="shop-item">
+            {:else}
+                <div class="timer-item">
+                    <div class="timer">{countdown}</div>
+                    {#if isVotingClosed}
+                        <p>Time until voting opens</p>
+                    {:else}
+                        <p>use coins to vote on items that will be added to the shop next week.</p>
+                        <p>The top five items with more than 10 votes will be selected. (Ones that lost will be back in the voting next week!)</p>
+                    {/if}
+                </div>
+                {#each votingItems as item}
+                    <div class="vote-item" class:completed={item.votes >= item.maxVotes}>
                         <div class="item-image">
                             {#if item.image && Array.isArray(item.image) && item.image.length > 0 && item.image[0] && typeof item.image[0] === 'object' && 'url' in item.image[0]}
-                                <img src={item.image[0].url} alt={String(item.name || 'Shop item')} />
+                                <img src={item.image[0].url} alt={String(item.name || 'Vote item')} />
                             {:else}
                                 <div class="placeholder-image">No Image</div>
                             {/if}
@@ -180,75 +280,55 @@ onMount(loadShopData);
                         <div class="item-info">
                             <div class="item-header">
                                 <h3 class="item-name">{item.name}</h3>
-                        {#if isOneTimeItem(item)}
-                            <div class="one-time-badge" role="img" aria-label="One-time purchase item">one-time only</div>
-                        {/if}
                             </div>
                             <p class="item-description">{item.description}</p>
                         <div class="item-pricing">
-                            {#if item.coins_cost}
-                                <span class="price coins">
-                                    <img src="/coin.png" alt="coin" class="currency-icon" />
-                                    {item.coins_cost}
-                                </span>
-                            {/if}
-                            {#if item.stellarships_cost}
-                                <span class="price stellarships">
-                                    <img src="/stellarship.png" alt="stellarship" class="currency-icon" />
-                                    {item.stellarships_cost}
-                                </span>
-                            {/if}
-                            {#if item.paintchips_cost}
-                                <span class="price paintchips">
-                                    <img src="/paintchip.png" alt="paintchip" class="currency-icon" />
-                                    {item.paintchips_cost}
-                                </span>
-                            {/if}
+                            <div class="vote-progress">
+                                <div class="vote-progress-bar">
+                                    <div
+                                        class="vote-progress-fill"
+                                        style="width: {item.maxVotes ? Math.min(100, Math.max(0, ((item.votes || 0) / item.maxVotes) * 100)) : 0}%"
+                                    ></div>
+                                </div>
+                                <span class="vote-progress-number">{item.votes || 0} / {item.maxVotes || 0}</span>
+                            </div>
                         </div>
                         {#if !isLoggedIn}
                             <button 
-                                class="shop-button login-button" 
+                                class="vote-button login-button" 
                                 onclick={() => window.location.href = '/'}
+                                disabled={isVotingClosed}
                             >
-                                log in to purchase
-                            </button>
-                        {:else if canAfford(item)}
-                            <button 
-                                class="shop-button purchase-button" 
-                                onclick={() => showPurchaseConfirmation(item)}
-                            >
-                                purchase
+                                log in to vote
                             </button>
                         {:else}
-                            <button class="shop-button disabled-button" disabled>
-                                insufficient funds
+                            <button 
+                                class="vote-button vote-action-button" 
+                                onclick={() => showVoteConfirmation(item)}
+                                disabled={isVotingClosed}
+                            >
+                                vote!
                             </button>
                         {/if}
+                        </div>
+                        
                     </div>
-                </div>
                 {/each}
-                <div class="coming-soon-message">
-                    <p>+ more items coming soon...</p>
-                </div>
-            {:else}
-                <div class="no-items-message">
-                    <p>No items available at the moment.</p>
-                </div>
             {/if}
         </div>
         
     </div>
 
-    <!-- Purchase Confirmation Modal -->
-    {#if purchaseConfirmation}
+    <!-- Vote Confirmation Modal -->
+    {#if voteConfirmation}
         <div 
             class="modal-overlay"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
             tabindex="-1"
-            onclick={hidePurchaseConfirmation}
-            onkeydown={(e) => e.key === 'Escape' && hidePurchaseConfirmation()}
+            onclick={hideVoteConfirmation}
+            onkeydown={(e) => e.key === 'Escape' && hideVoteConfirmation()}
             style="cursor: pointer;"
         >
             <div 
@@ -256,25 +336,41 @@ onMount(loadShopData);
                 role="document"
                 onclick={(e) => e.stopPropagation()}
             >
-                <h3 id="modal-title">Confirm Purchase</h3>
-                <p>{purchaseConfirmation.message}</p>
-                {#if !purchaseConfirmation.canAfford}
-                    <p class="insufficient-funds">You don't have enough currency for this purchase.</p>
-                {/if}
+                <h3 id="modal-title">Confirm Vote</h3>
+                <p>{voteConfirmation.message}</p>
+                <div class="vote-costs"> 
+                    <span class="price vote">
+                        <img src="/coin.png" alt="coin" class="currency-icon" />
+                        <input 
+                            type="number"
+                            min="1"
+                            value={voteAmount}
+                            disabled={Math.max(0, (voteConfirmation.item?.maxVotes || 0) - (voteConfirmation.item?.votes || 0)) === 0}
+                            oninput={(e) => {
+                                const raw = Number(e.currentTarget.value);
+                                const clamped = Math.max(1, isNaN(raw) ? 1 : raw);
+                                voteAmount = clamped;
+                                e.currentTarget.value = String(clamped);
+                            }}
+                            required
+                        />
+                    </span>
+                </div>
+                
                 <div class="modal-buttons">
                     <button 
                         class="modal-button cancel-button" 
-                        onclick={hidePurchaseConfirmation}
-                        disabled={isPurchasing}
+                        onclick={hideVoteConfirmation}
+                        disabled={isVoting}
                     >
                         cancel
                     </button>
                     <button 
                         class="modal-button confirm-button" 
-                        onclick={confirmPurchase}
-                        disabled={!purchaseConfirmation.canAfford || isPurchasing}
+                        onclick={confirmVote}
+                        disabled={ isVoting || userCurrency.coins < voteAmount}
                     >
-                        {isPurchasing ? 'purchasing...' : 'confirm'}
+                        {isVoting ? 'voting...' : 'confirm'}
                     </button>
                 </div>
             </div>
@@ -284,19 +380,17 @@ onMount(loadShopData);
 </main>
 
 <style>
-        main {
-    background-image: url("/milkyway bg.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    min-height: 100vh;
-    width: 100%;
-    box-sizing: border-box;
-
-    position: relative;
-
-    overflow-y: auto;
-    overflow-x: hidden;
+    main {
+        background-image: url("/milkyway bg.png");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        min-height: 100vh;
+        width: 100%;
+        box-sizing: border-box;
+        position: relative;
+        overflow-y: auto;
+        overflow-x: hidden;
     }
 
     .axolotl-container {
@@ -305,12 +399,12 @@ onMount(loadShopData);
         align-items: center;
         justify-content: center;
     }
+
     .axolotl-top {
         margin: 0;
         padding: 0;
         display: block;
         height: 25vw;
-
     }
 
     .back-button {
@@ -320,23 +414,23 @@ onMount(loadShopData);
         color: white;
     }
 
-    .shop-title {
+    .vote-title {
         margin: 0;
-        border: 4px solid #E6819F;
-        background-color: #EED4D4;
+        border: 4px solid #5a9b5e;
+        background-color: #a0e7a4;
         padding: 24px;
         border-radius: 8px;
         width: 80%;
         text-align: center;
     }
 
-    .shop-title h1 {
+    .vote-title h1 {
         margin: 0 0 16px 0;
         font-family: "Futura", sans-serif;
-        color: #333;
+        color: #254627;
     }
 
-    .shop-header-controls {
+    .vote-header-controls {
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -354,7 +448,7 @@ onMount(loadShopData);
         align-items: center;
         gap: 6px;
         background-color: white;
-        border: 2px solid #E6819F;
+        border: 2px solid #5a9b5e;
         border-radius: 6px;
         padding: 8px 12px;
         font-family: "Futura", sans-serif;
@@ -369,11 +463,11 @@ onMount(loadShopData);
         filter: drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px 1px 0 white) drop-shadow(1px 1px 0 white);
     }
 
-    .cart-button {
+    .shop-link-button {
         padding: 8px 16px;
-        background-color: #73ACE0;
+        background-color: #E6819F;
         color: white;
-        border: 2px solid #5A9BD4;
+        border: 2px solid #D4708F;
         border-radius: 6px;
         text-decoration: none;
         font-family: "Futura", sans-serif;
@@ -383,9 +477,9 @@ onMount(loadShopData);
         white-space: nowrap;
     }
 
-    .cart-button:hover {
-        background-color: #5A9BD4;
-        border-color: #4A8BC4;
+    .shop-link-button:hover {
+        background-color: #D4708F;
+        border-color: #C46080;
         transform: translateY(-1px);
     }
 
@@ -407,7 +501,7 @@ onMount(loadShopData);
     }
 
     .login-message a {
-        color: #E6819F;
+        color: #5a9b5e;
         text-decoration: none;
         font-weight: 800;
     }
@@ -444,13 +538,13 @@ onMount(loadShopData);
     }
 
     .tab-button.active {
-        background-color: #E6819F;
+        background-color: #5a9b5e;
         color: white;
-        border-color: #E6819F;
+        border-color: #5a9b5e;
         transform: translateY(-1px);
     }
 
-    .shop-items-container {
+    .vote-items-container {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 20px;
@@ -460,7 +554,7 @@ onMount(loadShopData);
         padding: 20px;
     }
 
-    .shop-item {
+    .vote-item {
         background-color: #FBF2BF;
         border: 4px solid #F7C881;
         border-radius: 8px;
@@ -473,11 +567,54 @@ onMount(loadShopData);
         font-family: "Futura", sans-serif;
     }
 
-    .shop-item:hover {
+    .vote-item:hover {
         background-color: white;
         transform: translateY(-2px);
     }
 
+    .vote-item.completed {
+        background-color: #a0e7a4;
+        border-color: #5a9b5e;
+    }
+
+    .vote-item.completed:hover {
+        background-color: #b8f0bc;
+        border-color: #4a8b4e;
+    }
+
+    .timer {
+        background-color: #5a9b5e;
+        border: 4px solid #a0e7a4;
+        width: 100%;
+        border-radius: 8px;
+        padding: 16px;
+        text-align: center;
+        font-family: "Futura", sans-serif;
+        font-weight: 800;
+        color: #fff;
+        font-size: 1.6em;
+    }
+
+    .timer-item {
+        border: 4px solid #5a9b5e;
+        background-color: #a0e7a4;
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        color:#254627;
+        font-size: 1.2em;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        transition: all 0.2s ease;
+        font-family: "Futura", sans-serif;
+    }
+
+    .timer-item:hover {
+        background-color: white;
+        transform: translateY(-2px);
+    }
+    
     .item-info {
         width: 100%;
     }
@@ -527,18 +664,6 @@ onMount(loadShopData);
         line-height: 1.2;
     }
 
-    .one-time-badge {
-        background-color: #E6819F;
-        color: white;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 0.7em;
-        font-weight: 800;
-        font-family: "Futura", sans-serif;
-        display: inline-block;
-        margin-top: 4px;
-    }
-
     .item-description {
         margin: 0 0 12px 0;
         color: #666;
@@ -557,6 +682,50 @@ onMount(loadShopData);
         width: 100%;
     }
 
+    .vote-costs{
+        align-self: center;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        padding-bottom: 10px;
+    }
+
+    .vote-progress {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .vote-progress-bar {
+        width: 90%;
+        height: 20px;
+        background-color: #ffffffaa;
+        border: 2px solid #254627;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .vote-progress-fill {
+        height: 100%;
+        background-color: #5a9b5e;
+        border-right: 2px solid #3f6d43;
+        width: 0%;
+        transition: width 200ms ease;
+    }
+
+    .vote-progress-number {
+        font-family: "Futura", sans-serif;
+        font-weight: 800;
+        font-size: 0.85em;
+        color: #254627;
+        background-color: #a0e7a4;
+        border: 2px solid #5a9b5e;
+        border-radius: 6px;
+        padding: 2px 8px;
+    }
+
     .price {
         padding: 6px 10px;
         border-radius: 6px;
@@ -568,7 +737,6 @@ onMount(loadShopData);
         border: 2px solid white;
         font-family: "Futura", sans-serif;
     }
-    
 
     .currency-icon {
         width: 14px;
@@ -577,25 +745,15 @@ onMount(loadShopData);
         filter: drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white) drop-shadow(-1px 1px 0 white) drop-shadow(1px 1px 0 white);
     }
 
-    .price.coins {
-        background-color: #FBF2BF;
+    .price.vote {
+        background-color: #F7C881;
         color: #8B4513;
-        border-color: #F7C881;
+        border-color: #8B4513;
+        width: fit-content;
+        align-self: center;
     }
 
-    .price.stellarships {
-        background-color: #73ACE0;
-        color: #191970;
-        border-color: #5A9BD4;
-    }
-
-    .price.paintchips {
-        background-color: #FFD1DC;
-        color: #8B008B;
-        border-color: #FFB6C1;
-    }
-
-    .shop-button {
+    .vote-button {
         margin-top: 12px;
         padding: 8px 16px;
         border-radius: 8px;
@@ -607,23 +765,15 @@ onMount(loadShopData);
         cursor: pointer;
     }
 
-    .purchase-button {
-        border: 4px solid #E6819F;
-        background-color: #EED4D4;
-        color: #333;
+    .vote-action-button {
+        border: 4px solid #5a9b5e;
+        background-color: #a0e7a4;
+        color: #254627;
     }
 
-    .purchase-button:hover {
+    .vote-action-button:hover {
         background-color: white;
         transform: translateY(-1px);
-    }
-
-    .disabled-button {
-        border: 4px solid #ccc;
-        background-color: #f0f0f0;
-        color: #999;
-        cursor: not-allowed;
-        opacity: 0.6;
     }
 
     .login-button {
@@ -636,42 +786,6 @@ onMount(loadShopData);
         background-color: #F7C881;
         color: white;
         transform: translateY(-1px);
-    }
-
-    .disabled-button:hover {
-        transform: none;
-        background-color: #f0f0f0;
-    }
-
-    .no-items-message {
-        grid-column: 1 / -1;
-        text-align: center;
-        padding: 30px;
-        background-color: #ffffffaa;
-        border: 4px solid white;
-        border-radius: 8px;
-        color: #666;
-        font-style: italic;
-        font-size: 1em;
-        font-family: "Futura", sans-serif;
-    }
-
-    .coming-soon-message {
-        grid-column: 1 / -1;
-        text-align: center;
-        margin-top: 20px;
-        padding: 16px;
-        background-color: #ffffffaa;
-        border: 4px solid white;
-        border-radius: 8px;
-        color: #666;
-        font-family: "Futura", sans-serif;
-        font-weight: 500;
-    }
-
-    .coming-soon-message p {
-        margin: 0;
-        font-size: 0.9em;
     }
 
     .loading-message {
@@ -739,12 +853,6 @@ onMount(loadShopData);
         line-height: 1.4;
     }
 
-    .insufficient-funds {
-        color: #E6819F !important;
-        font-weight: 600;
-        margin-bottom: 20px !important;
-    }
-
     .modal-buttons {
         display: flex;
         gap: 12px;
@@ -775,14 +883,14 @@ onMount(loadShopData);
     }
 
     .confirm-button {
-        background-color: #E6819F;
-        border-color: #E6819F;
+        background-color: #5a9b5e;
+        border-color: #5a9b5e;
         color: white;
     }
 
     .confirm-button:hover:not(:disabled) {
-        background-color: #D4708F;
-        border-color: #D4708F;
+        background-color: #4a8b4e;
+        border-color: #4a8b4e;
         transform: translateY(-1px);
     }
 
@@ -803,12 +911,12 @@ onMount(loadShopData);
             top: 30vw;
         }
 
-        .shop-title {
+        .vote-title {
             width: 90%;
             padding: 20px;
         }
 
-        .shop-header-controls {
+        .vote-header-controls {
             flex-direction: column;
             gap: 16px;
             align-items: center;
@@ -820,7 +928,7 @@ onMount(loadShopData);
             gap: 12px;
         }
 
-        .shop-items-container {
+        .vote-items-container {
             width: 95%;
             grid-template-columns: 1fr;
         }
@@ -829,12 +937,6 @@ onMount(loadShopData);
             width: 95%;
             padding: 20px;
         }
-
-        .one-time-badge {
-            font-size: 0.65em;
-            padding: 1px 4px;
-            margin-top: 2px;
-        }
     }
-
 </style>
+
