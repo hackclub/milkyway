@@ -265,7 +265,7 @@ onDestroy(() => {
                         <p>Time until voting opens</p>
                     {:else}
                         <p>use coins to vote on items that will be added to the shop next week.</p>
-                        <p>The top five items with more than 10 votes will be selected. (Ones that lost will be back in the voting next week!)</p>
+                        <p>The top five items with more than 10 votes total will be added. (Ones that lost will be back in the voting next week!)</p>
                     {/if}
                 </div>
                 {#each votingItems as item}
