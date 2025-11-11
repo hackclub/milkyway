@@ -11,7 +11,6 @@
 	import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 	import Announcements from '$lib/components/Announcements.svelte';
 	import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
-	import Tamagotchi from '$lib/components/room/Tamagotchi.svelte';
 
 	let { data } = $props();
 
@@ -22,7 +21,6 @@
 	let stellarships = $state(data.stellarships || 0);
 	let paintchips = $state(data.paintchips || 0);
 	let showOnboarding = $state(!data.hasOnboarded);
-	let tamagotchi = $state(data.tamagotchi || null);
 	let user = $state(data.user); // Create separate state for user data
 	let showFaqPopup = $state(false);
 	let showPromptPopup = $state(false);
@@ -35,7 +33,6 @@
 	let showShipOverlay = $state(false);
 	let shipProjectInfo = $state(/** @type {any} */ (null));
 	let showFurnitureSidebar = $state(false);
-	let showTamagotchi = $state(false);
 
 	// Calculate total hours and project count
 	let totalHours = $derived(
@@ -284,20 +281,6 @@
 		<img src="/referrals.png" alt="Referrals" />
 	</a>
 
-	<!-- Tamagotchi -->
-	<button class="tamagotchi-button" onclick={() => (showTamagotchi = showTamagotchi = true)}>
-		<img src="mimi.png" alt="Mimi" />
-	</button>
-
-	{#if showTamagotchi}
-		<Tamagotchi
-			tamagotchiData={tamagotchi}
-			onClose={() => {
-				showTamagotchi = false;
-			}}
-		/>
-	{/if}
-
 	<!-- Furniture Sidebar - Rendered at page level so it appears on top -->
 	{#if showFurnitureSidebar}
 		<FurnitureSidebar
@@ -391,21 +374,6 @@
 		cursor: pointer;
 	}
 	.referral-button img {
-		display: block;
-		height: 150px;
-		width: auto;
-	}
-
-	.tamagotchi-button {
-		position: fixed;
-		top: 32px;
-		right: 200px;
-		z-index: 100;
-		background: none;
-		border: none;
-		padding: 0;
-	}
-	.tamagotchi-button img {
 		display: block;
 		height: 150px;
 		width: auto;

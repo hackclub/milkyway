@@ -1,8 +1,12 @@
 <script>
-	let { tamagotchiData = $bindable(), onClose } = $props();
+	import DevlogInterface from './tamagotchi/DevlogInterface.svelte';
+
+	let { tamagotchiData = $bindable() } = $props();
 
 	let inputName = $state(tamagotchiData?.name || '');
 	let points = $state(tamagotchiData?.points || 0);
+
+	let showDevlogInterface = $state(false);
 
 	async function createTamagotchi() {
 		const res = await fetch('/api/create-tamagotchi', {
@@ -31,9 +35,10 @@
 			tamagotchiData = data.tamagotchi;
 		}
 	}
+
+	async function handleDevlogSubmit(devlogData) {}
 </script>
 
-<div class="backdrop" onclick={() => onClose()}></div>
 <div class="tamagotchi-container">
 	<div>
 		<button onclick={() => createTamagotchi()} disabled={tamagotchiData}>Create Tamagotchi</button>
@@ -46,36 +51,31 @@
 			/>
 		</div>
 		<button onclick={() => updateTamagotchi(inputName)}>Update Tamagotchi</button>
+		<h4>Devlogs</h4>
+		<button
+			onclick={() => {
+				showDevlogInterface = true;
+			}}>Create Devlog</button
+		>
 	</div>
 </div>
 
+{#if showDevlogInterface}
+	<DevlogInterface
+		onClose={() => {
+			showDevlogInterface = false;
+		}}
+		onSubmit={handleDevlogSubmit}
+	/>
+{/if}
+
 <style>
 	.tamagotchi-container {
-		position: absolute;
-		display: flex;
 		background-color: #fbf2bf;
 		border: 3px solid #f7c881;
 		border-radius: 8px;
-		flex-direction: column;
 		gap: 16px;
 		padding: 16px;
 		align-items: center;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		z-index: 9999;
-	}
-
-	.backdrop {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: rgba(0, 0, 0, 0.5);
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		z-index: 9998;
 	}
 </style>

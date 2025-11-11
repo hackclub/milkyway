@@ -18,6 +18,7 @@ import ArtEasel from '$lib/components/furniture/ArtEasel.svelte';
 import ArcadeCabinet from '$lib/components/furniture/ArcadeCabinet.svelte';
 import BulletinBoard from '$lib/components/furniture/BulletinBoard.svelte';
 import StickyNote from '$lib/components/furniture/StickyNote.svelte';
+import Tamagotchi from '$lib/components/furniture/Tamagotchi.svelte';
 
 /** @type {FurnitureType[]} */
 export const FURNITURE_TYPES = [
@@ -66,6 +67,15 @@ export const FURNITURE_TYPES = [
 		isInteractable: true,
 		component: StickyNote,
 		wallOnly: true,
+		purchasable: false
+	},
+	{
+		type: 'tamagotchi',
+		name: 'tamagotchi',
+		cost: 0,
+		isInteractable: true,
+		component: Tamagotchi,
+		wallOnly: false,
 		purchasable: false
 	}
 ];
