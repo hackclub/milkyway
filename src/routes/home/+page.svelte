@@ -11,6 +11,7 @@
 	import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 	import Announcements from '$lib/components/Announcements.svelte';
 	import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
+	import Tamagotchi from '$lib/components/room/Tamagotchi.svelte';
 
 	let { data } = $props();
 
@@ -21,6 +22,7 @@
 	let stellarships = $state(data.stellarships || 0);
 	let paintchips = $state(data.paintchips || 0);
 	let showOnboarding = $state(!data.hasOnboarded);
+	let tamagotchi = $state(data.tamagotchi || null);
 	let user = $state(data.user); // Create separate state for user data
 	let showFaqPopup = $state(false);
 	let showPromptPopup = $state(false);
@@ -33,186 +35,196 @@
 	let showShipOverlay = $state(false);
 	let shipProjectInfo = $state(/** @type {any} */ (null));
 	let showFurnitureSidebar = $state(false);
+	let showTamagotchi = $state(false);
 
+	// Calculate total hours and project count
+	let totalHours = $derived(
+		Number(
+			projectList.reduce(
+				(/** @type {number} */ sum, /** @type {any} */ project) =>
+					sum + (project.totalHours || project.hours || 0),
+				0
+			)
+		)
+	);
+	let projectCount = $derived(projectList.length);
 
-// Calculate total hours and project count
-let totalHours = $derived(Number(projectList.reduce((/** @type {number} */ sum, /** @type {any} */ project) => sum + (project.totalHours || project.hours || 0), 0)));
-let projectCount = $derived(projectList.length);
+	// Function to handle prompt popup
+	/**
+	 * @param {string} promptInfo
+	 * @param {any} rouletteResults
+	 */
+	function showPromptPopupHandler(promptInfo, rouletteResults = null) {
+		currentPromptInfo = promptInfo;
+		currentRouletteResults = rouletteResults;
+		showPromptPopup = true;
+	}
 
-// Function to handle prompt popup
-/**
- * @param {string} promptInfo
- * @param {any} rouletteResults
- */
-function showPromptPopupHandler(promptInfo, rouletteResults = null) {
-  currentPromptInfo = promptInfo;
-  currentRouletteResults = rouletteResults;
-  showPromptPopup = true;
-}
+	// Function to handle roulette spinning from ProjectEgg
+	/**
+	 * @param {string} projectId
+	 * @param {any} existingProgress
+	 */
+	function openRouletteSpinHandler(projectId, existingProgress) {
+		rouletteSpinProjectId = projectId;
+		rouletteSpinProgress = existingProgress;
+		showRouletteSpinWheel = true;
+	}
 
-// Function to handle roulette spinning from ProjectEgg
-/**
- * @param {string} projectId
- * @param {any} existingProgress
- */
-function openRouletteSpinHandler(projectId, existingProgress) {
-  rouletteSpinProjectId = projectId;
-  rouletteSpinProgress = existingProgress;
-  showRouletteSpinWheel = true;
-}
+	// Function to handle roulette completion
+	/**
+	 * @param {any} updatedProject
+	 */
+	async function handleRouletteCompleted(updatedProject) {
+		// Update the project in the list
+		const index = projectList.findIndex(/** @param {any} p */ (p) => p.id === updatedProject.id);
+		if (index !== -1) {
+			projectList[index] = updatedProject;
+		}
+		showRouletteSpinWheel = false;
+	}
 
-// Function to handle roulette completion
-/**
- * @param {any} updatedProject
- */
-async function handleRouletteCompleted(updatedProject) {
-  // Update the project in the list
-  const index = projectList.findIndex(/** @param {any} p */ (p) => p.id === updatedProject.id);
-  if (index !== -1) {
-    projectList[index] = updatedProject;
-  }
-  showRouletteSpinWheel = false;
-}
+	// Function to handle roulette close
+	async function handleRouletteClose() {
+		// Refresh the project data
+		if (rouletteSpinProjectId) {
+			try {
+				const response = await fetch(`/api/projects?id=${rouletteSpinProjectId}`);
+				if (response.ok) {
+					const data = await response.json();
+					if (data.success && data.project) {
+						const index = projectList.findIndex(
+							/** @param {any} p */ (p) => p.id === data.project.id
+						);
+						if (index !== -1) {
+							projectList[index] = data.project;
+						}
+					}
+				}
+			} catch (error) {
+				console.error('Error refreshing project:', error);
+			}
+		}
+		showRouletteSpinWheel = false;
+	}
 
-// Function to handle roulette close
-async function handleRouletteClose() {
-  // Refresh the project data
-  if (rouletteSpinProjectId) {
-    try {
-      const response = await fetch(`/api/projects?id=${rouletteSpinProjectId}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.project) {
-          const index = projectList.findIndex(/** @param {any} p */ (p) => p.id === data.project.id);
-          if (index !== -1) {
-            projectList[index] = data.project;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error refreshing project:', error);
-    }
-  }
-  showRouletteSpinWheel = false;
-}
+	// Function to handle ship project
+	function handleShipProject(projectInfo) {
+		shipProjectInfo = projectInfo;
+		showShipOverlay = true;
+	}
 
-// Function to handle ship project
-function handleShipProject(projectInfo) {
-  shipProjectInfo = projectInfo;
-  showShipOverlay = true;
-}
+	// Function to handle ship project completion
+	async function handleShipProjectCompleted(projectData) {
+		console.log('Updating project with data:', projectData);
+		// Update the project in the list
+		const index = projectList.findIndex(/** @param {any} p */ (p) => p.id === projectData.id);
+		if (index !== -1) {
+			const updatedProject = {
+				...projectList[index],
+				shipped: true,
+				shippedDate: new Date().toISOString(),
+				egg: projectData.egg || projectList[index].egg,
+				status: projectData.status || projectList[index].status
+			};
+			console.log('Updating project at index', index, 'with egg:', updatedProject.egg);
+			projectList[index] = updatedProject;
+			// Force reactivity update
+			projectList = [...projectList];
+		} else {
+			console.log('Project not found in list:', projectData.id);
+		}
+		showShipOverlay = false;
+		shipProjectInfo = null;
+	}
 
-// Function to handle ship project completion
-async function handleShipProjectCompleted(projectData) {
-  console.log('Updating project with data:', projectData);
-  // Update the project in the list
-  const index = projectList.findIndex(/** @param {any} p */ (p) => p.id === projectData.id);
-  if (index !== -1) {
-    const updatedProject = { 
-      ...projectList[index], 
-      shipped: true, 
-      shippedDate: new Date().toISOString(),
-      egg: projectData.egg || projectList[index].egg,
-      status: projectData.status || projectList[index].status
-    };
-    console.log('Updating project at index', index, 'with egg:', updatedProject.egg);
-    projectList[index] = updatedProject;
-    // Force reactivity update
-    projectList = [...projectList];
-  } else {
-    console.log('Project not found in list:', projectData.id);
-  }
-  showShipOverlay = false;
-  shipProjectInfo = null;
-}
+	// Function to close ship overlay
+	function closeShipOverlay() {
+		showShipOverlay = false;
+		shipProjectInfo = null;
+	}
 
-// Function to close ship overlay
-function closeShipOverlay() {
-  showShipOverlay = false;
-  shipProjectInfo = null;
-}
+	// Function to handle logout
+	async function handleLogout() {
+		try {
+			// Call the server endpoint to delete the httpOnly cookie
+			await fetch('/api/logout', { method: 'POST' });
+			// Redirect to home page
+			window.location.href = '/';
+		} catch (error) {
+			console.error('Logout failed:', error);
+			// Still redirect even if logout fails
+			window.location.href = '/';
+		}
+	}
 
-// Function to handle logout
-async function handleLogout() {
-  try {
-    // Call the server endpoint to delete the httpOnly cookie
-    await fetch('/api/logout', { method: 'POST' });
-    // Redirect to home page
-    window.location.href = '/';
-  } catch (error) {
-    console.error('Logout failed:', error);
-    // Still redirect even if logout fails
-    window.location.href = '/';
-  }
-}
+	// Function to refresh user data after announcement rewards
+	async function handleAnnouncementRewards() {
+		try {
+			const response = await fetch('/api/get-user-data');
+			if (response.ok) {
+				const result = await response.json();
+				if (result.success) {
+					coins = result.coins;
+					stellarships = result.stellarships;
+					paintchips = result.paintchips;
+					furnitureList = result.furniture;
+				}
+			}
+		} catch (error) {
+			console.error('Error refreshing user data:', error);
+		}
+	}
 
-// Function to refresh user data after announcement rewards
-async function handleAnnouncementRewards() {
-  try {
-    const response = await fetch('/api/get-user-data');
-    if (response.ok) {
-      const result = await response.json();
-      if (result.success) {
-        coins = result.coins;
-        stellarships = result.stellarships;
-        paintchips = result.paintchips;
-        furnitureList = result.furniture;
-      }
-    }
-  } catch (error) {
-    console.error('Error refreshing user data:', error);
-  }
-}
+	// Function to refresh user data when profile is updated
+	async function handleUserUpdate() {
+		try {
+			const response = await fetch('/api/get-user-profile');
+			if (response.ok) {
+				const result = await response.json();
+				if (result.success) {
+					// Update the user state
+					user = result.user;
+				}
+			}
+		} catch (error) {
+			console.error('Error refreshing user data:', error);
+		}
+	}
 
-// Function to refresh user data when profile is updated
-async function handleUserUpdate() {
-  try {
-    const response = await fetch('/api/get-user-profile');
-    if (response.ok) {
-      const result = await response.json();
-      if (result.success) {
-        // Update the user state
-        user = result.user;
-      }
-    }
-  } catch (error) {
-    console.error('Error refreshing user data:', error);
-  }
-}
+	// Auto-update Hackatime hours in the background after page load
+	async function autoUpdateHackatimeHours() {
+		try {
+			const response = await fetch('/api/auto-update-hackatime', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
 
-// Auto-update Hackatime hours in the background after page load
-async function autoUpdateHackatimeHours() {
-  try {
-    const response = await fetch('/api/auto-update-hackatime', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.ok) {
-      const result = await response.json();
-      
-      if (result.success && !result.skipped && result.updatedCount > 0) {
-        // Refresh project list to get updated hours
-        const projectsResponse = await fetch('/api/get-user-data');
-        if (projectsResponse.ok) {
-          const userData = await projectsResponse.json();
-          if (userData.success && userData.projects) {
-            projectList = userData.projects;
-          }
-        }
-      } else if (result.skipped) {
-      }
-    }
-  } catch (error) {
-    // Silently fail - this is a background operation
-  }
-}
+			if (response.ok) {
+				const result = await response.json();
 
-// Run auto-update after page loads
-onMount(() => {
-  // Wait a bit to let the page load first, then update in background
+				if (result.success && !result.skipped && result.updatedCount > 0) {
+					// Refresh project list to get updated hours
+					const projectsResponse = await fetch('/api/get-user-data');
+					if (projectsResponse.ok) {
+						const userData = await projectsResponse.json();
+						if (userData.success && userData.projects) {
+							projectList = userData.projects;
+						}
+					}
+				} else if (result.skipped) {
+				}
+			}
+		} catch (error) {
+			// Silently fail - this is a background operation
+		}
+	}
+
+	// Run auto-update after page loads
+	onMount(() => {
+		// Wait a bit to let the page load first, then update in background
 		setTimeout(() => {
 			autoUpdateHackatimeHours();
 		}, 2000); // 2 second delay to not interfere with initial page load
@@ -271,6 +283,20 @@ onMount(() => {
 	<a href="/referrals" class="referral-button">
 		<img src="/referrals.png" alt="Referrals" />
 	</a>
+
+	<!-- Tamagotchi -->
+	<button class="tamagotchi-button" onclick={() => (showTamagotchi = showTamagotchi = true)}>
+		<img src="mimi.png" alt="Mimi" />
+	</button>
+
+	{#if showTamagotchi}
+		<Tamagotchi
+			tamagotchiData={tamagotchi}
+			onClose={() => {
+				showTamagotchi = false;
+			}}
+		/>
+	{/if}
 
 	<!-- Furniture Sidebar - Rendered at page level so it appears on top -->
 	{#if showFurnitureSidebar}
@@ -365,6 +391,21 @@ onMount(() => {
 		cursor: pointer;
 	}
 	.referral-button img {
+		display: block;
+		height: 150px;
+		width: auto;
+	}
+
+	.tamagotchi-button {
+		position: fixed;
+		top: 32px;
+		right: 200px;
+		z-index: 100;
+		background: none;
+		border: none;
+		padding: 0;
+	}
+	.tamagotchi-button img {
 		display: block;
 		height: 150px;
 		width: auto;
