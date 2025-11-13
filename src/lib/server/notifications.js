@@ -13,7 +13,6 @@ export async function notifyUser(userId, message) {
 	if (!message || typeof message !== 'string') {
 		throw new Error('Invalid message: must be a non-empty string');
 	}
-
 	try {
 		const userRecord = await base('User').find(userId);
 		let existingNotifications = [];

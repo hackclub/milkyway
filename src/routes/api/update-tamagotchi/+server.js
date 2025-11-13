@@ -12,10 +12,10 @@ export async function POST({ request, locals, cookies }) {
 
 		const userInfo = await getUserInfoBySessionId(cookies.get('sessionid'));
 
-		const { name, points } = await request.json();
+		const { name } = await request.json();
 
 		try {
-			await updateTamagotchi(userInfo.recId, { name, points });
+			await updateTamagotchi(userInfo.recId, { name });
 			const updatedTamagotchi = await getUserTamagotchi(userInfo.recId);
 			return json({
 				tamagotchi: updatedTamagotchi.fields

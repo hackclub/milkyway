@@ -36,7 +36,27 @@
 		}
 	}
 
-	async function handleDevlogSubmit(devlogData) {}
+	async function handleDevlogSubmit(formData) {
+		try {
+			const res = await fetch('/api/create-devlog', {
+				method: 'POST',
+				body: formData
+			});
+
+			const data = await res.json();
+
+			if (res.ok && data.success) {
+				console.log('Devlog created successfully:', data.devlog);
+				showDevlogInterface = false;
+			} else {
+				console.error('Failed to create devlog:', data.error);
+				alert(`Failed to create devlog: ${data.error || 'Unknown error'}`);
+			}
+		} catch (error) {
+			console.error('Error creating devlog:', error);
+			alert('Failed to create devlog. Please try again.');
+		}
+	}
 </script>
 
 <div class="tamagotchi-container">
