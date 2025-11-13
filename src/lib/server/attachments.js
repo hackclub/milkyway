@@ -1,24 +1,22 @@
-import { base } from './db.js';
-
 /**
- * Upload an image attachment to Airtable
+ * Upload an attachment (image, video, etc.) to Airtable
  * @param {string} recordId - The Airtable record ID
- * @param {string} attachmentFieldName - The field name for attachments (e.g., 'image')
- * @param {string} base64Image - Base64 encoded image data
+ * @param {string} attachmentFieldName - The field name for attachments (e.g., 'attachments')
+ * @param {string} base64DataUrl - Base64 data URL for the file
  * @param {string} filename - The filename for the attachment
- * @param {string} contentType - The MIME type of the image
+ * @param {string} contentType - The MIME type of the file (e.g., 'image/jpeg', 'video/mp4')
  * @returns {Promise<Object>} The uploaded attachment object
  */
 export async function uploadImageAttachment(
 	recordId,
 	attachmentFieldName,
-	base64Image,
+	base64DataUrl,
 	filename,
 	contentType = 'image/jpeg'
 ) {
 	try {
-		// Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
-		const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
+		// Remove generic data URL prefix if present (e.g., "data:image/jpeg;base64," or "data:video/mp4;base64,")
+		const base64Data = base64DataUrl.replace(/^data:[^;]+;base64,/, '');
 
 		// Get the base ID from environment
 		const baseId = process.env.AIRTABLE_BASE_ID;
@@ -64,8 +62,8 @@ export async function uploadImageAttachment(
 
 		return attachmentData;
 	} catch (error) {
-		console.error('Error uploading image attachment:', error);
-		throw new Error(`Failed to upload image: ${error.message}`);
+		console.error('Error uploading attachment:', error);
+		throw new Error(`Failed to upload attachment: ${error.message}`);
 	}
 }
 
@@ -95,9 +93,21 @@ export function getFirstAttachment(attachmentField) {
 	}
 
 	// If it's a single object, return it
-	if (typeof attachmentField === 'object' && attachmentField !== null) {
+	if (typeof attachmentField === 'object') {
 		return attachmentField;
 	}
 
 	return null;
 }
+
+/**
+ * Upload an attachment (alias) - forwards to uploadImageAttachment
+ * @deprecated Prefer uploadImageAttachment, this alias exists for clarity
+ */
+export const uploadAttachment = (
+	recordId,
+	attachmentFieldName,
+	base64DataUrl,
+	filename,
+	contentType
+) => uploadImageAttachment(recordId, attachmentFieldName, base64DataUrl, filename, contentType);

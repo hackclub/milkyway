@@ -3,13 +3,15 @@
 
 	let { onSubmit, onClose } = $props();
 
+	let photos = $state([]); // photos now can include images or videos
 	let title = $state('');
 	let description = $state('');
-	let photos = $state([]);
 	let isDragging = $state(false);
+	let isSubmitting = $state(false);
+	let submitError = $state('');
 
 	let projectsWithHours = $state([]);
-	let selectedProjects = new SvelteSet();
+	let selectedProjects = $state(new SvelteSet());
 	let isLoadingProjects = $state(false);
 	let noProjectsFound = $state(false);
 	let hackatimeUserNotFound = $state(false);
@@ -58,7 +60,7 @@
 		}
 	}
 
-	function toggleProject(projectId) {
+	function toggleProject(/** @type {string} */ projectId) {
 		if (selectedProjects.has(projectId)) {
 			selectedProjects.delete(projectId);
 		} else {
@@ -72,23 +74,30 @@
 		fetchProjectsWithHours();
 	});
 
-	function handleFileSelect(event) {
-		const files = Array.from(event.target.files);
+	function handleFileSelect(/** @type {Event} */ event) {
+		const input = /** @type {HTMLInputElement} */ (event.target);
+		const files = Array.from(input.files ?? []);
 		addPhotos(files);
 	}
 
-	function addPhotos(files) {
-		const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+	function addPhotos(/** @type {File[]} */ files) {
+		// accept images and videos only
+		const acceptedFiles = files.filter(
+			(file) => file.type.startsWith('image/') || file.type.startsWith('video/')
+		);
 
-		imageFiles.forEach((file) => {
+		acceptedFiles.forEach((file) => {
 			const reader = new FileReader();
 			reader.onload = (e) => {
+				const result = e.target?.result;
+				if (typeof result !== 'string') return;
 				photos = [
 					...photos,
 					{
 						file: file,
-						preview: e.target.result,
-						name: file.name
+						preview: result,
+						name: file.name,
+						type: file.type
 					}
 				];
 			};
@@ -96,28 +105,29 @@
 		});
 	}
 
-	function removePhoto(index) {
+	function removePhoto(/** @type {number} */ index) {
 		photos = photos.filter((_, i) => i !== index);
 	}
 
-	function handleDragOver(event) {
+	function handleDragOver(/** @type {DragEvent} */ event) {
 		event.preventDefault();
 		isDragging = true;
 	}
 
-	function handleDragLeave(event) {
+	function handleDragLeave(/** @type {DragEvent} */ event) {
 		event.preventDefault();
 		isDragging = false;
 	}
 
-	function handleDrop(event) {
+	function handleDrop(/** @type {DragEvent} */ event) {
 		event.preventDefault();
 		isDragging = false;
-		const files = Array.from(event.dataTransfer.files);
+		const files = Array.from(event.dataTransfer?.files ?? []);
 		addPhotos(files);
 	}
 
 	function handleSubmit() {
+		submitError = '';
 		if (!title.trim()) {
 			alert('please add a title!');
 			return;
@@ -134,29 +144,55 @@
 		}
 
 		if (photos.length === 0) {
-			alert('please add at least one photo!');
+			alert('please add at least one photo or video!');
 			return;
 		}
 
+		for (const p of photos) {
+			if (p.type.startsWith('video/') && p.file.size > 10 * 1024 * 1024) {
+				alert(`video ${p.name} is too large! please keep videos under 10mb.`);
+				return;
+			}
+		}
 		const formData = new FormData();
 		formData.append('title', title.trim());
 		formData.append('description', description.trim());
-
-		// add selected project IDs as comma-separated string
 		const projectIds = Array.from(selectedProjects).join(',');
 		formData.append('selectedProjects', projectIds);
-
 		photos.forEach((photo, index) => {
 			formData.append(`photo${index}`, photo.file);
 		});
-
 		if (onSubmit) {
-			onSubmit(formData);
+			isSubmitting = true;
+			Promise.resolve(onSubmit(formData))
+				.catch((e) => {
+					console.error(e);
+					submitError = 'failed to submit devlog. please try again.';
+				})
+				.finally(() => {
+					isSubmitting = false;
+				});
+		}
+	}
+
+	let fileInputEl; // bound to hidden file input for keyboard activation
+
+	function handleKeyDown(/** @type {KeyboardEvent} */ e) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			fileInputEl?.click();
 		}
 	}
 </script>
 
 <div class="devlog-container">
+	{#if isSubmitting}
+		<div class="loading-overlay">
+			<div class="spinner"></div>
+			<div class="loading-text">Creating devlog...</div>
+		</div>
+	{/if}
+
 	<button class="close-btn" onclick={() => onClose()}>×</button>
 
 	<h2>Create Devlog</h2>
@@ -185,7 +221,7 @@
 	</div>
 
 	<div class="form-section">
-		<label>Projects</label>
+		<div class="field-label">Projects</div>
 		{#if isLoadingProjects}
 			<div class="projects-loading">loading your projects...</div>
 		{:else if hackatimeUserNotFound}
@@ -231,25 +267,30 @@
 	</div>
 
 	<div class="form-section">
-		<label>Photos</label>
+		<div class="field-label">Photos or Videos</div>
 		<div
 			class="photo-upload-area"
 			class:dragging={isDragging}
+			role="button"
+			tabindex="0"
+			aria-label="drop photos or videos here"
 			ondragover={handleDragOver}
 			ondragleave={handleDragLeave}
 			ondrop={handleDrop}
+			onkeydown={handleKeyDown}
 		>
 			<input
 				type="file"
 				id="photo-input"
-				accept="image/*"
+				accept="image/*,video/*"
 				multiple
 				onchange={handleFileSelect}
 				style="display: none;"
+				bind:this={fileInputEl}
 			/>
 			<label for="photo-input" class="upload-label">
-				<p>drop photos here</p>
-				<span class="upload-hint">PNG, JPG, GIF up to 10mb</span>
+				<p>drop photos or videos here</p>
+				<span class="upload-hint">PNG, JPG, GIF, MP4, WebM, MOV up to 10mb</span>
 			</label>
 		</div>
 
@@ -257,7 +298,11 @@
 			<div class="photo-preview-grid">
 				{#each photos as photo, index (index)}
 					<div class="photo-preview-item">
-						<img src={photo.preview} alt={photo.name} />
+						{#if photo.type && photo.type.startsWith('video/')}
+							<video src={photo.preview} controls playsinline></video>
+						{:else}
+							<img src={photo.preview} alt={photo.name} />
+						{/if}
 						<button class="remove-photo-btn" onclick={() => removePhoto(index)}>×</button>
 						<div class="photo-name">{photo.name}</div>
 					</div>
@@ -267,9 +312,14 @@
 	</div>
 
 	<div class="button-group">
-		<button class="secondary-btn" onclick={() => onClose()}>Cancel</button>
-		<button class="primary-btn" onclick={handleSubmit}>Publish Devlog</button>
+		<button class="secondary-btn" onclick={() => onClose()} disabled={isSubmitting}>Cancel</button>
+		<button class="primary-btn" onclick={handleSubmit} disabled={isSubmitting}
+			>Publish Devlog</button
+		>
 	</div>
+	{#if submitError}
+		<div class="submit-error">{submitError}</div>
+	{/if}
 </div>
 
 <style>
@@ -453,6 +503,12 @@
 	}
 
 	.photo-upload-area {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		outline: none;
 		border: 3px dashed var(--orange);
 		border-radius: 12px;
 		padding: 32px;
@@ -461,9 +517,11 @@
 		background: white;
 	}
 
+	.photo-upload-area:focus-visible {
+		box-shadow: 0 0 0 3px rgba(247, 200, 129, 0.4);
+	}
+
 	.photo-upload-area.dragging {
-		border-color: #f0b563;
-		background: rgba(247, 200, 129, 0.1);
 		transform: scale(1.02);
 	}
 
@@ -503,7 +561,8 @@
 		background: white;
 	}
 
-	.photo-preview-item img {
+	.photo-preview-item img,
+	.photo-preview-item video {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
@@ -593,6 +652,14 @@
 		border-color: #aa4444;
 	}
 
+	.field-label {
+		display: block;
+		margin-bottom: 8px;
+		font-weight: 800;
+		color: #555;
+		font-size: 0.9em;
+	}
+
 	/* Scrollbar styling */
 	.devlog-container::-webkit-scrollbar {
 		width: 8px;
@@ -609,5 +676,50 @@
 
 	.devlog-container::-webkit-scrollbar-thumb:hover {
 		background: #f0b563;
+	}
+
+	.loading-overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(255, 255, 255, 0.8);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		z-index: 10;
+		border-radius: 8px;
+	}
+
+	.spinner {
+		width: 48px;
+		height: 48px;
+		border: 6px solid #f0b563;
+		border-top-color: var(--orange);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.loading-text {
+		font-weight: 700;
+		color: #444;
+	}
+
+	.submit-error {
+		margin-top: 12px;
+		color: #d22;
+		font-weight: 600;
 	}
 </style>

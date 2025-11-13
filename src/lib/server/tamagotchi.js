@@ -39,6 +39,8 @@ export async function createTamagotchi(userId) {
 			{
 				fields: {
 					id: userId,
+					name: 'My Tamagotchi',
+					points: 0,
 					user: [userId]
 				}
 			}
@@ -53,11 +55,12 @@ export async function updateTamagotchi(userId, updates) {
 	if (!userId || typeof userId !== 'string') {
 		throw new Error('Invalid userId: must be a non-empty string');
 	}
-	const safeUpdates = {
-		name: updates.name
-	};
 	try {
-		await base('Tamagotchi').update(userId, safeUpdates);
+		const recs = await base('Tamagotchi')
+			.select({ filterByFormula: `{id} = "${userId}"`, maxRecords: 1 })
+			.firstPage();
+		const record = recs[0];
+		await base('Tamagotchi').update(record.id, { name: updates.name });
 	} catch (error) {
 		console.error('Failed to update tamagotchi:', error);
 		throw new Error(error);

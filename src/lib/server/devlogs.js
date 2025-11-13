@@ -21,8 +21,9 @@ export async function createDevlog(userId, devlogData) {
 	) {
 		throw new Error('At least one project is required');
 	}
+	// attachments can be images or videos
 	if (!devlogData.photos || !Array.isArray(devlogData.photos) || devlogData.photos.length === 0) {
-		throw new Error('At least one photo is required');
+		throw new Error('At least one attachment (photo or video) is required');
 	}
 	try {
 		const fields = {
@@ -52,17 +53,17 @@ export async function createDevlog(userId, devlogData) {
 
 		const devlogRecord = createdRecords[0];
 
-		// array of base64 images
+		// array of base64 attachments (image or video)
 		if (devlogData.photos && Array.isArray(devlogData.photos) && devlogData.photos.length > 0) {
 			for (let i = 0; i < devlogData.photos.length; i++) {
-				const photo = devlogData.photos[i];
-				const filename = photo.filename || `devlog-photo-${i + 1}-${Date.now()}.jpg`;
-				const contentType = photo.contentType || 'image/jpeg';
+				const file = devlogData.photos[i];
+				const filename = file.filename || `devlog-file-${i + 1}-${Date.now()}`;
+				const contentType = file.contentType || 'application/octet-stream';
 
 				await uploadImageAttachment(
 					devlogRecord.id,
 					'attachments',
-					photo.data,
+					file.data,
 					filename,
 					contentType
 				);

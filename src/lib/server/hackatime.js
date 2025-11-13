@@ -31,9 +31,6 @@ export async function fetchProjects(email, date, startDate = null, endDate = nul
 			}
 		);
 
-		console.log(headers);
-		console.log(response);
-
 		if (!response.ok) {
 			// Try to get error details from the response
 			let errorDetails = '';

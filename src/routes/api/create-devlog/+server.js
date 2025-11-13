@@ -6,6 +6,8 @@ import { getUserProjectsByEmail } from '$lib/server/projects.js';
 import { fetchTodayProjects } from '$lib/server/hackatime.js';
 import { base } from '$lib/server/db.js';
 
+const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB
+
 // POST - Create user devlog
 export async function POST({ locals, cookies, request }) {
 	try {
@@ -175,7 +177,7 @@ export async function POST({ locals, cookies, request }) {
 			}
 		}
 
-		// photos
+		// photos or videos
 		const photos = [];
 		let photoIndex = 0;
 
@@ -183,6 +185,14 @@ export async function POST({ locals, cookies, request }) {
 			const photoFile = formData.get(`photo${photoIndex}`);
 
 			if (photoFile && photoFile instanceof File) {
+				// Limite dimensione solo per video
+				if (photoFile.type.startsWith('video/') && photoFile.size > MAX_VIDEO_SIZE) {
+					return json(
+						{ error: `Il video "${photoFile.name}" è troppo grande (max 10MB)` },
+						{ status: 400 }
+					);
+				}
+
 				const arrayBuffer = await photoFile.arrayBuffer();
 				const buffer = Buffer.from(arrayBuffer);
 				const base64 = buffer.toString('base64');
@@ -198,9 +208,9 @@ export async function POST({ locals, cookies, request }) {
 			photoIndex++;
 		}
 
-		// Validate that at least one photo is provided
+		// Validate that at least one attachment is provided
 		if (photos.length === 0) {
-			return json({ error: 'please add at least one photo!' }, { status: 400 });
+			return json({ error: 'per favore aggiungi almeno una foto o un video!' }, { status: 400 });
 		}
 
 		try {

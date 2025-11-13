@@ -1,14 +1,38 @@
 <script>
-	import DevlogInterface from './tamagotchi/DevlogInterface.svelte';
+	import DevlogPopup from '../devlogs/DevlogPopup.svelte';
+	import { onMount } from 'svelte';
 
-	let { tamagotchiData = $bindable() } = $props();
+	let tamagotchiData = $state(null);
+	let isLoading = $state(true);
 
-	let inputName = $state(tamagotchiData?.name || '');
-	let points = $state(tamagotchiData?.points || 0);
+	onMount(() => {
+		fetch('/api/get-user-tamagotchi', {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		})
+			.then((response) => response.json())
+			.then((data) => {
+				if (data.tamagotchi) {
+					tamagotchiData = data.tamagotchi;
+					name = tamagotchiData.name;
+					points = tamagotchiData.points;
+				}
+				isLoading = false;
+			})
+			.catch((err) => {
+				console.error('Error fetching tamagotchi data:', err);
+			});
+	});
+
+	let name = $state('');
+	let points = $state(0);
 
 	let showDevlogInterface = $state(false);
 
 	async function createTamagotchi() {
+		isLoading = true;
 		const res = await fetch('/api/create-tamagotchi', {
 			method: 'POST',
 			headers: {
@@ -18,6 +42,9 @@
 		const data = await res.json();
 		if (data.tamagotchi) {
 			tamagotchiData = data.tamagotchi;
+			name = tamagotchiData.name;
+			points = tamagotchiData.points;
+			isLoading = false;
 		}
 	}
 
@@ -29,7 +56,6 @@
 			},
 			body: JSON.stringify({ name: name, points: points })
 		});
-		console.log({ name: name, points: points });
 		const data = await res.json();
 		if (data.tamagotchi) {
 			tamagotchiData = data.tamagotchi;
@@ -60,28 +86,54 @@
 </script>
 
 <div class="tamagotchi-container">
-	<div>
-		<button onclick={() => createTamagotchi()} disabled={tamagotchiData}>Create Tamagotchi</button>
-		<h4>Update Tamagotchi</h4>
+	{#if isLoading}
+		<p>Loading Tamagotchi...</p>
+	{:else if tamagotchiData}
 		<div>
-			<input type="text" placeholder="name" bind:value={inputName} /><input
-				type="number"
-				placeholder="points"
-				bind:value={points}
-			/>
+			<h4>Update Tamagotchi</h4>
+			<div>
+				<input type="text" placeholder="name" bind:value={name} /><input
+					type="number"
+					placeholder="points"
+					bind:value={points}
+				/>
+			</div>
+			<button onclick={() => updateTamagotchi(name)}>Update Tamagotchi</button>
+			<h4>Devlogs</h4>
+			<button
+				onclick={() => {
+					showDevlogInterface = true;
+				}}>Create Devlog</button
+			>
+			<button
+				onclick={() => {
+					fetch('/api/get-user-devlogs', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({ username: 'genr234' })
+					})
+						.then((response) => response.json())
+						.then((data) => {
+							console.log('User Devlogs:', data.devlogs);
+						})
+						.catch((err) => {
+							console.error('Error fetching user devlogs:', err);
+						});
+				}}
+			>
+				View Devlogs
+			</button>
 		</div>
-		<button onclick={() => updateTamagotchi(inputName)}>Update Tamagotchi</button>
-		<h4>Devlogs</h4>
-		<button
-			onclick={() => {
-				showDevlogInterface = true;
-			}}>Create Devlog</button
-		>
-	</div>
+	{:else}
+		<p>No Tamagotchi found.</p>
+		<button onclick={() => createTamagotchi()}>Create Tamagotchi</button>
+	{/if}
 </div>
 
 {#if showDevlogInterface}
-	<DevlogInterface
+	<DevlogPopup
 		onClose={() => {
 			showDevlogInterface = false;
 		}}
