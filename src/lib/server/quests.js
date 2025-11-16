@@ -65,8 +65,7 @@ export async function getUserQuestProgress(userId) {
 
 	try {
 		const userRecord = await base('User').find(userId);
-		const currentStreak = userRecord.fields.devlogStreak || 0;
-		const maxStreak = userRecord.fields.maxDevlogStreak || 0;
+		const streakStats = buildStreakStats(userRecord);
 
 		const approvedHours = await calculateApprovedHours(userId);
 
@@ -90,6 +89,12 @@ export async function getUserQuestProgress(userId) {
 		// Build progress for all quests
 		const allQuests = getAllQuests();
 		const questProgress = allQuests.map((quest) => {
+			const effectiveStreak = quest.useRawStreak
+				? streakStats.rawCurrentStreak
+				: streakStats.approvedCurrentStreak;
+			const effectiveMaxStreak = quest.useRawStreak
+				? streakStats.rawMaxStreak
+				: streakStats.approvedMaxStreak;
 			let current = 0;
 			let target = quest.target || 0;
 			let completed = false;
@@ -100,8 +105,12 @@ export async function getUserQuestProgress(userId) {
 					codeHours: approvedHours.codeHours,
 					artHours: approvedHours.artHours,
 					totalHours: approvedHours.totalHours,
-					currentStreak,
-					maxStreak
+					currentStreak: effectiveStreak,
+					maxStreak: effectiveMaxStreak,
+					rawCurrentStreak: streakStats.rawCurrentStreak,
+					rawMaxStreak: streakStats.rawMaxStreak,
+					approvedCurrentStreak: streakStats.approvedCurrentStreak,
+					approvedMaxStreak: streakStats.approvedMaxStreak
 				};
 				const result = quest.validate(stats);
 				completed = result.completed || false;
@@ -119,10 +128,10 @@ export async function getUserQuestProgress(userId) {
 						current = approvedHours.totalHours;
 						break;
 					case 'streak':
-						current = currentStreak;
+						current = effectiveStreak;
 						break;
 					case 'maxStreak':
-						current = maxStreak;
+						current = effectiveMaxStreak;
 						break;
 					default:
 						current = 0;
@@ -172,10 +181,8 @@ export async function claimQuestReward(userId, questId) {
 
 		// Get user record
 		const userRecord = await base('User').find(userId);
-		const currentStreak = userRecord.fields.devlogStreak || 0;
-		const maxStreak = userRecord.fields.maxDevlogStreak || 0;
+		const streakStats = buildStreakStats(userRecord);
 
-		// Get approved hours
 		const approvedHours = await calculateApprovedHours(userId);
 
 		// Check if quest is completed
@@ -187,8 +194,12 @@ export async function claimQuestReward(userId, questId) {
 				codeHours: approvedHours.codeHours,
 				artHours: approvedHours.artHours,
 				totalHours: approvedHours.totalHours,
-				currentStreak,
-				maxStreak
+				currentStreak: streakStats.getEffectiveStreak(quest.useRawStreak),
+				maxStreak: streakStats.getEffectiveMaxStreak(quest.useRawStreak),
+				rawCurrentStreak: streakStats.rawCurrentStreak,
+				rawMaxStreak: streakStats.rawMaxStreak,
+				approvedCurrentStreak: streakStats.approvedCurrentStreak,
+				approvedMaxStreak: streakStats.approvedMaxStreak
 			};
 			const result = quest.validate(stats);
 			if (typeof result === 'object') {
@@ -209,10 +220,10 @@ export async function claimQuestReward(userId, questId) {
 					current = approvedHours.totalHours;
 					break;
 				case 'streak':
-					current = currentStreak;
+					current = streakStats.getEffectiveStreak(quest.useRawStreak);
 					break;
 				case 'maxStreak':
-					current = maxStreak;
+					current = streakStats.getEffectiveMaxStreak(quest.useRawStreak);
 					break;
 			}
 			completed = current >= (quest.target || 0);
@@ -290,4 +301,29 @@ export async function claimQuestReward(userId, questId) {
 		console.error('Error claiming quest reward:', error);
 		throw error;
 	}
+}
+
+/**
+ * Build streak stats for a user
+ * @param {Object} userRecord - User record from the database
+ * @returns {Object} Streak stats object
+ */
+function buildStreakStats(userRecord) {
+	const approvedCurrentStreak = userRecord?.fields?.approvedDevlogStreak || 0;
+	const approvedMaxStreak = userRecord?.fields?.approvedMaxDevlogStreak || 0;
+	const rawCurrentStreak = userRecord?.fields?.devlogStreak || 0;
+	const rawMaxStreak = userRecord?.fields?.maxDevlogStreak || 0;
+
+	return {
+		approvedCurrentStreak,
+		approvedMaxStreak,
+		rawCurrentStreak,
+		rawMaxStreak,
+		getEffectiveStreak(useRaw) {
+			return useRaw ? rawCurrentStreak : approvedCurrentStreak;
+		},
+		getEffectiveMaxStreak(useRaw) {
+			return useRaw ? rawMaxStreak : approvedMaxStreak;
+		}
+	};
 }

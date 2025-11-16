@@ -410,23 +410,42 @@ export async function POST({ request, cookies }) {
 				});
 			}
 
-			// Update user's coins
+			// Update user's coins and approved streak data
 			const usersTable = base('User');
-			const userRecords = await usersTable
-				.select({
-					filterByFormula: `{email} = "${escapeAirtableFormula(typeof userInfo.email === 'string' ? userInfo.email : '')}"`
-				})
-				.all();
+			let userRecord = null;
 
-			if (userRecords.length > 0) {
-				const userRecord = userRecords[0];
+			try {
+				userRecord = await usersTable.find(userInfo.recId);
+			} catch (userLookupError) {
+				console.error('Failed to fetch user by record ID:', userLookupError);
+				try {
+					const fallbackRecords = await usersTable
+						.select({
+							filterByFormula: `{email} = "${escapeAirtableFormula(
+								typeof userInfo.email === 'string' ? userInfo.email : ''
+							)}"`
+						})
+						.firstPage();
+					if (fallbackRecords.length > 0) {
+						userRecord = fallbackRecords[0];
+					}
+				} catch (fallbackError) {
+					console.error('Failed to fetch user by email fallback:', fallbackError);
+				}
+			}
+
+			if (userRecord) {
+				const userUpdateFields = {};
 				const currentCoins =
 					typeof userRecord.fields.coins === 'number' ? userRecord.fields.coins : 0;
-				const newCoins = currentCoins + coinsEarned;
+				userUpdateFields.coins = currentCoins + coinsEarned;
 
-				await usersTable.update(userRecord.id, {
-					coins: newCoins
-				});
+				const approvedStreakUpdates = calculateApprovedStreakUpdates(userRecord, streakDevlogs);
+				if (approvedStreakUpdates) {
+					Object.assign(userUpdateFields, approvedStreakUpdates);
+				}
+
+				await usersTable.update(userRecord.id, userUpdateFields);
 			}
 
 			return json({
@@ -471,4 +490,128 @@ export async function POST({ request, cookies }) {
 			{ status: 500 }
 		);
 	}
+}
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+function calculateApprovedStreakUpdates(userRecord, streakDevlogs) {
+	if (!userRecord || !Array.isArray(streakDevlogs) || streakDevlogs.length === 0) {
+		return null;
+	}
+
+	const existingDays = getApprovedStreakDays(userRecord);
+	const daySet = new Set(existingDays);
+	let addedNewDay = false;
+
+	for (const entry of streakDevlogs) {
+		const dayKey = normalizeDayKey(entry?.created);
+		if (!dayKey || daySet.has(dayKey)) {
+			continue;
+		}
+		daySet.add(dayKey);
+		addedNewDay = true;
+	}
+
+	if (!addedNewDay) {
+		return null;
+	}
+
+	const mergedDays = Array.from(daySet).sort();
+	const { currentStreak, maxStreak } = calculateStreakMetrics(mergedDays);
+
+	const lastDayKey = mergedDays[mergedDays.length - 1];
+	const lastDayDate = new Date(`${lastDayKey}T00:00:00.000Z`);
+
+	return {
+		approvedStreakDays: JSON.stringify(mergedDays),
+		approvedDevlogStreak: currentStreak,
+		approvedMaxDevlogStreak: maxStreak,
+		lastApprovedDevlogDate: lastDayDate.toISOString()
+	};
+}
+
+function getApprovedStreakDays(userRecord) {
+	const result = [];
+	if (!userRecord || !userRecord.fields) {
+		return result;
+	}
+
+	const fieldValue = userRecord.fields.approvedStreakDays;
+	const pushDay = (value) => {
+		if (typeof value !== 'string') {
+			return;
+		}
+		if (isValidDayKey(value)) {
+			result.push(value);
+		}
+	};
+
+	if (Array.isArray(fieldValue)) {
+		for (const entry of fieldValue) {
+			pushDay(typeof entry === 'string' ? entry : String(entry));
+		}
+		return result;
+	}
+
+	if (typeof fieldValue === 'string') {
+		try {
+			const parsed = JSON.parse(fieldValue);
+			if (Array.isArray(parsed)) {
+				for (const entry of parsed) {
+					pushDay(typeof entry === 'string' ? entry : String(entry));
+				}
+			}
+		} catch (error) {
+			console.error('Failed to parse approved streak days field:', error);
+		}
+	}
+
+	return result;
+}
+
+function normalizeDayKey(value) {
+	if (!value) {
+		return null;
+	}
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) {
+		return null;
+	}
+	return date.toISOString().slice(0, 10);
+}
+
+function calculateStreakMetrics(dayStrings) {
+	if (!Array.isArray(dayStrings) || dayStrings.length === 0) {
+		return { currentStreak: 0, maxStreak: 0 };
+	}
+
+	let currentRun = 1;
+	let maxStreak = 1;
+
+	for (let i = 1; i < dayStrings.length; i++) {
+		const prevDate = new Date(`${dayStrings[i - 1]}T00:00:00.000Z`);
+		const currentDate = new Date(`${dayStrings[i]}T00:00:00.000Z`);
+		const diffDays = Math.round((currentDate - prevDate) / DAY_IN_MS);
+
+		if (diffDays === 1) {
+			currentRun += 1;
+		} else if (diffDays > 1) {
+			currentRun = 1;
+		} else {
+			currentRun = 1;
+		}
+
+		if (currentRun > maxStreak) {
+			maxStreak = currentRun;
+		}
+	}
+
+	return {
+		currentStreak: currentRun,
+		maxStreak
+	};
+}
+
+function isValidDayKey(value) {
+	return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
