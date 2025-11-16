@@ -1,6 +1,7 @@
 <script>
 	import Room from '$lib/components/room/Room.svelte';
 	import ReportUserModal from '$lib/components/ReportUserModal.svelte';
+	import { FURNITURE_CATALOG } from '$lib/furniture-catalog.js';
 	import { onMount } from 'svelte';
 
 	let { data } = $props();
@@ -14,6 +15,18 @@
 	let loading = $state(false);
 	let userData = $state(data.user);
 	let showReportModal = $state(false);
+
+	// Filter furniture to hide owner-only items when viewing another user's profile
+	let filteredFurnitureList = $derived(
+		furnitureList.filter((furniture) => {
+			const furnitureType = FURNITURE_CATALOG[furniture.type];
+			// If ownerOnly is true and we're viewing someone else's profile, hide it
+			if (furnitureType?.ownerOnly && data.currentUser?.recId !== userData?.recId) {
+				return false;
+			}
+			return true;
+		})
+	);
 
 	// Track profile views to prevent duplicate notifications
 	onMount(() => {
@@ -170,7 +183,7 @@
 		<div class="user-room">
 			<Room
 				bind:projectList
-				bind:furnitureList
+				bind:furnitureList={filteredFurnitureList}
 				user={userData}
 				currentUser={data.currentUser}
 				onShowPromptPopup={() => {}}

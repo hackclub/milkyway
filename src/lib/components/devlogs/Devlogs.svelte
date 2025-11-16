@@ -13,6 +13,8 @@
 	/** @type {{ devlogs: Devlog[], username?: string }} */
 	let { devlogs = [], username = 'User' } = $props();
 
+	const pfp = `/pfps/pfp-${Math.floor(Math.random() * (7 - 1) + 1)}.png`;
+
 	/**
 	 * Format the date in a Twitter-like style
 	 * @param {string} dateString
@@ -51,7 +53,7 @@
 <div class="devlogs-container">
 	{#if devlogs.length === 0}
 		<div class="empty-state">
-			<p>No devlogs yet! Start sharing your development journey.</p>
+			<p>No devlogs yet!</p>
 		</div>
 	{:else}
 		<h4>{devlogs.length} Devlog{devlogs.length !== 1 ? 's' : ''}</h4>
@@ -61,7 +63,7 @@
 					<div class="devlog-header">
 						<div class="user-info">
 							<div class="avatar">
-								<img src="/pfp_placeholder.png" alt={username} />
+								<img src={pfp} alt={username} />
 							</div>
 							<div class="user-details">
 								<div class="username-line">
@@ -96,6 +98,8 @@
 								{#each devlog.attachments as attachment, i (i)}
 									{#if attachment.type?.startsWith('image/')}
 										<img src={attachment.url} alt="Devlog attachment" class="attachment-image" />
+									{:else if attachment.type?.startsWith('video/')}
+										<video src={attachment.url} controls class="attachment-video"></video>
 									{/if}
 								{/each}
 							</div>
@@ -258,6 +262,15 @@
 		display: block;
 	}
 
+	.attachment-video {
+		width: 100%;
+		height: auto;
+		border-radius: 8px;
+		border: 1px solid #e1e8ed;
+		display: block;
+		background: #000;
+	}
+
 	.empty-state {
 		text-align: center;
 		padding: 24px 16px;
@@ -270,33 +283,5 @@
 	.empty-state p {
 		margin: 0;
 		font-size: 13px;
-	}
-
-	/* Mobile responsive */
-	@media (max-width: 768px) {
-		.devlogs-container {
-			max-width: 100%;
-			width: 100%;
-		}
-
-		.devlogs-list {
-			max-height: 300px;
-		}
-
-		.devlog-card {
-			border-radius: 0;
-			border-left: none;
-			border-right: none;
-			margin-bottom: 0;
-			border-bottom: 1px solid #e1e8ed;
-		}
-
-		.devlog-card:last-child {
-			border-bottom: none;
-		}
-
-		.devlogs-list {
-			max-height: 70vh;
-		}
 	}
 </style>

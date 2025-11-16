@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Tooltip from './Tooltip.svelte';
 	import ProfileSettingsPopup from './ProfileSettingsPopup.svelte';
+	import StreakNotification from './StreakNotification.svelte';
 
 	let {
 		user,
@@ -9,6 +10,7 @@
 		coins,
 		stellarships,
 		paintchips,
+		devlogStreak = 0,
 		onLogout,
 		onUserUpdate = () => {} // Callback to notify parent when user data changes
 	} = $props();
@@ -91,6 +93,13 @@
 				onclick={() => (window.location.href = `/u/${user?.username}`)}
 			>
 				<p class="username">{user?.username || 'Loading...'}</p>
+				{#if devlogStreak > 0}
+					<Tooltip
+						text={`devlog streak: ${devlogStreak} day${devlogStreak !== 1 ? 's' : ''} - post a devlog every day to keep it going!`}
+					>
+						<StreakNotification streak={devlogStreak} />
+					</Tooltip>
+				{/if}
 				{#if user && getMissingProfileInfo(user).length > 0}
 					<Tooltip text={getProfileWarningTooltip(user)}>
 						<div class="profile-badge">!</div>

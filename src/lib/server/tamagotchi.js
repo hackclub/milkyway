@@ -39,8 +39,8 @@ export async function createTamagotchi(userId) {
 			{
 				fields: {
 					id: userId,
-					name: 'My Tamagotchi',
-					points: 0,
+					name: 'Rename Me!',
+					growthStage: 0,
 					user: [userId]
 				}
 			}

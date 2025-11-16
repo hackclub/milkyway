@@ -11,7 +11,7 @@
 	let submitError = $state('');
 
 	let projectsWithHours = $state([]);
-	let selectedProjects = $state(new SvelteSet());
+	let selectedProjects = new SvelteSet();
 	let isLoadingProjects = $state(false);
 	let noProjectsFound = $state(false);
 	let hackatimeUserNotFound = $state(false);
@@ -248,12 +248,12 @@
 						/>
 						<span class="project-name">{project.name}</span>
 						<span class="project-hours-breakdown">
-							{#if project.hackatimeHours > 0 && project.artHours > 0}
-								<span class="hours-code" title="code hours">{project.hackatimeHours}h code</span>
+							{#if project.codeHours > 0 && project.artHours > 0}
+								<span class="hours-code" title="code hours">{project.codeHours}h code</span>
 								+
 								<span class="hours-art" title="art hours">{project.artHours}h art</span>
-							{:else if project.hackatimeHours > 0}
-								<span class="hours-code">{project.hackatimeHours}h code</span>
+							{:else if project.codeHours > 0}
+								<span class="hours-code">{project.codeHours}h code</span>
 							{:else if project.artHours > 0}
 								<span class="hours-art">{project.artHours}h art</span>
 							{/if}

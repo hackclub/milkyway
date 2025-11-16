@@ -13,8 +13,9 @@ export async function POST({ locals, cookies }) {
 		const userInfo = await getUserInfoBySessionId(cookies.get('sessionid'));
 		try {
 			const tamagotchi = await createTamagotchi(userInfo.recId);
+			const fields = tamagotchi[0]?.fields || tamagotchi.fields;
 			return json({
-				tamagotchi: tamagotchi.fields
+				tamagotchi: fields
 			});
 		} catch (clearError) {
 			console.error('Failed to create tamagotchi', clearError);

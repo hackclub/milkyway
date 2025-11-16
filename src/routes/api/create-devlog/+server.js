@@ -38,6 +38,8 @@ export async function POST({ locals, cookies, request }) {
 		// calculate hours from projects with hours logged TODAY
 		// make sure to subtract any hours already claimed in existing devlogs today
 		let calculatedHours = 0;
+		let codeHours = 0;
+		let artHours = 0;
 		let selectedProjectIds = [];
 
 		if (selectedProjects && selectedProjects.trim()) {
@@ -159,21 +161,20 @@ export async function POST({ locals, cookies, request }) {
 						});
 
 						calculatedHours += availableHours;
+						codeHours += todayCodeHours;
+						artHours += todayArtHours;
 					}
 				}
 
 				calculatedHours = Math.round(calculatedHours * 100) / 100; // 2 decimal places
-
-				console.log('Calculated hours for devlog from TODAY ONLY (code + art, minus claimed):', {
-					selectedProjectIds,
-					totalProjectsChecked: allProjects.length,
-					calculatedHours,
-					note: 'Only unclaimed hours from today - prevents double claiming'
-				});
+				codeHours = Math.round(codeHours * 100) / 100;
+				artHours = Math.round(artHours * 100) / 100;
 			} catch (projectError) {
 				console.error('Failed to fetch projects for devlog hours calculation:', projectError);
 				// Don't fail the devlog creation, just set hours to 0
 				calculatedHours = 0;
+				codeHours = 0;
+				artHours = 0;
 			}
 		}
 
@@ -217,14 +218,18 @@ export async function POST({ locals, cookies, request }) {
 			const devlogData = {
 				title: title.trim(),
 				content: description.trim(),
-				hours: calculatedHours, // server-calculated hours
-				projects: selectedProjectIds.length > 0 ? selectedProjectIds : undefined, //
+				hours: calculatedHours, // server-calculated total hours
+				codeHours: codeHours, // code hours from Hackatime
+				artHours: artHours, // art hours from Artlogs
+				projects: selectedProjectIds.length > 0 ? selectedProjectIds : undefined,
 				photos: photos.length > 0 ? photos : undefined
 			};
 
 			console.log('Creating devlog with data:', {
 				title: devlogData.title,
 				hours: devlogData.hours,
+				codeHours: devlogData.codeHours,
+				artHours: devlogData.artHours,
 				projects: devlogData.projects,
 				projectCount: selectedProjectIds.length
 			});
@@ -232,17 +237,23 @@ export async function POST({ locals, cookies, request }) {
 			const devlog = await createDevlog(userInfo.recId, devlogData);
 
 			console.log('Devlog created, saved fields:', {
-				id: devlog.id,
-				hours: devlog.fields.hours,
-				projectIds: devlog.fields.projectIds,
-				title: devlog.fields.title
+				id: devlog.devlog.id,
+				hours: devlog.devlog.fields.hours,
+				codeHours: devlog.devlog.fields.codeHours,
+				artHours: devlog.devlog.fields.artHours,
+				projectIds: devlog.devlog.fields.projectIds,
+				title: devlog.devlog.fields.title,
+				streak: devlog.streak
 			});
 
 			return json({
 				success: true,
-				devlog: devlog.fields,
-				calculatedHours, // Return calculated hours for debugging
-				savedProjects: selectedProjectIds // Show what projects were saved
+				devlog: devlog.devlog.fields,
+				calculatedHours,
+				codeHours,
+				artHours,
+				savedProjects: selectedProjectIds,
+				streak: devlog.streak
 			});
 		} catch (clearError) {
 			console.error('Failed to create devlog', clearError);

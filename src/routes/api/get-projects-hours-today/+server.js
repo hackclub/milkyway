@@ -166,7 +166,7 @@ export async function POST({ locals, cookies }) {
 					id: project.id,
 					name: project.name || 'Untitled Project',
 					totalHours: Math.round(availableHours * 100) / 100,
-					hackatimeHours: Math.round(todayCodeHours * 100) / 100,
+					codeHours: Math.round(todayCodeHours * 100) / 100,
 					artHours: Math.round(todayArtHours * 100) / 100,
 					claimedHours: Math.round(claimedHours * 100) / 100,
 					created: project.created

@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import { json } from '@sveltejs/kit';
 
 import { base } from '$lib/server/db.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
@@ -54,6 +53,9 @@ export async function getUserInfoBySessionId(sessionid) {
 		improve: fields.improve,
 		address: fields.address,
 		idv: fields.idv,
+		devlogStreak: fields.devlogStreak || 0,
+		maxDevlogStreak: fields.maxDevlogStreak || 0,
+		lastDevlogDate: fields.lastDevlogDate || null,
 		__serverOnly: true // Flag to indicate this should not be sent to frontend
 	};
 }
@@ -79,8 +81,10 @@ export function sanitizeUserForFrontend(serverUser) {
 		doingWell: serverUser.doingWell || '',
 		improve: serverUser.improve || '',
 		address: serverUser.address || null,
-		idv: serverUser.idv || null
-		// DO NOT include: email, lastHackatimeUpdate, __serverOnly, or other internal fields
+		idv: serverUser.idv || null,
+		devlogStreak: serverUser.devlogStreak || 0,
+		maxDevlogStreak: serverUser.maxDevlogStreak || 0
+		// DO NOT include: email, lastHackatimeUpdate, lastDevlogDate, __serverOnly, or other internal fields
 	};
 }
 

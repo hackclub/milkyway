@@ -1,0 +1,293 @@
+import { base } from '$lib/server/db.js';
+import { getAllQuests, getQuestById } from '$lib/data/quests.js';
+
+/**
+ * Calculate total approved hours for a user
+ * Only counts devlogs where pendingCodeHours and pendingArtHours are 0
+ * (meaning they were approved when a project shipped)
+ *
+ * @param {string} userId - User's record ID
+ * @returns {Promise<{codeHours: number, artHours: number, totalHours: number}>}
+ */
+export async function calculateApprovedHours(userId) {
+	if (!userId || typeof userId !== 'string') {
+		throw new Error('Invalid userId: must be a non-empty string');
+	}
+
+	try {
+		const allRecords = await base('Devlogs')
+			.select({
+				filterByFormula: `FIND("${userId}", ARRAYJOIN({user}, ","))`
+			})
+			.all();
+
+		let totalApprovedCodeHours = 0;
+		let totalApprovedArtHours = 0;
+
+		for (const record of allRecords) {
+			const fields = record.fields;
+
+			// Only count hours that have been approved
+			const codeHours = typeof fields.codeHours === 'number' ? fields.codeHours : 0;
+			const artHours = typeof fields.artHours === 'number' ? fields.artHours : 0;
+			const pendingCodeHours =
+				typeof fields.pendingCodeHours === 'number' ? fields.pendingCodeHours : 0;
+			const pendingArtHours =
+				typeof fields.pendingArtHours === 'number' ? fields.pendingArtHours : 0;
+
+			const approvedCodeHours = Math.max(0, codeHours - pendingCodeHours);
+			const approvedArtHours = Math.max(0, artHours - pendingArtHours);
+
+			totalApprovedCodeHours += approvedCodeHours;
+			totalApprovedArtHours += approvedArtHours;
+		}
+
+		return {
+			codeHours: totalApprovedCodeHours,
+			artHours: totalApprovedArtHours,
+			totalHours: totalApprovedCodeHours + totalApprovedArtHours
+		};
+	} catch (error) {
+		console.error('Error calculating approved hours:', error);
+		throw error;
+	}
+}
+
+/**
+ * Get quest progress for a user
+ * @param {string} userId - User's record ID
+ * @returns {Promise<Array>} Array of quest progress objects
+ */
+export async function getUserQuestProgress(userId) {
+	if (!userId || typeof userId !== 'string') {
+		throw new Error('Invalid userId: must be a non-empty string');
+	}
+
+	try {
+		const userRecord = await base('User').find(userId);
+		const currentStreak = userRecord.fields.devlogStreak || 0;
+		const maxStreak = userRecord.fields.maxDevlogStreak || 0;
+
+		const approvedHours = await calculateApprovedHours(userId);
+
+		const completedQuestsField = userRecord.fields.completedQuests;
+		let completedQuests = [];
+		if (completedQuestsField) {
+			try {
+				completedQuests =
+					typeof completedQuestsField === 'string'
+						? JSON.parse(completedQuestsField)
+						: completedQuestsField;
+				if (!Array.isArray(completedQuests)) {
+					completedQuests = [];
+				}
+			} catch (e) {
+				console.error('Error parsing completedQuests:', e);
+				completedQuests = [];
+			}
+		}
+
+		// Build progress for all quests
+		const allQuests = getAllQuests();
+		const questProgress = allQuests.map((quest) => {
+			let current = 0;
+			let target = quest.target || 0;
+			let completed = false;
+
+			// Handle custom quests with validate function
+			if (quest.type === 'custom' && typeof quest.validate === 'function') {
+				const stats = {
+					codeHours: approvedHours.codeHours,
+					artHours: approvedHours.artHours,
+					totalHours: approvedHours.totalHours,
+					currentStreak,
+					maxStreak
+				};
+				const result = quest.validate(stats);
+				completed = result.completed || false;
+				current = result.current || 0;
+				target = result.target || 0;
+			} else {
+				switch (quest.type) {
+					case 'codeHours':
+						current = approvedHours.codeHours;
+						break;
+					case 'artHours':
+						current = approvedHours.artHours;
+						break;
+					case 'totalHours':
+						current = approvedHours.totalHours;
+						break;
+					case 'streak':
+						current = currentStreak;
+						break;
+					case 'maxStreak':
+						current = maxStreak;
+						break;
+					default:
+						current = 0;
+				}
+				completed = current >= target;
+			}
+
+			const isCompleted = completedQuests.includes(quest.id);
+			const canClaim = !isCompleted && completed;
+
+			return {
+				...quest,
+				current,
+				target,
+				isCompleted,
+				canClaim,
+				progress: target > 0 ? Math.min(1, current / target) : 0
+			};
+		});
+
+		return questProgress;
+	} catch (error) {
+		console.error('Error getting quest progress:', error);
+		throw error;
+	}
+}
+
+/**
+ * Claim a quest reward
+ * @param {string} userId - User's record ID
+ * @param {string} questId - Quest ID to claim
+ * @returns {Promise<{success: boolean, rewardField?: string, error?: string}>}
+ */
+export async function claimQuestReward(userId, questId) {
+	if (!userId || typeof userId !== 'string') {
+		throw new Error('Invalid userId: must be a non-empty string');
+	}
+	if (!questId || typeof questId !== 'string') {
+		throw new Error('Invalid questId: must be a non-empty string');
+	}
+
+	try {
+		const quest = getQuestById(questId);
+		if (!quest) {
+			return { success: false, error: 'Quest not found' };
+		}
+
+		// Get user record
+		const userRecord = await base('User').find(userId);
+		const currentStreak = userRecord.fields.devlogStreak || 0;
+		const maxStreak = userRecord.fields.maxDevlogStreak || 0;
+
+		// Get approved hours
+		const approvedHours = await calculateApprovedHours(userId);
+
+		// Check if quest is completed
+		let completed = false;
+
+		// Handle custom quests with validate function
+		if (quest.type === 'custom' && typeof quest.validate === 'function') {
+			const stats = {
+				codeHours: approvedHours.codeHours,
+				artHours: approvedHours.artHours,
+				totalHours: approvedHours.totalHours,
+				currentStreak,
+				maxStreak
+			};
+			const result = quest.validate(stats);
+			if (typeof result === 'object') {
+				completed = result.completed || false;
+			} else {
+				completed = Boolean(result);
+			}
+		} else {
+			let current = 0;
+			switch (quest.type) {
+				case 'codeHours':
+					current = approvedHours.codeHours;
+					break;
+				case 'artHours':
+					current = approvedHours.artHours;
+					break;
+				case 'totalHours':
+					current = approvedHours.totalHours;
+					break;
+				case 'streak':
+					current = currentStreak;
+					break;
+				case 'maxStreak':
+					current = maxStreak;
+					break;
+			}
+			completed = current >= (quest.target || 0);
+		}
+
+		if (!completed) {
+			return { success: false, error: 'Quest requirements not met' };
+		}
+
+		// Check if already claimed
+		const completedQuestsField = userRecord.fields.completedQuests;
+		let completedQuests = [];
+		if (completedQuestsField) {
+			try {
+				completedQuests =
+					typeof completedQuestsField === 'string'
+						? JSON.parse(completedQuestsField)
+						: completedQuestsField;
+				if (!Array.isArray(completedQuests)) {
+					completedQuests = [];
+				}
+			} catch {
+				completedQuests = [];
+			}
+		}
+
+		if (completedQuests.includes(questId)) {
+			return { success: false, error: 'Quest already claimed' };
+		}
+
+		completedQuests.push(questId);
+
+		const userUpdateData = {
+			completedQuests: JSON.stringify(completedQuests)
+		};
+
+		await base('User').update(userId, userUpdateData);
+
+		// Get user's tamagotchi and increment its growth stage
+		let newGrowthStage = 1;
+		try {
+			const tamagotchiRecords = await base('Tamagotchi')
+				.select({
+					filterByFormula: `FIND("${userId}", ARRAYJOIN({user}, ","))`,
+					maxRecords: 1
+				})
+				.firstPage();
+
+			if (tamagotchiRecords.length > 0) {
+				const tamagotchi = tamagotchiRecords[0];
+				const currentGrowthStage =
+					typeof tamagotchi.fields.growthStage === 'number' ? tamagotchi.fields.growthStage : 0;
+				newGrowthStage = currentGrowthStage + 1;
+
+				const tamagotchiUpdateData = {
+					growthStage: newGrowthStage
+				};
+
+				if (quest.rewardField) {
+					tamagotchiUpdateData[quest.rewardField] = true;
+				}
+
+				await base('Tamagotchi').update(tamagotchi.id, tamagotchiUpdateData);
+			}
+		} catch (tamagotchiError) {
+			console.error('Error updating tamagotchi growth stage:', tamagotchiError);
+		}
+
+		return {
+			success: true,
+			rewardField: quest.rewardField,
+			newGrowthStage
+		};
+	} catch (error) {
+		console.error('Error claiming quest reward:', error);
+		throw error;
+	}
+}

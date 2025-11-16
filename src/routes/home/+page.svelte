@@ -225,6 +225,19 @@
 		setTimeout(() => {
 			autoUpdateHackatimeHours();
 		}, 2000); // 2 second delay to not interfere with initial page load
+
+		// Listen for streak updates
+		const handleStreakUpdate = (event) => {
+			if (event.detail && event.detail.streak !== undefined && user) {
+				user = { ...user, devlogStreak: event.detail.streak };
+			}
+		};
+
+		window.addEventListener('streak-updated', handleStreakUpdate);
+
+		return () => {
+			window.removeEventListener('streak-updated', handleStreakUpdate);
+		};
 	});
 </script>
 
@@ -265,6 +278,7 @@
 		{coins}
 		{stellarships}
 		{paintchips}
+		devlogStreak={user?.devlogStreak || 0}
 		onLogout={handleLogout}
 		onUserUpdate={handleUserUpdate}
 	/>

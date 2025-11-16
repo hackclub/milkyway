@@ -11,6 +11,7 @@
  * @property {boolean} purchasable - Whether item can be purchased (false = reward-only)
  * @property {boolean} isInteractable - Whether item has interactive functionality
  * @property {boolean} wallOnly - Whether item can only be placed on walls
+ * @property {boolean} ownerOnly - Whether item is only visible to the owner (default: false)
  * @property {import('svelte').SvelteComponent} component - Optional Svelte component for interactive furniture
  */
 
@@ -75,8 +76,8 @@ export const FURNITURE_TYPES = [
 		cost: 0,
 		isInteractable: true,
 		component: Tamagotchi,
-		wallOnly: false,
-		purchasable: false
+		purchasable: false,
+		ownerOnly: true
 	}
 ];
 
