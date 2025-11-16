@@ -11,16 +11,17 @@ var floors = [
 
 </script>
 <div class="floor" style:--num-width={floors[0].length} style:--num-height={floors.length}>
-
-{#each floors as row, i}
-  {#each row as tile, j}
-    <img class="tile" style:--x={j} style:--y={i} src="/room/floor/{tile}.png" />
-
-  {/each}
-
-{/each}
-
-
+	{#each floors as row, i}
+		{#each row as tile, j}
+			<img
+				class="tile"
+				style:--x={j}
+				style:--y={i}
+				src="/room/floor/{tile}.png"
+				draggable="false"
+			/>
+		{/each}
+	{/each}
 </div>
 
 <style>
