@@ -331,7 +331,14 @@
 												purchasingItems.has(furniture.type)}
 											title="Buy another"
 										>
-											{purchasingItems.has(furniture.type) ? '...' : `${furniture.cost}💰`}
+											{#if purchasingItems.has(furniture.type)}
+												...
+											{:else}
+												<span class="cost">
+													<img src="/paintchip.png" alt="paintchip" class="cost-icon" />
+													{furniture.cost}
+												</span>
+											{/if}
 										</button>
 									{/if}
 								</div>
@@ -366,7 +373,14 @@
 										purchasingItems.has(furniture.type)}
 									title="Purchase furniture"
 								>
-									{purchasingItems.has(furniture.type) ? '...' : `${furniture.cost}💰`}
+									{#if purchasingItems.has(furniture.type)}
+										...
+									{:else}
+										<span class="cost">
+											<img src="/paintchip.png" alt="paintchip" class="cost-icon" />
+											{furniture.cost}
+										</span>
+									{/if}
 								</button>
 							</div>
 						</div>
@@ -475,6 +489,20 @@
 		object-fit: contain;
 		filter: drop-shadow(-1px -1px 0 white) drop-shadow(1px -1px 0 white)
 			drop-shadow(-1px 1px 0 white) drop-shadow(1px 1px 0 white);
+	}
+
+	.cost {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		justify-content: center;
+		font-weight: 800;
+	}
+
+	.cost-icon {
+		width: 14px;
+		height: 14px;
+		object-fit: contain;
 	}
 
 	.furniture-section {
