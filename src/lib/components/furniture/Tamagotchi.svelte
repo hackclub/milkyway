@@ -170,8 +170,19 @@
 
 	async function handleDevlogSubmit(formData) {
 		try {
-			const res = await fetch('/api/create-devlog', { method: 'POST', body: formData });
-			const data = await res.json();
+			const res = await fetch('/api/create-devlog', {
+				method: 'POST',
+				body: formData,
+				credentials: 'include'
+			});
+			let data;
+			try {
+				data = await res.json();
+			} catch (e) {
+				// Server may return non-JSON (e.g., CSRF text). Fallback to text for better error message.
+				const text = await res.text().catch(() => '');
+				data = { error: text || 'Unexpected non-JSON response' };
+			}
 			if (res.ok && data.success) {
 				showDevlogInterface = false;
 				await fetchUserData();
