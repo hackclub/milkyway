@@ -97,7 +97,7 @@
 	let previousMood = '';
 	/** @type {'happy'|'sad'|null} */
 	let mood = $derived.by(() => {
-		if (userStreak === null || hasPostedToday === null) return null;
+		if (userStreak === null || hasPostedToday === null) return 'sad';
 		if (!hasPostedToday) return 'sad';
 		return 'happy';
 	});
