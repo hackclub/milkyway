@@ -7,7 +7,7 @@ import { getAllQuests, getQuestById } from '$lib/data/quests.js';
  * (meaning they were approved when a project shipped)
  *
  * @param {string} userId - User's record ID
- * @returns {Promise<{codeHours: number, artHours: number, totalHours: number}>}
+ * @returns {Promise<{codeHours: number, artHours: number, totalHours: number, projectBreakdown: Object}>}
  */
 export async function calculateApprovedHours(userId) {
 	if (!userId || typeof userId !== 'string') {
@@ -23,6 +23,7 @@ export async function calculateApprovedHours(userId) {
 
 		let totalApprovedCodeHours = 0;
 		let totalApprovedArtHours = 0;
+		const projectBreakdown = {};
 
 		for (const record of allRecords) {
 			const fields = record.fields;
@@ -40,12 +41,41 @@ export async function calculateApprovedHours(userId) {
 
 			totalApprovedCodeHours += approvedCodeHours;
 			totalApprovedArtHours += approvedArtHours;
+
+			// Track hours per project (projectIds is comma-separated string)
+			const projectIds = fields.projectIds;
+			if (projectIds && typeof projectIds === 'string') {
+				const projects = projectIds.split(',').filter((id) => id.trim());
+
+				for (const projectId of projects) {
+					const trimmedId = projectId.trim();
+					if (!trimmedId) continue;
+
+					if (!projectBreakdown[trimmedId]) {
+						projectBreakdown[trimmedId] = {
+							codeHours: 0,
+							artHours: 0,
+							totalHours: 0
+						};
+					}
+
+					// For devlogs with multiple projects, distribute hours evenly
+					const projectCount = projects.length;
+					const distributedCodeHours = approvedCodeHours / projectCount;
+					const distributedArtHours = approvedArtHours / projectCount;
+
+					projectBreakdown[trimmedId].codeHours += distributedCodeHours;
+					projectBreakdown[trimmedId].artHours += distributedArtHours;
+					projectBreakdown[trimmedId].totalHours += distributedCodeHours + distributedArtHours;
+				}
+			}
 		}
 
 		return {
 			codeHours: totalApprovedCodeHours,
 			artHours: totalApprovedArtHours,
-			totalHours: totalApprovedCodeHours + totalApprovedArtHours
+			totalHours: totalApprovedCodeHours + totalApprovedArtHours,
+			projectBreakdown
 		};
 	} catch (error) {
 		console.error('Error calculating approved hours:', error);
@@ -88,7 +118,8 @@ export async function getUserQuestProgress(userId) {
 
 		// Build progress for all quests
 		const allQuests = getAllQuests();
-		const questProgress = allQuests.map((quest) => {
+
+		return allQuests.map((quest) => {
 			const effectiveStreak = quest.useRawStreak
 				? streakStats.rawCurrentStreak
 				: streakStats.approvedCurrentStreak;
@@ -105,6 +136,7 @@ export async function getUserQuestProgress(userId) {
 					codeHours: approvedHours.codeHours,
 					artHours: approvedHours.artHours,
 					totalHours: approvedHours.totalHours,
+					projectBreakdown: approvedHours.projectBreakdown || {},
 					currentStreak: effectiveStreak,
 					maxStreak: effectiveMaxStreak,
 					rawCurrentStreak: streakStats.rawCurrentStreak,
@@ -151,8 +183,6 @@ export async function getUserQuestProgress(userId) {
 				progress: target > 0 ? Math.min(1, current / target) : 0
 			};
 		});
-
-		return questProgress;
 	} catch (error) {
 		console.error('Error getting quest progress:', error);
 		throw error;
@@ -194,6 +224,7 @@ export async function claimQuestReward(userId, questId) {
 				codeHours: approvedHours.codeHours,
 				artHours: approvedHours.artHours,
 				totalHours: approvedHours.totalHours,
+				projectBreakdown: approvedHours.projectBreakdown || {},
 				currentStreak: streakStats.getEffectiveStreak(quest.useRawStreak),
 				maxStreak: streakStats.getEffectiveMaxStreak(quest.useRawStreak),
 				rawCurrentStreak: streakStats.rawCurrentStreak,
