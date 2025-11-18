@@ -17,6 +17,7 @@
 	let currentCleanup = null;
 	let showDevlogInterface = $state(false);
 	let isCreating = $state(false);
+	let messageBoxEl = $state(null);
 
 	const moodMessages = {
 		happy: [
@@ -109,6 +110,12 @@
 			const msgs = moodMessages[mood];
 			const msg = msgs[Math.floor(Math.random() * msgs.length)];
 			currentCleanup = typewriterEffect(msg);
+		}
+	});
+
+	$effect(() => {
+		if (messageBoxEl && displayedMessage) {
+			messageBoxEl.scrollTop = messageBoxEl.scrollHeight;
 		}
 	});
 
@@ -258,7 +265,7 @@
 			{/if}
 		</div>
 
-		<div class="message-box">
+		<div class="message-box" bind:this={messageBoxEl}>
 			<p>{displayedMessage}<span class="cursor" class:hidden={!isTyping}></span></p>
 		</div>
 
@@ -300,14 +307,17 @@
 		background-color: var(--yellow, #fbf2bf);
 		border: 3px solid var(--orange, #f7c881);
 		border-radius: 8px;
-		padding: 20px;
+		padding: 16px;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 16px;
+		gap: 12px;
 		min-width: 300px;
 		max-width: 400px;
 		width: 100%;
+		max-height: 90vh;
+		overflow-y: auto;
+		box-sizing: border-box;
 	}
 
 	.sprite {
@@ -316,43 +326,50 @@
 		background-color: #e8ddc4;
 		border: 4px solid var(--orange, #f7c881);
 		border-radius: 12px;
-		padding: 16px;
+		padding: 12px;
 		width: 100%;
 		box-sizing: border-box;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		min-height: 300px;
+		min-height: 220px;
+		max-height: 280px;
 		box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.1);
 		position: relative;
+		flex-shrink: 0;
 	}
 
 	.sprite img {
 		display: block;
 		max-width: 100%;
+		max-height: 220px;
 		height: auto;
+		width: auto;
 	}
 
 	.message-box {
 		background-color: white;
 		border: 2px solid var(--orange, #f7c881);
 		border-radius: 12px;
-		padding: 12px 16px;
-		min-height: 60px;
+		padding: 10px 12px;
+		min-height: 50px;
+		max-height: 100px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: 100%;
 		position: relative;
+		box-sizing: border-box;
+		overflow-y: auto;
 	}
 
 	.message-box p {
 		margin: 0;
-		font-size: 14px;
-		line-height: 1.4;
+		font-size: 13px;
+		line-height: 1.3;
 		text-align: center;
 		color: #333;
-		min-height: 20px;
+		min-height: 18px;
 	}
 
 	.cursor {
@@ -396,21 +413,22 @@
 	.name-input {
 		border: 2px solid var(--orange, #f7c881);
 		border-radius: 4px;
-		font-size: 16px;
+		font-size: 14px;
 		font-family: inherit;
-		margin-bottom: 8px;
+		margin-bottom: 6px;
+		padding: 4px 8px;
 	}
 
 	.name-buttons {
 		display: flex;
-		gap: 8px;
+		gap: 6px;
 		justify-content: center;
 	}
 
 	.save-btn,
 	.cancel-btn {
-		padding: 6px 12px;
-		font-size: 12px;
+		padding: 4px 10px;
+		font-size: 11px;
 		border: none;
 		border-radius: 4px;
 		cursor: pointer;
@@ -481,22 +499,22 @@
 		background: #fff;
 		border: 2px solid var(--orange, #f7c881);
 		border-radius: 8px;
-		padding: 8px 12px;
+		padding: 6px 10px;
 		text-align: center;
 		box-sizing: border-box;
 		font-family: 'Futura', sans-serif;
 	}
 	.countdown-label {
 		margin: 0;
-		font-size: 12px;
+		font-size: 11px;
 		color: #555;
 		letter-spacing: 0.5px;
 		text-transform: uppercase;
 		font-weight: 600;
 	}
 	.countdown-timer {
-		margin: 4px 0 0 0;
-		font-size: 20px;
+		margin: 3px 0 0 0;
+		font-size: 18px;
 		font-weight: 700;
 		font-variant-numeric: tabular-nums;
 		color: #222;
