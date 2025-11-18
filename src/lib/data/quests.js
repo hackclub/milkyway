@@ -17,13 +17,32 @@ export const quests = [
 		description: 'Get a steam license to publish your game on steam!',
 		type: 'custom',
 		validate: (stats) => {
-			const totalHours = stats.totalHours;
-			const artHours = stats.artHours;
-			const completed = totalHours >= 50 && artHours <= totalHours / 2;
+			const projectBreakdown = stats.projectBreakdown || {};
+
+			// find the project with the most total hours
+			let maxProjectId = null;
+			let maxProjectHours = 0;
+			let maxProjectCodeHours = 0;
+			let maxProjectArtHours = 0;
+
+			for (const [projectId, hours] of Object.entries(projectBreakdown)) {
+				if (hours.totalHours > maxProjectHours) {
+					maxProjectId = projectId;
+					maxProjectHours = hours.totalHours;
+					maxProjectCodeHours = hours.codeHours;
+					maxProjectArtHours = hours.artHours;
+				}
+			}
+
+			// check if the single project with most hours meets the requirements
+			const singleProjectMeetsRequirements =
+				maxProjectHours >= 50 && maxProjectArtHours <= maxProjectHours / 2;
+
 			return {
-				completed,
-				current: totalHours,
-				target: 50
+				completed: singleProjectMeetsRequirements,
+				current: maxProjectHours,
+				target: 50,
+				projectId: maxProjectId
 			};
 		},
 		rewardField: 'metroidvaniaMonthCompleted'
