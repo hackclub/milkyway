@@ -1,6 +1,5 @@
 <script>
     import { fly, fade } from 'svelte/transition';
-    import Tooltip from './Tooltip.svelte';
     import { promptData, getRandomEggImage } from '$lib/data/prompt-data.js';
 
 
@@ -166,9 +165,6 @@
       transition:fly|global={{ y: 40, duration: 80, delay: index * 80 }}
     >
       <p class="event-name">{event.name}</p>
-      <p class="event-info">Min {event.minHours} hours · Earn {event.minStars}-{event.maxStars} <Tooltip text="earn coins by submitting projects. use them to buy items in the shop!">
-        <img style="height: 1.2em; width: auto; margin-bottom: -0.1em;" src="/coin.png" alt="Coin" />
-      </Tooltip></p>
       <img class="event-image" src={event.image} alt={event.name} />
       <p>{event.description}</p>
     </div>
