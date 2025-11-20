@@ -43,6 +43,13 @@
 			// Store referrer in localStorage to persist through the signup flow
 			localStorage.setItem('milkyway_referrer', referrerUsername);
 		}
+		
+		// Parse utm_source parameter from URL
+		const utmSource = urlParams.get('utm_source');
+		if (utmSource) {
+			// Store utm_source in localStorage to persist through the signup flow
+			localStorage.setItem('milkyway_utm_source', utmSource);
+		}
 	});
 
 	function handleBlackScreenClick() {
@@ -122,19 +129,24 @@
 			// Get referrer from localStorage if available
 			const referrerUsername = localStorage.getItem('milkyway_referrer');
 			
+			// Get utm_source from localStorage if available
+			const utmSource = localStorage.getItem('milkyway_utm_source');
+			
 			fetch('/api/send-otp', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ 
 					email,
-					referrer: referrerUsername // Include referrer in the request
+					referrer: referrerUsername, // Include referrer in the request
+					utm_source: utmSource // Include utm_source in the request
 				})
 			})
 				.then((res) => res.json())
 				.then((data) => {
 					if (data.success) {
-						// Clear referrer from localStorage after successful OTP send
+						// Clear referrer and utm_source from localStorage after successful OTP send
 						localStorage.removeItem('milkyway_referrer');
+						localStorage.removeItem('milkyway_utm_source');
 						fulfil(data);
 						return;
 					}

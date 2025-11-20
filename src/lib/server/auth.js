@@ -130,8 +130,10 @@ export async function verifyOTPAndCreateSession(email, otp) {
 /**
  * @param {string} email
  * @param {string | null} referrer
+ * @param {string | null} ipAddress
+ * @param {string | null} utmSource
  */
-export async function createOTPRecord(email, referrer = null) {
+export async function createOTPRecord(email, referrer = null, ipAddress = null, utmSource = null) {
 	const otp = generateOTP();
 	const token = generateToken();
 	const expiry = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins expiry for otp
@@ -148,7 +150,7 @@ export async function createOTPRecord(email, referrer = null) {
 	} catch (error) {
 		console.log(error);
 		console.log('tried to create user');
-		userRecordId = await createUserFromEmail(email, referrer);
+		userRecordId = await createUserFromEmail(email, referrer, utmSource);
 	}
 
 	console.log('creating OTP record...');
@@ -165,8 +167,9 @@ export async function createOTPRecord(email, referrer = null) {
 /**
  * @param {string} email
  * @param {string | null} referrer
+ * @param {string | null} utmSource
  */
-async function createUserFromEmail(email, referrer = null) {
+async function createUserFromEmail(email, referrer = null, utmSource = null) {
 	// If referrer is provided, find the referrer's record ID
 	let referrerRecordId = null;
 	if (referrer) {
@@ -185,6 +188,11 @@ async function createUserFromEmail(email, referrer = null) {
 	// Add referrer if found
 	if (referrerRecordId) {
 		userData['referrer'] = [referrerRecordId];
+	}
+
+	// Add utm_source if provided
+	if (utmSource) {
+		userData['utm_source'] = utmSource;
 	}
 
 	const newUser = await base('User').create(userData);
