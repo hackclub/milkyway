@@ -211,6 +211,22 @@ async function getUserRecordIdByEmail(email) {
 }
 
 /**
+ * @param {string} userRecId
+ * Update the lastLogin field for a user by their record ID
+ */
+export async function updateUserLastLogin(userRecId) {
+	try {
+		// Update the lastLogin field with current timestamp
+		await base('User').update(userRecId, {
+			lastLogin: new Date().toISOString()
+		});
+	} catch (error) {
+		console.error('Failed to update lastLogin:', error);
+		// Don't throw - page should load even if lastLogin update fails
+	}
+}
+
+/**
  * @param {string} username
  */
 async function getUserRecordIdByUsername(username) {
@@ -284,7 +300,7 @@ export async function getUserCoinsAndStellarships(userId) {
 }
 
 /**
- * @param {string} userId
+ * @param {string} email
  * Get count of users who were referred by this user
  */
 export async function getReferralCountByEmail(email) {
