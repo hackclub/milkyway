@@ -1,27 +1,38 @@
 import { base } from '$lib/server/db.js';
 import { getAllQuests, getQuestById } from '$lib/data/quests.js';
 
+const escapeAirtableFormulaString = (value) =>
+	typeof value === 'string' ? value.replace(/"/g, '\\"') : '';
+
+async function fetchUserDevlogs(userId) {
+	const filterFormula = `FIND("${escapeAirtableFormulaString(userId)}", ARRAYJOIN({user}, ","))`;
+	return base('Devlogs').select({ filterByFormula: filterFormula }).all();
+}
+
+async function getUserDevlogs(userId, cachedRecords) {
+	if (cachedRecords && Array.isArray(cachedRecords)) {
+		return cachedRecords;
+	}
+
+	return fetchUserDevlogs(userId);
+}
+
 /**
  * Calculate total approved hours for a user
  * Only counts devlogs where pendingCodeHours and pendingArtHours are 0
  * (meaning they were approved when a project shipped)
  *
  * @param {string} userId - User's record ID
+ * @param {Array} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
  * @returns {Promise<{codeHours: number, artHours: number, totalHours: number, projectBreakdown: Object}>}
  */
-export async function calculateApprovedHours(userId) {
+export async function calculateApprovedHours(userId, cachedDevlogs) {
 	if (!userId || typeof userId !== 'string') {
 		throw new Error('Invalid userId: must be a non-empty string');
 	}
 
 	try {
-		const allRecords = await base('Devlogs').select().all();
-
-		// Filter in memory for this user
-		const userRecords = allRecords.filter((record) => {
-			const userIds = record.fields.user || [];
-			return userIds.includes(userId);
-		});
+		const userRecords = await getUserDevlogs(userId, cachedDevlogs);
 
 		let totalApprovedCodeHours = 0;
 		let totalApprovedArtHours = 0;
@@ -88,21 +99,16 @@ export async function calculateApprovedHours(userId) {
 /**
  * Calculate total hours for a user (including pending/non-shipped hours)
  * @param {string} userId - User's record ID
+ * @param {Array} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
  * @returns {Promise<{codeHours: number, artHours: number, totalHours: number, projectBreakdown: Object}>}
  */
-export async function calculateTotalHours(userId) {
+export async function calculateTotalHours(userId, cachedDevlogs) {
 	if (!userId || typeof userId !== 'string') {
 		throw new Error('Invalid userId: must be a non-empty string');
 	}
 
 	try {
-		const allRecords = await base('Devlogs').select().all();
-
-		// Filter in memory for this user
-		const userRecords = allRecords.filter((record) => {
-			const userIds = record.fields.user || [];
-			return userIds.includes(userId);
-		});
+		const userRecords = await getUserDevlogs(userId, cachedDevlogs);
 
 		let totalCodeHours = 0;
 		let totalArtHours = 0;
@@ -182,8 +188,9 @@ export async function getUserQuestProgress(userId) {
 		const userRecord = await base('User').find(userId);
 		const streakStats = buildStreakStats(userRecord);
 
-		const approvedHours = await calculateApprovedHours(userId);
-		const totalHours = await calculateTotalHours(userId);
+		const userDevlogs = await fetchUserDevlogs(userId);
+		const approvedHours = await calculateApprovedHours(userId, userDevlogs);
+		const totalHours = await calculateTotalHours(userId, userDevlogs);
 
 		const completedQuestsField = userRecord.fields.completedQuests;
 		let completedQuests = [];
