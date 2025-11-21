@@ -17,6 +17,8 @@
 	let hackatimeUserNotFound = $state(false);
 	let currentTotalHours = $derived(calculateSelectedProjectHours());
 
+	let isStreakSatisfiedMessage = $state('');
+
 	function calculateSelectedProjectHours() {
 		let totalHours = 0;
 		for (const project of projectsWithHours) {
@@ -26,6 +28,15 @@
 		}
 		return Math.round(totalHours * 100) / 100;
 	}
+
+	$effect(() => {
+		const total = currentTotalHours;
+		if (total < 1) {
+			isStreakSatisfiedMessage = `you still need to log at least ${(1 - total).toFixed(2)} more hours to maintain your streak. keep going!`;
+		} else {
+			isStreakSatisfiedMessage = 'great job! You have enough hours logged to maintain your streak.';
+		}
+	});
 
 	// fetch projects with hours logged today
 	async function fetchProjectsWithHours() {
@@ -263,6 +274,7 @@
 				{/each}
 			</div>
 			<div class="total-hours">total hours: {currentTotalHours}h</div>
+			<div class="streak-message">{isStreakSatisfiedMessage}</div>
 		{/if}
 	</div>
 
@@ -500,6 +512,13 @@
 		font-weight: 800;
 		color: #333;
 		font-size: 0.95em;
+	}
+
+	.streak-message {
+		margin-top: 4px;
+		text-align: right;
+		font-size: 0.85em;
+		color: #555;
 	}
 
 	.photo-upload-area {
