@@ -86,6 +86,22 @@
 						{#if quest.description}
 							<div class="quest-description">{quest.description}</div>
 						{/if}
+						{#if quest.target && quest.target > 0}
+							<div class="quest-progress-bar">
+								<div
+									class="quest-progress-fill"
+									style="width: {Math.min(100, (quest.visualProgress || 0) * 100)}%"
+								></div>
+								<div class="quest-progress-text">
+									{Math.round((quest.visualCurrent ?? quest.current ?? 0) * 10) / 10}/{quest.target}
+									{#if (quest.visualCurrent ?? 0) !== (quest.current ?? 0) && !quest.isCompleted && (quest.current ?? 0) > 0}
+										<span class="shipped-indicator">
+											({Math.round((quest.current ?? 0) * 10) / 10} shipped)
+										</span>
+									{/if}
+								</div>
+							</div>
+						{/if}
 					</div>
 					<button
 						class="checkbox"
@@ -200,6 +216,50 @@
 
 	.quest-item.completed .quest-description {
 		color: #999;
+	}
+
+	.quest-progress-bar {
+		position: relative;
+		width: 100%;
+		height: 20px;
+		background: #fff;
+		border: 2px solid #f7c881;
+		border-radius: 10px;
+		overflow: hidden;
+		margin-top: 6px;
+	}
+
+	.quest-progress-fill {
+		height: 100%;
+		background: #5ca561;
+		transition: width 0.4s ease;
+		border-radius: 8px;
+	}
+
+	.quest-item.completed .quest-progress-fill {
+		background: #d4d4d4;
+	}
+
+	.quest-item.claimable .quest-progress-fill {
+		background: #ffd54f;
+	}
+
+	.quest-progress-text {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		font-size: 0.75rem;
+		font-weight: bold;
+		color: #333;
+		text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+		white-space: nowrap;
+	}
+
+	.shipped-indicator {
+		font-size: 0.65rem;
+		opacity: 0.7;
+		margin-left: 4px;
 	}
 
 	.checkbox {
