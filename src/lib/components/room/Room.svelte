@@ -6,7 +6,6 @@
 	import { FURNITURE_TYPES } from '$lib/furniture-catalog';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import Devlogs from '$lib/components/devlogs/Devlogs.svelte';
-	import { onMount } from 'svelte';
 
 	let {
 		projectList = $bindable([]),
@@ -49,27 +48,31 @@
 	let dragOffset = $state({ x: 0, y: 0 });
 	let devlogs = $state(/** @type {any[]} */ ([]));
 
-	// Check if viewing another player's room
-	const isViewingOtherPlayer = $derived(currentUser && user && currentUser.recId !== user.recId);
+	$effect(() => {
+		let cancelled = false;
+		if (!user || !user.username) {
+			devlogs = [];
+			return;
+		}
 
-	onMount(async () => {
-		// Only fetch devlogs when viewing another player's room
-		if (isViewingOtherPlayer) {
+		(async () => {
 			try {
 				const res = await fetch('/api/get-user-devlogs', {
 					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
+					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ username: user.username })
 				});
 				const data = await res.json();
-				devlogs = data.devlogs || [];
+				if (!cancelled) devlogs = data.devlogs || [];
 			} catch (err) {
 				console.error('Failed to fetch devlogs:', err);
-				devlogs = [];
+				if (!cancelled) devlogs = [];
 			}
-		}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	// Floor bounds - true rhombus shape (diamond)
@@ -953,15 +956,14 @@
 	{/if}
 
 	{#if !hideControls}
-		{#if isViewingOtherPlayer}
-			<div class="notifications">
+		<div class="notifications">
+			{#if devlogs}
 				<Devlogs {devlogs} username={user?.username} />
-			</div>
-		{:else}
-			<div class="notifications">
+			{/if}
+			{#if notifications && notifications.length > 0}
 				<Notifications {notifications} />
-			</div>
-		{/if}
+			{/if}
+		</div>
 	{/if}
 </div>
 
