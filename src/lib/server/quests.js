@@ -1,12 +1,12 @@
 import { base } from '$lib/server/db.js';
 import { getAllQuests, getQuestById } from '$lib/data/quests.js';
 
-const escapeAirtableFormulaString = (value) =>
-	typeof value === 'string' ? value.replace(/"/g, '\\"') : '';
-
 async function fetchUserDevlogs(userId) {
-	const filterFormula = `FIND("${escapeAirtableFormulaString(userId)}", ARRAYJOIN({user}, ","))`;
-	return base('Devlogs').select({ filterByFormula: filterFormula }).all();
+	const allRecords = await base('Devlogs').select().all();
+	return allRecords.filter((record) => {
+		const userIds = record.fields.user || [];
+		return userIds.includes(userId);
+	});
 }
 
 async function getUserDevlogs(userId, cachedRecords) {
