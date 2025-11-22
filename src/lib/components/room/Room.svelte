@@ -958,7 +958,7 @@
 	{#if !hideControls}
 		<div class="notifications">
 			{#if devlogs}
-				<Devlogs {devlogs} username={user?.username} />
+				<Devlogs {devlogs} username={user?.username} {currentUser} />
 			{/if}
 			{#if notifications && notifications.length > 0}
 				<Notifications {notifications} />
