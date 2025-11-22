@@ -8,10 +8,15 @@
 	 * @property {string[]} projects
 	 * @property {any[]} [attachments]
 	 * @property {string} created
+	 * @property {any} [comments]
+	 * @property {any} [likes]
 	 */
 
-	/** @type {{ devlogs: Devlog[], username?: string }} */
-	let { devlogs = [], username = 'User' } = $props();
+	import DevlogComments from '$lib/components/devlogs/DevlogComments.svelte';
+	import DevlogLike from '$lib/components/devlogs/DevlogLike.svelte';
+
+	/** @type {{ devlogs: Devlog[], username?: string, currentUser?: any }} */
+	let { devlogs = [], username = 'User', currentUser } = $props();
 
 	const pfp = `/pfps/pfp-${Math.floor(Math.random() * (7 - 1) + 1)}.png`;
 
@@ -104,6 +109,10 @@
 								{/each}
 							</div>
 						{/if}
+						<div class="devlog-actions">
+							<DevlogLike devlogId={devlog.id} likes={devlog.likes} {currentUser} />
+							<DevlogComments devlogId={devlog.id} comments={devlog.comments || []} {currentUser} />
+						</div>
 					</div>
 				</article>
 			{/each}
@@ -226,6 +235,15 @@
 
 	.devlog-content {
 		margin-left: 40px;
+	}
+
+	.devlog-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		margin-top: 8px;
+		padding-top: 4px;
+		border-top: 1px solid #e1e8ed;
 	}
 
 	.devlog-title {
