@@ -1,0 +1,44 @@
+Alright tongue if you're seeing this here's my general thoughts/things I noticied after working with yo milkyway
+Why does svelete fight with me at every possible corner 
+
+Use up-to-date versions of npm installs
+
+Not sure oh how you're running things but i've got like 30 errors from stuff having the "any" type
+
+Also added zod 
+Need to double check where/how its used
+
+admin emails are those with @hackclub.com in them, 
+may just make it a field in the airtable if you get/need reviewers
+
+MADE history + review, dont use em tho 
+
+uhhh i made the backend blackhole like 3 times to make it work better 
+i'm dead inside :D
+
+time for another rework :sob:
+
+IM AN IDIOT YIPPIEEEE
+
+im gonna go crazy here 
+especially since that THING SHOULD WORKED BUT OF COURSE IT DIDNT 
+
+finally linked it sob
+FINALLY IT HALF WORKS AOID HOASHNFUAF BAJ FK 
+and i get more problems i wanna cry 
+
+NEW AIRTABLE STUFF 
+    User - added new view(BlackholeSubmission) 
+    BlackholeSubmissions - new table with fields
+        submission_number
+        User(from user table)
+        username(from user table)
+        Project(from projects table)
+        Status (approved/rejected/pending)
+        CoinsSpent(10)
+        CoinsBefore
+        CoinsAfter
+        HackatimeHoursAtSubmission
+        StellarshipsAtSubmission
+        Reviewer(uhh probably gonna link this to user so auth works)
+        Reason 
