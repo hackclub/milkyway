@@ -11,7 +11,7 @@
 	import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 	import Announcements from '$lib/components/Announcements.svelte';
 	import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
-
+	
 	let { data } = $props();
 
 	// Project and UI state
@@ -246,6 +246,15 @@
 </svelte:head>
 
 <main>
+
+<a href="/blackhole" class="blackhole-link" aria-label="Enter the Black Hole">
+  <img src="/blackhole.png" alt="Black Hole" />
+</a>
+
+{#if showOnboarding}
+  <OnboardingOverlay onClose={() => { showOnboarding = false }} {user}>
+  </OnboardingOverlay>
+{/if}
 	{#if showOnboarding}
 		<OnboardingOverlay
 			onClose={() => {
@@ -392,4 +401,22 @@
 		height: 150px;
 		width: auto;
 	}
+
+	.blackhole-link {
+		position: fixed;
+		bottom: 32px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 120;
+		cursor: pointer;
+		display: block;
+	}
+	
+	.blackhole-link img {
+		display: block;
+		height: 150px;
+		width: auto;
+		pointer-events: auto;
+	}
+
 </style>
