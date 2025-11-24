@@ -8,7 +8,7 @@ import { isValidEmail, checkRateLimit, getClientIdentifier, getRealClientIP, san
 
 export async function POST({ request, cookies }) {
 
-  const { email, referrer } = await request.json();
+  const { email, referrer, utm_source } = await request.json();
   
   // Input validation
   if (!email) return json({ error: 'Email required' }, { status: 400 });
@@ -27,7 +27,7 @@ export async function POST({ request, cookies }) {
     // Get real client IP address (handles proxy headers)
     const ipAddress = getRealClientIP(request);
     console.log('Captured REAL client IP address:', ipAddress);
-    await createOTPRecord(email, referrer, ipAddress);
+    await createOTPRecord(email, referrer, ipAddress, utm_source);
     return json({ success: true }); // success!!
 
   } catch (err) {
