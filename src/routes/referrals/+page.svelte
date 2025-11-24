@@ -44,6 +44,22 @@
 	//   1   if between checkpoint 0 and 1
 	//   2   if between checkpoint 1 and 2
 	//  etc.
+	/**
+	 * @param {string} reward
+	 * */ 
+	function claimReward(reward) {
+		if(reward == 'free sticker') {
+			window.open('https://forms.hackclub.com/t/dNZffrwHXeus', '_blank');
+		} else if (reward == 'furniture pack!') {
+
+		} else if (reward == 'sticker sheet') {
+			window.open('https://forms.hackclub.com/t/3KUptLfczMus', '_blank');
+		} else if (reward == 'milkyway pin') {
+			window.open('https://forms.hackclub.com/t/jWm3MGCd8hus', '_blank');
+		} else if (reward == 'hoodie!') {
+			window.open('https://forms.hackclub.com/t/64nAsRLtKxus', '_blank');
+		}
+	}
 	function getPlayerPosition() {
 		const rc = data.referralCount ?? 0;
 		let index = 0;
@@ -148,6 +164,10 @@
 					style:width="18vh"
 					style:margin-top="15h"
 				/>
+				{#if 50 >= checkpoint.referralCount}
+					<div class="claim-reward" onclick={claimReward(checkpoint.reward)}>claim reward!</div>
+				{/if}
+
 			</div>
 		{/each}
 	</div>
@@ -230,6 +250,19 @@
 	.copy-button:hover,
 	.poster-button:hover {
 		opacity: 0.9;
+	}
+	.claim-reward {
+		background-color: var(--yellow);
+		color: #101628;
+		padding: 6px 12px;
+		border-radius: 8px;
+		border: #101628 2px solid;
+		font-weight: bold;
+		margin-top: 10px;
+	}
+	.claim-reward:hover {
+		background-color: #ffffff;
+		cursor: pointer;
 	}
 	.mimi-container p {
 		color: black;
