@@ -1,9 +1,9 @@
 Alright tongue if you're seeing this here's my general thoughts/things I noticied after working with yo milkyway
 Why does svelete fight with me at every possible corner 
 
-Use up-to-date versions of npm installs
+    Use up-to-date versions of npm installs
 
-Not sure oh how you're running things but i've got like 30 errors from stuff having the "any" type
+    Not sure oh how you're running things but i've got like 30 errors from stuff having the "any" type
 
 Also added zod 
 Need to double check where/how its used
@@ -42,3 +42,38 @@ NEW AIRTABLE STUFF
         StellarshipsAtSubmission
         Reviewer(uhh probably gonna link this to user so auth works)
         Reason 
+
+Current reviewer page works so that the browser you use will be 
+    marked as trusted (very basic rn will change it soon) 
+
+need an env variable called REVIEWER_PASSWORD
+    - Is the password for the reviewer page 
+
+I'll make the system work so that we can use the airtable 
+    field called "permissions" thats already made(gonna change the type tho) 
+
+Now gonna make art :/
+
+2 art pieces that I need to make 
+    blackhole symbol(on the home page... idk make it a seperate tab instead?)
+        probably below the referal pages would be best 
+    blackhole background(well y'know what this is)
+
+I'm gonna crash out 
+    Why does clip studio do this to me tho 
+
+need to check the package-lock's so that the pnmp install, and make sure that vetsion conflicts dont exist
+
+i need to update the entire project so that it works on the most recent version of svelete...
+    how many files are even in this project :sob:
+
+after looking through there are two main problems:
+
+    This kinda thing:
+    __ does not exist on type 'Object'
+    Parameter '__' implicitly has an 'any' type.
+
+    OR:
+    other extensions/import 
+
+i need to change all my stuff m8

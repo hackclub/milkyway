@@ -170,12 +170,9 @@ export async function submitToBlackhole(rawInput) {
   //submission number
   const submissionNumber = await getNextSubmissionNumber();
 
-  await base(USER_TABLE).update(user.id, {
-    coins: coinsAfter
-  });
-
   // add to blackhole table
-  const created = await base(BLACKHOLE_TABLE).create({
+  try {
+    const created = await base(BLACKHOLE_TABLE).create({
     User: [user.id],
     Username: user.fields.username ?? username,
     Project: [project.id],
@@ -188,7 +185,15 @@ export async function submitToBlackhole(rawInput) {
     submissionNumber
   });
 
+  await base(USER_TABLE).update(user.id, {
+    coins: coinsAfter
+  });
+
   return normalizeSubmission(created);
+  } catch (e) {
+    console.error('Error creating blackhole submission or updating coins:', e);
+    throw e instanceof Error ? e : new Error('Failed to submit to the black hole');
+  }
 }
 
 /**

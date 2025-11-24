@@ -304,6 +304,21 @@
 		<img src="/referrals.png" alt="Referrals" />
 	</a>
 
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole button/thing will go here -->
+
 	<!-- Furniture Sidebar - Rendered at page level so it appears on top -->
 	{#if showFurnitureSidebar}
 		<FurnitureSidebar
