@@ -321,6 +321,59 @@ export async function getReferralCountByEmail(email) {
 	return records.length;
 }
 
+/**
+ * @param {string} email
+ * Get claimed referrals by user
+ */
+export async function getReferralRewardsByEmail(email) {
+	const escapedEmail = escapeAirtableFormula(email);
+	const records = await base('User')
+		.select({
+			filterByFormula: `{email} = "${escapedEmail}"`,
+			maxRecords: 1
+		})
+		.all();
+
+	if (!records || !records.length) return [];
+	const fields = records[0].fields || {};
+	const rewards = fields.rewardsClaimed;
+
+	// Field might be named any of these variants depending on the table schema
+	if (fields.rewardsClaimed === undefined) {
+		return [];
+	}
+	
+	return Array.isArray(rewards) ? rewards : [String(rewards)];
+}
+
+
+/**
+ * @param {string} email
+ * @param {string} rewardLabel
+ * Get claimed referrals by user
+ */
+export async function addReferralRewardToEmail(email, rewardLabel) {
+    if (!email || !rewardLabel) throw new Error('email and rewardLabel are required');
+    const escapedEmail = escapeAirtableFormula(email);
+    const records = await base('User')
+        .select({ filterByFormula: `{email} = "${escapedEmail}"`, maxRecords: 1 })
+        .firstPage();
+
+    if (!records || !records.length) throw new Error('User not found');
+
+    const record = records[0];
+
+    const existing = record.fields.rewardsClaimed || [];
+    const arr = Array.isArray(existing) ? existing.slice() : [String(existing)];
+    const label = String(rewardLabel);
+    if (!arr.includes(label)) arr.push(label);
+
+    // Update Airtable record
+    await base('User').update(record.id, { ["rewardsClaimed"]: arr });
+    return arr;
+}
+
+
 // generate 6-digit otp
 function generateOTP() {
 	return Math.floor(100000 + Math.random() * 900000).toString();

@@ -47,7 +47,35 @@
 	/**
 	 * @param {string} reward
 	 * */ 
-	function claimReward(reward) {
+	async function claimReward(reward) {
+		let rewards = data.referralRewards ?? [];
+		rewards.push(reward);
+		try {
+			const response = await fetch('/api/claim-referral-reward', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				rewardsClaimed: rewards
+			})
+			});
+
+			const result = await response.json();
+			
+			if (result.success) {
+			// Update user currency
+			// Show success message (you could add a toast notification here)
+			if(reward == '10 coins :)' || reward == '30 coins :o' || reward == 'furniture pack!') {
+				alert(`Reward claimed`);
+			}
+			} else {
+				alert(`Failed: ${result.error.message}`);
+			}
+		} catch (error) {
+			console.error('Purchase error:', error);
+			alert('Purchase failed. Please try again.');
+		}
 		if(reward == 'free sticker') {
 			window.open('https://forms.hackclub.com/t/dNZffrwHXeus', '_blank');
 		} else if (reward == 'furniture pack!') {
@@ -59,6 +87,8 @@
 		} else if (reward == 'hoodie!') {
 			window.open('https://forms.hackclub.com/t/64nAsRLtKxus', '_blank');
 		}
+		
+		window.location.reload();
 	}
 	function getPlayerPosition() {
 		const rc = data.referralCount ?? 0;
@@ -165,7 +195,11 @@
 					style:margin-top="15h"
 				/>
 				{#if 50 >= checkpoint.referralCount}
-					<div class="claim-reward" onclick={claimReward(checkpoint.reward)}>claim reward!</div>
+					{#if data.referralRewards && data.referralRewards.includes(checkpoint.reward)}
+						<div class="claimed-reward">reward claimed</div>
+					{:else}
+						<div class="claim-reward" onclick={claimReward(checkpoint.reward)}>claim reward!</div>
+					{/if}
 				{/if}
 
 			</div>
@@ -254,6 +288,15 @@
 	.claim-reward {
 		background-color: var(--yellow);
 		color: #101628;
+		padding: 6px 12px;
+		border-radius: 8px;
+		border: #101628 2px solid;
+		font-weight: bold;
+		margin-top: 10px;
+	}
+	.claimed-reward {
+		background-color: #101628;
+		color: #ffffff;
 		padding: 6px 12px;
 		border-radius: 8px;
 		border: #101628 2px solid;
