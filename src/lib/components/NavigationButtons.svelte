@@ -15,6 +15,10 @@
 		</a>
 	</div>
 	<div class="bottom-right-buttons">
+		<a href="/devlogs" class="bottom-button">
+			<img src="/mimiphone.png" alt="Devlogs" />
+			<span>devlogs</span>
+		</a>
 		<a href="/leaderboard" class="bottom-button">
 			<img src="/leaderboard.png" alt="Shop" />
 			<span class="leaderboard">leaderboard</span>
