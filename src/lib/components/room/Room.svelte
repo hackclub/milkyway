@@ -956,14 +956,16 @@
 	{/if}
 
 	{#if !hideControls}
-		<div class="notifications">
-			{#if devlogs}
+		{#if devlogs}
+			<div class="devlogs">
 				<Devlogs {devlogs} username={user?.username} {currentUser} />
-			{/if}
-			{#if notifications && notifications.length > 0}
+			</div>
+		{/if}
+		{#if notifications && notifications.length > 0}
+			<div class="notifications">
 				<Notifications {notifications} />
-			{/if}
-		</div>
+			</div>
+		{/if}
 	{/if}
 </div>
 
@@ -1110,20 +1112,24 @@
 	.notifications {
 		position: absolute;
 		bottom: calc(50vh - 150px);
-		right: calc(50vw - 630px);
+		left: calc(50vw - 630px);
 		z-index: 100;
 	}
 
 	.devlogs {
 		position: absolute;
 		bottom: calc(50vh - 150px);
-		left: calc(50vw - 630px);
+		right: calc(50vw - 630px);
 		z-index: 100;
 	}
 
 	@media (max-width: 1400px) {
-		.devlogs {
+		.notifications {
 			left: 20px;
+		}
+		.devlogs {
+			right: 20px;
+			left: auto;
 		}
 	}
 
