@@ -219,6 +219,10 @@ export async function getUserQuestProgress(userId) {
 			const effectiveMaxStreak = quest.useRawStreak
 				? streakStats.rawMaxStreak
 				: streakStats.approvedMaxStreak;
+
+			const visualEffectiveStreak = streakStats.rawCurrentStreak;
+			const visualEffectiveMaxStreak = streakStats.rawMaxStreak;
+
 			let current = 0;
 			let visualCurrent = 0; // For progress bar display (includes pending hours)
 			let target = quest.target || 0;
@@ -244,13 +248,15 @@ export async function getUserQuestProgress(userId) {
 				current = result.current || 0;
 				target = result.target || 0;
 
-				// Calculate visual progress with total hours for more satisfying display
+				// Calculate visual progress with total hours and raw streaks for more satisfying display
 				const visualStats = {
 					...stats,
 					codeHours: totalHours.codeHours,
 					artHours: totalHours.artHours,
 					totalHours: totalHours.totalHours,
-					projectBreakdown: totalHours.projectBreakdown || {}
+					projectBreakdown: totalHours.projectBreakdown || {},
+					currentStreak: visualEffectiveStreak,
+					maxStreak: visualEffectiveMaxStreak
 				};
 				const visualResult = quest.validate(visualStats);
 				visualCurrent = visualResult.current || 0;
@@ -270,11 +276,11 @@ export async function getUserQuestProgress(userId) {
 						break;
 					case 'streak':
 						current = effectiveStreak;
-						visualCurrent = effectiveStreak;
+						visualCurrent = visualEffectiveStreak;
 						break;
 					case 'maxStreak':
 						current = effectiveMaxStreak;
-						visualCurrent = effectiveMaxStreak;
+						visualCurrent = visualEffectiveMaxStreak;
 						break;
 					default:
 						current = 0;

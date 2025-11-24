@@ -65,6 +65,32 @@ export async function POST({ cookies, request }) {
 				.map((id) => projectIdToName.get(id))
 				.filter((name) => typeof name === 'string' && name.length > 0);
 
+			let comments = [];
+			if (record.fields.comments) {
+				try {
+					comments = JSON.parse(record.fields.comments);
+					if (!Array.isArray(comments)) {
+						comments = [];
+					}
+				} catch (e) {
+					console.error('Failed to parse comments for devlog:', record.id, e);
+					comments = [];
+				}
+			}
+
+			let likes = [];
+			if (record.fields.likes) {
+				try {
+					likes = JSON.parse(record.fields.likes);
+					if (!Array.isArray(likes)) {
+						likes = [];
+					}
+				} catch (e) {
+					console.error('Failed to parse likes for devlog:', record.id, e);
+					likes = [];
+				}
+			}
+
 			return {
 				id: record.id,
 				title: record.fields.title,
@@ -72,7 +98,9 @@ export async function POST({ cookies, request }) {
 				hours: typeof record.fields.hours === 'number' ? record.fields.hours : 0,
 				projects: projectNames, // return names only
 				attachments: record.fields.attachments,
-				created: record.fields.Created
+				created: record.fields.Created,
+				comments: comments,
+				likes: likes
 			};
 		});
 
