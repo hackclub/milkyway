@@ -116,6 +116,7 @@
 		}}
 		userName={data.user?.username || 'You'}
 		currentUserId={data.user?.recId || null}
+		currentUser={data.user}
 		bind:selectedProjectId
 		onSelectProject={(/** @type {string | null} */ id) => {
 			selectedProjectId = id;
