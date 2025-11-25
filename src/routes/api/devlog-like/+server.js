@@ -10,9 +10,9 @@ export async function POST({ locals, cookies, request }) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
 		}
 
-		// Rate limiting: 50 likes per minute per user
+		// Rate limiting: 30 likes per minute per user
 		const clientId = getClientIdentifier(request, cookies);
-		if (!checkRateLimit(`devlog-like:${clientId}`, 50, 60000)) {
+		if (!checkRateLimit(`devlog-like:${clientId}`, 30, 60000)) {
 			return json(
 				{
 					success: false,

@@ -215,7 +215,7 @@
 			type="text"
 			placeholder="write something catchy here!"
 			bind:value={title}
-			maxlength="100"
+			maxlength="200"
 		/>
 	</div>
 
@@ -225,10 +225,10 @@
 			id="devlog-description"
 			placeholder="share what you've been working on, how you managed to overcome challenges, and any exciting updates!"
 			bind:value={description}
-			maxlength="2000"
+			maxlength="5000"
 			rows="6"
 		></textarea>
-		<div class="char-count">{description.length}/2000</div>
+		<div class="char-count">{description.length}/5000</div>
 	</div>
 
 	<div class="form-section">
@@ -301,8 +301,8 @@
 				bind:this={fileInputEl}
 			/>
 			<label for="photo-input" class="upload-label">
-				<p>drop photos or videos here</p>
-				<span class="upload-hint">PNG, JPG, GIF, MP4, WebM, MOV up to 10mb</span>
+				<p>drop photos or videos here (max 5 files)</p>
+				<span class="upload-hint">images up to 5mb, videos up to 10mb</span>
 			</label>
 		</div>
 

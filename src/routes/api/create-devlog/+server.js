@@ -1,18 +1,35 @@
 import { json } from '@sveltejs/kit';
-import { sanitizeErrorMessage } from '$lib/server/security.js';
+import { sanitizeErrorMessage, checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
 import { getUserInfoBySessionId } from '$lib/server/auth.js';
 import { createDevlog, getTodayDevlogs } from '$lib/server/devlogs.js';
 import { getUserProjectsByEmail } from '$lib/server/projects.js';
 import { fetchTodayProjects } from '$lib/server/hackatime.js';
 import { base } from '$lib/server/db.js';
-
-const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10MB
+import { 
+	validateTitle, 
+	validateDescription, 
+	validateFileDeep,
+	MAX_ATTACHMENTS
+} from '$lib/server/validation.js';
+import { sanitizeFilename } from '$lib/utils/sanitize.js';
 
 // POST - Create user devlog
 export async function POST({ locals, cookies, request }) {
 	try {
 		if (!locals.user) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		// Rate limiting: 10 devlogs per hour per user
+		const clientId = getClientIdentifier(request, cookies);
+		if (!checkRateLimit(`create-devlog:${clientId}`, 10, 3600000)) {
+			return json(
+				{
+					success: false,
+					error: 'Too many devlogs created. Please try again later.'
+				},
+				{ status: 429 }
+			);
 		}
 
 		const userInfo = await getUserInfoBySessionId(cookies.get('sessionid'));
@@ -23,14 +40,19 @@ export async function POST({ locals, cookies, request }) {
 		const description = formData.get('description');
 		const selectedProjects = formData.get('selectedProjects');
 
-		if (!title || typeof title !== 'string' || !title.trim()) {
-			return json({ error: 'please write a title!' }, { status: 400 });
+		// Validate title
+		const titleValidation = validateTitle(title);
+		if (!titleValidation.valid) {
+			return json({ error: titleValidation.error }, { status: 400 });
 		}
 
-		if (!description || typeof description !== 'string' || !description.trim()) {
-			return json({ error: 'you also need a description!' }, { status: 400 });
+		// Validate description
+		const descriptionValidation = validateDescription(description);
+		if (!descriptionValidation.valid) {
+			return json({ error: descriptionValidation.error }, { status: 400 });
 		}
 
+		// Validate projects
 		if (!selectedProjects || typeof selectedProjects !== 'string' || !selectedProjects.trim()) {
 			return json({ error: 'please select at least one project!' }, { status: 400 });
 		}
@@ -178,20 +200,18 @@ export async function POST({ locals, cookies, request }) {
 			}
 		}
 
-		// photos or videos
+		// photos or videos - with enhanced validation
 		const photos = [];
 		let photoIndex = 0;
 
-		while (formData.has(`photo${photoIndex}`)) {
+		while (formData.has(`photo${photoIndex}`) && photoIndex < MAX_ATTACHMENTS) {
 			const photoFile = formData.get(`photo${photoIndex}`);
 
 			if (photoFile && photoFile instanceof File) {
-				// Limite dimensione solo per video
-				if (photoFile.type.startsWith('video/') && photoFile.size > MAX_VIDEO_SIZE) {
-					return json(
-						{ error: `Il video "${photoFile.name}" è troppo grande (max 10MB)` },
-						{ status: 400 }
-					);
+				// Validate file deeply (type, size, and signature)
+				const fileValidation = await validateFileDeep(photoFile, photoIndex);
+				if (!fileValidation.valid) {
+					return json({ error: fileValidation.error }, { status: 400 });
 				}
 
 				const arrayBuffer = await photoFile.arrayBuffer();
@@ -199,9 +219,12 @@ export async function POST({ locals, cookies, request }) {
 				const base64 = buffer.toString('base64');
 				const dataUrl = `data:${photoFile.type};base64,${base64}`;
 
+				// Sanitize filename
+				const safeFilename = sanitizeFilename(photoFile.name);
+
 				photos.push({
 					data: dataUrl,
-					filename: photoFile.name,
+					filename: safeFilename,
 					contentType: photoFile.type
 				});
 			}
@@ -212,6 +235,11 @@ export async function POST({ locals, cookies, request }) {
 		// Validate that at least one attachment is provided
 		if (photos.length === 0) {
 			return json({ error: 'per favore aggiungi almeno una foto o un video!' }, { status: 400 });
+		}
+
+		// Warn if too many attachments (silently ignore extras)
+		if (formData.has(`photo${MAX_ATTACHMENTS}`)) {
+			console.warn(`User tried to upload more than ${MAX_ATTACHMENTS} files`);
 		}
 
 		try {
