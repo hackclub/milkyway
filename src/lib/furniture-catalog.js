@@ -78,7 +78,16 @@ export const FURNITURE_TYPES = [
 		component: Tamagotchi,
 		purchasable: false,
 		ownerOnly: true
-	}
+	},
+	{ type: 'clock_brown', name: 'brown clock', cost: 0, purchasable: false, wallOnly: true },
+	{ type: 'floor_lamp', name: 'floor lamp', cost: 0, purchasable: false },
+	{ type: 'teddybear', name: 'teddy bear', cost: 0, purchasable: false },
+	{ type: 'shelf', name: 'short shelf', cost: 0, purchasable: false },
+	{ type: 'fireplace', name: 'fireplace', cost: 0, purchasable: false },
+	{ type: 'plant', name: 'plant', cost: 25, purchasable: true },
+	{ type: 'table', name: 'table', cost: 15, purchasable: true },
+	{ type: 'tall_shelf', name: 'tall shelf', cost: 20, purchasable: true, wallOnly: true },
+	{ type: 'wall_lamp', name: 'wall lamp', cost: 20, purchasable: true, wallOnly: true }
 ];
 
 /** @type {Record<string, FurnitureType>} */

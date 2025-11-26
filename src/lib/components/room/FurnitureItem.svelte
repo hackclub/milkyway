@@ -38,7 +38,17 @@
 		bedside_wooden: 'bedside_stroke.svg',
 		sofa_blue: 'sofa_stroke.svg',
 		sofa_red: 'sofa_stroke.svg',
-		cow_statue: 'cow_statue_stroke.svg'
+		cow_statue: 'cow_statue_stroke.svg',
+		flower_cushion: 'flower_cushion_stroke.svg',
+		arcade_cabinet: 'arcade_cabinet_stroke.svg',
+		art_easel: 'easel_stroke.svg',
+		fireplace: 'fireplace_stroke.svg',
+		floor_lamp: 'floor_lamp_stroke.svg',
+		shelf: 'shelf_stroke.svg',
+		teddybear: 'teddybear_stroke.svg',
+		plant: 'plant_stroke.svg',
+		wall_lamp: 'wall_lamp_stroke.svg',
+		tall_shelf: 'tall_shelf_stroke.svg'
 	};
 	const hasFlippedImage = ['cow_statue'];
 
