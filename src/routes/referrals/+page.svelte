@@ -227,7 +227,7 @@
 					style:width="18vh"
 					style:margin-top="15h"
 				/>
-				{#if 50 >= checkpoint.referralCount}
+				{#if data.referralCount >= checkpoint.referralCount}
 					{#if data.referralRewards && data.referralRewards.includes(checkpoint.reward)}
 						<div class="claimed-reward">reward claimed</div>
 					{:else}

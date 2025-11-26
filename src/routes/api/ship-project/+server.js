@@ -75,7 +75,7 @@ export async function POST({ request, cookies }) {
 					success: false,
 					error: { message: 'Unauthorized access to project' }
 				},
-				{ status: 403 }
+				{ status: 403 }50
 			);
 		}
 
