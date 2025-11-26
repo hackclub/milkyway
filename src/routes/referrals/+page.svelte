@@ -50,6 +50,39 @@
 	async function claimReward(reward) {
 		let rewards = data.referralRewards ?? [];
 		rewards.push(reward);
+		if (reward == '10 coins :)') {
+			try {
+				const response = await fetch('/api/give-referral-rewards', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					coins_cost: -10,
+					paintchips_cost: 0
+				})
+				});
+				const result = await response.json();
+			} catch (error) {
+				console.error('Error adding coins:', error);
+			}
+		} else if (reward == '30 coins :o') {
+			try {
+				const response = await fetch('/api/give-referral-rewards', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					coins_cost: -30,
+					paintchips_cost: 0
+				})
+				});
+			} catch (error) {
+				console.error('Error adding coins:', error);
+			}
+		}
+		
 		try {
 			const response = await fetch('/api/claim-referral-reward', {
 			method: 'POST',

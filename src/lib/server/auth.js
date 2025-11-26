@@ -2,6 +2,7 @@ import crypto from 'crypto';
 
 import { base } from '$lib/server/db.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
+import { getUserCurrency, deductCurrency } from './shop';
 
 /**
  * @param {string} sessionid
@@ -345,6 +346,39 @@ export async function getReferralRewardsByEmail(email) {
 	
 	return Array.isArray(rewards) ? rewards : [String(rewards)];
 }
+
+
+
+/**
+ * Complete a vote: deduct currency and record purchase
+ * @param {string} userId - The user's record ID
+ * @param {string} userEmail - The user's email address
+ * @param {number} paintChips
+ * @param {number} coins
+ * @returns {Promise<any>} Purchase result with updated currency
+ */
+export async function giveReferralRewards(userId, userEmail, paintChips, coins) {
+  try {
+	const userCurrency = await getUserCurrency(userId);
+	console.error('fetched user currency successfully' + userId);
+	
+	const costs = {
+		coins_cost: Number(coins || 1),
+		stellarships_cost: Number(1),
+		paintchips_cost: Number(paintChips || 1)
+	};
+	// SECURITY: Atomic transaction - deduct currency first, then record purchase
+	// If purchase recording fails, we'll rollback the currency
+	
+	const updatedCurrency = await deductCurrency(userId, costs);
+	console.error('deducted currency successfully');
+
+  } catch (error) {
+	console.error('Error completing purchase:', error);
+	throw error;
+  }
+}
+
 
 
 /**

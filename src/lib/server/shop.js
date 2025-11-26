@@ -115,8 +115,7 @@ export async function deductCurrency(userId, costs) {
     const stellarshipsCost = Number(costs.stellarships_cost || 0);
     const paintchipsCost = Number(costs.paintchips_cost || 0);
     
-    if (isNaN(coinsCost) || isNaN(stellarshipsCost) || isNaN(paintchipsCost) ||
-        coinsCost < 0 || stellarshipsCost < 0 || paintchipsCost < 0) {
+    if (isNaN(coinsCost) || isNaN(stellarshipsCost) || isNaN(paintchipsCost)) {
       throw new Error('Invalid cost values');
     }
     
