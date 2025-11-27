@@ -1,20 +1,29 @@
 <script lang="ts">
-  export let data: any;
+  export let data: any = {};
+
+  const homeHref = '/home';
 
   let user = data.user ?? {};
   let coins: number = data.coins ?? 0;
   let stellarships: number = data.stellarships ?? 0;
-  let projects = data.projects ?? [];
-  let submissions = data.submissions ?? [];
+  let projects = Array.isArray(data.projects) ? data.projects : [];
+  let submissions = Array.isArray(data.submissions) ? data.submissions : [];
+  let showIntro = true;
 
   let selectedProjectId: string = projects[0]?.id ?? '';
+  let justification = '';
 
   let loading = false;
   let message = '';
 
+  function getEggSrc(egg: string | undefined) {
+    if (!egg) return '/projects/sparkle_egg1.png'; // not sure what base img for project is..
+    return egg.startsWith('/') ? egg : `/${egg}`;
+  }
+
   async function submit() {
     if (!selectedProjectId) {
-      message = 'Pick a project first.';
+      message = 'pick a creature / project first.';
       return;
     }
 
@@ -26,24 +35,26 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: user.username,
+          username: user?.username,
           projectId: selectedProjectId
+          // NEED TO ADD JUSTIFICATION
         })
       });
 
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || 'Failed to submit');
+        throw new Error(text || 'failed to submit');
       }
 
       const submission = await res.json();
 
-      message = `Submitted! Status: ${submission.status}`;
+      message = `submitted! status: ${submission.status}`;
       submissions = [submission, ...submissions];
       coins = coins - 10;
+      justification = '';
     } catch (err) {
       const e = err as Error;
-      message = e.message ?? 'Error submitting';
+      message = e.message ?? 'error submitting';
     } finally {
       loading = false;
     }
@@ -55,70 +66,100 @@
 </svelte:head>
 
 <div class="blackhole-page">
-  <div class="overlay"></div>
+  {#if !showIntro}
+    <div class="bg-layer"></div>
+  {/if}
 
-  <main class="content fade-in">
-    <h1>Black Hole</h1>
+  <main class="content {showIntro ? 'fade-in-slow' : 'fade-in'}">
+    {#if showIntro}
+      <section class="intro">
+        <h1 class="title">stellarships</h1>
 
-    <p class="user-info">
-      Logged in as
-      <strong>{user.username ?? 'Unknown user'}</strong><br />
-      Coins: <strong>{coins}</strong>
-      · Stellarships: <strong>{stellarships}</strong>
-    </p>
+        <p>
+          if your creature makes it out — congrats, you've got a stellar ship!<br />
+          if it doesn’t — it will walk shamefully back home. (don’t worry, it won’t die.)
+        </p>
 
-    <section class="panel">
-      <h2>Submit a project</h2>
+        <p class="spacer"></p>
 
-      {#if projects.length === 0}
-        <p>You don't have any projects yet.</p>
-      {:else}
-        <form on:submit|preventDefault={submit} class="form">
-          <label>
-            Project
-            <select bind:value={selectedProjectId}>
-              {#each projects as p}
-                <option value={p.id}>
-                  {p.name} ({p.hackatimeHours ?? 0}h)
-                </option>
-              {/each}
-            </select>
-          </label>
-
-          <button type="submit" disabled={loading}>
-            {#if loading}
-              Submitting...
-            {:else}
-              Submit to Black Hole (10 coins)
-            {/if}
-          </button>
-        </form>
-      {/if}
-
-      {#if message}
-        <p class="message">{message}</p>
-      {/if}
-    </section>
-
-    <section class="panel">
-      <h2>My submissions</h2>
-
-      {#if !submissions || submissions.length === 0}
-        <p>No submissions yet.</p>
-      {:else}
-        <ul class="submissions">
-          {#each submissions as s}
-            <li>
-              <strong>{s.status}</strong>
-              — project: {s.projectId}
-              {#if s.createdTime}
-                — at {s.createdTime}
-              {/if}
-            </li>
-          {/each}
+        <p>some examples of what the black hole looks for:</p>
+        <ul>
+          <li>at least 25 hours spent on your project</li>
+          <li>a fully functional game with an engaging game loop</li>
+          <li>unique art styles, assets, gameplay features that make it an interesting game</li>
+          <li>a good storefront — steam or itch.io page</li>
+          <li>most importantly, if you get a lot of people playing it!!!</li>
         </ul>
-      {/if}
-    </section>
+
+        <div class="intro-options">
+          <button type="button" on:click={() => (showIntro = false)}>
+            &gt; select a creature
+          </button>
+          <a href={homeHref}>
+            &gt; or: return home.
+          </a>
+        </div>
+
+        <p class="status-line">
+          coins: {coins} · stellarships: {stellarships}
+        </p>
+      </section>
+    {:else}
+      <section class="choose">
+        <h1>choose your project</h1>
+
+        {#if !projects || projects.length === 0}
+          <p>you don't have any creatures yet.</p>
+        {:else}
+          <div class="project-row">
+            {#each projects as p}
+              {#if p}
+                <button
+                  type="button"
+                  class={"project-card" + (selectedProjectId === p.id ? " selected" : "")}
+                  on:click={() => (selectedProjectId = p.id)}
+                >
+                  <img src={getEggSrc(p.egg)} alt={p.name ?? 'project'} />
+                  <div class="project-name">
+                    &gt; {p.name ?? 'unnamed project'}
+                  </div>
+                </button>
+              {/if}
+            {/each}
+          </div>
+
+          <div class="explanation-box">
+            <textarea
+              bind:value={justification}
+              placeholder="explain why your creature will survive the black hole
+(eg. explain what’s so awesome about your project/the reception!)"
+            ></textarea>
+          </div>
+
+          <div class="submit-options">
+            <button type="button" on:click={submit} disabled={loading}>
+              {#if loading}
+                &gt; submitting creature into the black hole...
+              {:else}
+                &gt; submit a creature into the black hole (10 coins)
+              {/if}
+            </button>
+
+            <a href={homeHref}>
+              &gt; or: return home.
+            </a>
+          </div>
+
+          {#if message}
+            <p class="message">{message}</p>
+          {/if}
+
+          <p class="coins-info">
+            coins: {coins} · stellarships: {stellarships}
+          </p>
+        {/if}
+      </section>
+    {/if}
   </main>
 </div>
 
@@ -128,10 +169,6 @@
     min-height: 100vh;
     width: 100%;
     background: #000;
-    background-image: url('/blackholebackground.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
     color: #f5f5f5;
     display: flex;
     justify-content: center;
@@ -139,28 +176,51 @@
     padding: 2rem 1rem;
     box-sizing: border-box;
     overflow: hidden;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
-  .overlay {
-    position: absolute;
+  .bg-layer {
+    position: fixed;
     inset: 0;
-    background: radial-gradient(circle at center, rgba(0, 0, 0, 0.4), #000 70%);
-    pointer-events: none;
+    background-image: url('/blackholebackground.jpg');
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0;
+    animation: bgFadeIn 2s ease-out forwards;
+    z-index: 0;
+  }
+
+  @keyframes bgFadeIn {
+    from {
+      opacity: 0;
+      filter: brightness(0.2);
+    }
+    to {
+      opacity: 1;
+      filter: brightness(1);
+    }
   }
 
   .content {
     position: relative;
-    max-width: 800px;
+    max-width: 900px;
     width: 100%;
     z-index: 1;
+    text-align: center;
+  }
+
+  .fade-in-slow {
+    opacity: 0;
+    animation: textFadeIn 3.2s ease-out forwards;
   }
 
   .fade-in {
     opacity: 0;
-    animation: fadeIn 1.8s ease-out forwards;
+    animation: textFadeIn 1.6s ease-out forwards;
   }
 
-  @keyframes fadeIn {
+  @keyframes textFadeIn {
     from {
       opacity: 0;
       transform: translateY(10px);
@@ -171,72 +231,136 @@
     }
   }
 
-  h1 {
+  .title {
     font-size: 2.4rem;
-    margin-bottom: 0.5rem;
+    font-weight: 700;
+    margin-bottom: 1.2rem;
+    text-transform: lowercase;
   }
 
-  h2 {
-    font-size: 1.4rem;
-    margin-bottom: 0.5rem;
+  .intro {
+    font-size: 1rem;
+    line-height: 1.6;
   }
 
-  .user-info {
-    margin-bottom: 1.5rem;
-    font-size: 0.95rem;
-    opacity: 0.9;
+  .intro ul {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 1.5rem;
   }
 
-  .panel {
-    background: rgba(0, 0, 0, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 0.75rem;
-    padding: 1rem 1.2rem;
-    margin-bottom: 1rem;
-    backdrop-filter: blur(4px);
+  .intro li::before {
+    content: '• ';
   }
 
-  .form {
+  .intro-options {
+    margin-top: 1.5rem;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.4rem;
     align-items: center;
   }
 
-  label {
-    display: flex;
-    flex-direction: column;
-    font-size: 0.9rem;
-    gap: 0.25rem;
+  .intro-options button,
+  .intro-options a,
+  .submit-options button,
+  .submit-options a {
+    background: none;
+    border: none;
+    color: #f5f5f5;
+    font-size: 1rem;
+    cursor: pointer;
+    text-decoration: none;
   }
 
-  select,
-  button {
-    padding: 0.45rem 0.6rem;
-    border-radius: 0.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(10, 10, 10, 0.8);
+  .intro-options button:hover,
+  .intro-options a:hover,
+  .submit-options button:hover,
+  .submit-options a:hover {
+    text-decoration: underline;
+  }
+
+  .spacer {
+    height: 0.5rem;
+  }
+
+  .status-line {
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+
+  .choose h1 {
+    font-size: 1.6rem;
+    margin-bottom: 2rem;
+  }
+
+  .project-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .project-card {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: center;
+    color: inherit;
+    transition: transform 0.12s ease, filter 0.12s ease;
+  }
+
+  .project-card img {
+    display: block;
+    width: 140px;
+    height: auto;
+  }
+
+  .project-card .project-name {
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  .project-card.selected {
+    transform: translateY(-4px);
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7));
+  }
+
+  .explanation-box {
+    max-width: 640px;
+    margin: 0 auto 1rem;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.4);   /* lighter border */
+    background: rgba(0, 0, 0, 0.3);               /* lighter box */
+  }
+
+  .explanation-box textarea {
+    width: 100%;
+    min-height: 90px;
+    border: none;
+    outline: none;
+    resize: vertical;
+    background: transparent;
     color: #f5f5f5;
     font-size: 0.9rem;
+    line-height: 1.4;
   }
 
-  select {
-    min-width: 220px;
+  .submit-options {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    align-items: center;
   }
 
-  button {
-    cursor: pointer;
-    transition: background 0.15s ease, transform 0.1s ease;
-  }
-
-  button:disabled {
-    opacity: 0.5;
+  .submit-options button:disabled {
+    opacity: 0.6;
     cursor: default;
-  }
-
-  button:not(:disabled):hover {
-    background: rgba(40, 40, 40, 0.95);
-    transform: translateY(-1px);
   }
 
   .message {
@@ -244,42 +368,22 @@
     font-size: 0.9rem;
   }
 
-  .submissions {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    font-size: 0.9rem;
+  .coins-info {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    opacity: 0.9;
   }
 
-  .submissions li {
-    padding: 0.35rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .submissions li:last-child {
-    border-bottom: none;
-  }
-
-  @media (max-width: 600px) {
-    .content {
-      max-width: 100%;
-    }
-
-    .panel {
-      padding: 0.9rem;
-    }
-
-    h1 {
-      font-size: 2rem;
+  @media (max-width: 640px) {
+    .project-card img {
+      width: 110px;
     }
   }
 </style>
 
 
-<!-- whats on the list tho -->
 
-<!-- OLD SCRIPT -->
-
+<!-- OLDER SCRIPT -->
 
 <!-- <script>
   let { data } = $props();

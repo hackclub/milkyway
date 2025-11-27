@@ -11,7 +11,10 @@
 	import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 	import Announcements from '$lib/components/Announcements.svelte';
 	import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
-	
+	import { PUBLIC_SHOW_BLACKHOLE } from '$env/static/public';
+
+	const SHOW_BLACKHOLE = PUBLIC_SHOW_BLACKHOLE === 'true';
+
 	let { data } = $props();
 
 	// Project and UI state
@@ -247,10 +250,6 @@
 
 <main>
 
-<a href="/blackhole" class="blackhole-link" aria-label="Enter the Black Hole">
-  <img src="/blackhole.png" alt="Black Hole" />
-</a>
-
 {#if showOnboarding}
   <OnboardingOverlay onClose={() => { showOnboarding = false }} {user}>
   </OnboardingOverlay>
@@ -304,20 +303,12 @@
 		<img src="/referrals.png" alt="Referrals" />
 	</a>
 
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
-	<!-- Blackhole button/thing will go here -->
+	<!-- Blackhole -->
+	{#if SHOW_BLACKHOLE}
+		<a href="/blackhole" class="blackhole-link" aria-label="Enter the Black Hole">
+			<img src="/blackhole.png" alt="Black Hole" />
+		</a>
+	{/if}
 
 	<!-- Furniture Sidebar - Rendered at page level so it appears on top -->
 	{#if showFurnitureSidebar}
@@ -417,14 +408,14 @@
 		width: auto;
 	}
 
-	.blackhole-link {
+	.blackhole-link { 
 		position: fixed;
-		bottom: 32px;
-		left: 50%;
-		transform: translateX(-50%);
+		top: 200px;
+		right: 32px;
 		z-index: 120;
 		cursor: pointer;
 		display: block;
+		transform: none;
 	}
 	
 	.blackhole-link img {

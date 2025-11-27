@@ -1,9 +1,15 @@
 import { redirect, error } from '@sveltejs/kit';
+import { PUBLIC_SHOW_BLACKHOLE } from '$env/static/public';
 import { getUserCoinsAndStellarships, sanitizeUserForFrontend } from '$lib/server/auth';
 import { getUserProjectsByEmail } from '$lib/server/projects';
-import { getMyBlackholeSubmissions, getUserSubmissions } from '$lib/server/blackhole.js';
+import { getMyBlackholeSubmissions } from '$lib/server/blackhole.js';
+
 
 export async function load({ locals }) {
+  if (PUBLIC_SHOW_BLACKHOLE !== 'true') {
+    throw redirect(302, '/home');
+  }
+
   if (!locals.user) throw redirect(302, '/');
 
   const email = locals.user.email;
@@ -28,3 +34,4 @@ export async function load({ locals }) {
     submissions
   };
 }
+
