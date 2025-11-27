@@ -30,12 +30,17 @@ export async function POST({ cookies, request }) {
 			return json({ success: false, error: 'User not found' }, { status: 404 });
 		}
 
-		// 1) Fetch user's projects and build ID->Name map (support both record.id and projectid)
+		// 1) Fetch user's projects and build ID->meta map (support both record.id and projectid)
 		const projectsForUser = await getUserProjectsByEmail(userInfo.email);
-		const projectIdToName = new Map();
+		const projectIdToMeta = new Map();
 		for (const p of projectsForUser) {
-			if (p?.id) projectIdToName.set(String(p.id), p.name || 'Untitled Project');
-			if (p?.projectid) projectIdToName.set(String(p.projectid), p.name || 'Untitled Project');
+			const meta = {
+				name: p.name || 'Untitled Project',
+				githubURL: p.githubURL || '',
+				shipURL: p.shipURL || ''
+			};
+			if (p?.id) projectIdToMeta.set(String(p.id), meta);
+			if (p?.projectid) projectIdToMeta.set(String(p.projectid), meta);
 		}
 
 		// 2) Fetch user's devlogs (in-memory filtering on linked 'user' field)
@@ -61,9 +66,15 @@ export async function POST({ cookies, request }) {
 							.filter(Boolean)
 					: [];
 
-			const projectNames = projectIds
-				.map((id) => projectIdToName.get(id))
-				.filter((name) => typeof name === 'string' && name.length > 0);
+			const projectMeta = projectIds
+				.map((id) => projectIdToMeta.get(id) || null)
+				.map((m, idx) => {
+					// If we don't have meta, fall back to the mapped name if available
+					if (m) return m;
+					const fallbackName = projectIdToMeta.get(projectIds[idx])?.name || null;
+					return fallbackName || projectIds[idx];
+				})
+				.filter((v) => v !== null && v !== undefined);
 
 			let comments = [];
 			if (record.fields.comments) {
@@ -96,7 +107,7 @@ export async function POST({ cookies, request }) {
 				title: record.fields.title,
 				content: record.fields.content,
 				hours: typeof record.fields.hours === 'number' ? record.fields.hours : 0,
-				projects: projectNames, // return names only
+				projects: projectMeta, // return project meta (name and URLs) when available
 				attachments: record.fields.attachments,
 				created: record.fields.Created,
 				comments: comments,

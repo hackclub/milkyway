@@ -1,5 +1,6 @@
 import { base } from '$lib/server/db.js';
 import { sanitizeUserForFrontend } from '$lib/server/auth.js';
+import { sanitizeURL } from '$lib/utils/sanitize.js';
 
 export async function load({ url, locals }) {
 	const params = url.searchParams;
@@ -110,10 +111,15 @@ export async function load({ url, locals }) {
 			const userInfo = userMap.get(d.userId) || { username: 'Anonymous', githubUsername: '', devlogStreak: 0 };
 			const projectMeta = (d.projectIds || []).map((pid) => {
 				const meta = projectMap.get(pid) || { name: pid, githubURL: '', shipURL: '' };
+				
+				// Sanitize and validate URLs
+				const safeGithubURL = meta.githubURL ? sanitizeURL(meta.githubURL) : '';
+				const safeShipURL = meta.shipURL ? sanitizeURL(meta.shipURL) : '';
+				
 				return {
 					...meta,
-					githubURL: meta.githubURL && !meta.githubURL.startsWith('http') ? `https://${meta.githubURL}` : meta.githubURL,
-					shipURL: meta.shipURL && !meta.shipURL.startsWith('http') ? `https://${meta.shipURL}` : meta.shipURL
+					githubURL: safeGithubURL || '',
+					shipURL: safeShipURL || ''
 				};
 			});
 			return {
