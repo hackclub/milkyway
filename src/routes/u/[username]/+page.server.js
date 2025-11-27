@@ -1,4 +1,4 @@
-import { getUserInfoByUsername } from '$lib/server/auth.js';
+import { getUserInfoByUsername, sanitizeUserForPublic } from '$lib/server/auth.js';
 import { base } from '$lib/server/db.js';
 import { getUserFurnitureByEmail } from '$lib/server/furniture.js';
 import { getUserProjectsByEmail } from '$lib/server/projects.js';
@@ -45,8 +45,8 @@ export async function load({ params, locals, url }) {
 		const projects = await getUserProjectsByEmail(userEmail);
 		const furniture = await getUserFurnitureByEmail(userEmail);
 
-		// Remove email from userInfo before sending to client (SECURITY)
-		delete userInfo.email;
+		// SECURITY: Sanitize user data for public viewing (removes email, address, idv, coins, birthday, etc.)
+		const publicUserInfo = sanitizeUserForPublic(userInfo);
 
 		// Get follower/following counts
 		console.log('Fetching follower/following counts...');
@@ -87,7 +87,7 @@ export async function load({ params, locals, url }) {
 					}
 				: null,
 			user: {
-				...userInfo,
+				...publicUserInfo,
 				followerCount,
 				followingCount
 			},

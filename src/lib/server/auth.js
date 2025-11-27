@@ -63,7 +63,8 @@ export async function getUserInfoBySessionId(sessionid) {
 /**
  * @param {any} serverUser
  * Sanitize user object for safe frontend exposure
- * Removes email and other sensitive fields
+ * Removes email, address, and other sensitive fields
+ * SECURITY: This is used for the current user's own data
  */
 export function sanitizeUserForFrontend(serverUser) {
 	if (!serverUser) return null;
@@ -80,11 +81,26 @@ export function sanitizeUserForFrontend(serverUser) {
 		howDidYouHear: serverUser.howDidYouHear || '',
 		doingWell: serverUser.doingWell || '',
 		improve: serverUser.improve || '',
-		address: serverUser.address || null,
-		idv: serverUser.idv || null,
 		devlogStreak: serverUser.devlogStreak || 0,
 		maxDevlogStreak: serverUser.maxDevlogStreak || 0
-		// DO NOT include: email, lastHackatimeUpdate, lastDevlogDate, __serverOnly, or other internal fields
+		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, __serverOnly, or other internal fields
+	};
+}
+
+/**
+ * @param {any} serverUser
+ * Sanitize user object for public display (other users viewing this user)
+ * SECURITY: Exposes minimal information - only username and public stats
+ */
+export function sanitizeUserForPublic(serverUser) {
+	if (!serverUser) return null;
+
+	return {
+		username: serverUser.username,
+		githubUsername: serverUser.githubUsername || '',
+		devlogStreak: serverUser.devlogStreak || 0,
+		maxDevlogStreak: serverUser.maxDevlogStreak || 0
+		// DO NOT include: recId, email, address, idv, coins, stellarships, paintchips, birthday, or other personal/sensitive fields
 	};
 }
 

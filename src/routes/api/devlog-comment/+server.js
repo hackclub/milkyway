@@ -2,8 +2,7 @@ import { json } from '@sveltejs/kit';
 import { getUserInfoBySessionId } from '$lib/server/auth.js';
 import { base } from '$lib/server/db.js';
 import { checkRateLimit, getClientIdentifier, sanitizeErrorMessage } from '$lib/server/security.js';
-
-const MAX_COMMENT_LENGTH = 500;
+import { validateComment } from '$lib/server/validation.js';
 
 // POST - Add a comment to a devlog
 export async function POST({ locals, cookies, request }) {
@@ -12,9 +11,9 @@ export async function POST({ locals, cookies, request }) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
 		}
 
-		// Rate limiting: 20 comments per minute per user
+		// Rate limiting: 10 comments per minute per user
 		const clientId = getClientIdentifier(request, cookies);
-		if (!checkRateLimit(`devlog-comment:${clientId}`, 20, 60000)) {
+		if (!checkRateLimit(`devlog-comment:${clientId}`, 10, 60000)) {
 			return json(
 				{
 					success: false,
@@ -36,18 +35,10 @@ export async function POST({ locals, cookies, request }) {
 			return json({ success: false, error: 'Devlog ID is required' }, { status: 400 });
 		}
 
-		if (!content || typeof content !== 'string' || !content.trim()) {
-			return json({ success: false, error: 'Comment content is required' }, { status: 400 });
-		}
-
-		if (content.length > MAX_COMMENT_LENGTH) {
-			return json(
-				{
-					success: false,
-					error: `Comment must be ${MAX_COMMENT_LENGTH} characters or less`
-				},
-				{ status: 400 }
-			);
+		// Validate comment content
+		const commentValidation = validateComment(content);
+		if (!commentValidation.valid) {
+			return json({ success: false, error: commentValidation.error }, { status: 400 });
 		}
 
 		const devlogRecord = await base('Devlogs').find(devlogId);

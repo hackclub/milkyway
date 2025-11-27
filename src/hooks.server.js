@@ -19,5 +19,31 @@ export async function handle({ event, resolve }) {
     }
   }
 
-  return resolve(event); // continue to page or endpoint
+  const response = await resolve(event);
+  
+  // Add security headers
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  
+  // Content Security Policy - allow inline styles for Svelte
+  // Note: Adjust as needed for your specific use case
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'", // Svelte needs inline scripts
+    "style-src 'self' 'unsafe-inline'", // Svelte needs inline styles
+    "img-src 'self' data: https:", // Allow data URLs for uploaded images
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "media-src 'self' data:", // Allow data URLs for uploaded videos
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'"
+  ].join('; ');
+  
+  response.headers.set('Content-Security-Policy', csp);
+  
+  return response;
 }

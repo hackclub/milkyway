@@ -41,7 +41,9 @@
 	"dependencies": {
 		"airtable": "^0.12.2",
 		"canvas-confetti": "^1.9.3",
+		"dompurify": "^3.3.0",
 		"dotenv": "^17.2.2",
+		"isomorphic-dompurify": "^2.33.0",
 		"marked": "^14.1.4",
 		"node-fetch": "^3.3.2",
 		"qrcode": "^1.5.3",

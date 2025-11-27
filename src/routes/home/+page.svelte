@@ -329,6 +329,7 @@
 			bind:isCreateOpen
 			bind:showFurnitureSidebar
 			{user}
+			currentUser={user}
 			onShowPromptPopup={showPromptPopupHandler}
 			onOpenRouletteSpin={openRouletteSpinHandler}
 			onDeleteProject={() => {}}

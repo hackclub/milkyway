@@ -2,7 +2,8 @@ import { json } from '@sveltejs/kit';
 import {
 	getUserInfoBySessionId,
 	getUserInfoByUsername,
-	sanitizeUserForFrontend
+	sanitizeUserForFrontend,
+	sanitizeUserForPublic
 } from '$lib/server/auth.js';
 import { base } from '$lib/server/db.js';
 import {
@@ -42,8 +43,8 @@ export async function GET({ cookies, url, request }) {
 				return json({ success: false, error: 'User not found' }, { status: 404 });
 			}
 
-			// SECURITY: Remove email before using/returning (never expose to client)
-			delete userInfo.email;
+			// SECURITY: Sanitize user data for public viewing (removes email, address, idv, coins, etc.)
+			const publicUserInfo = sanitizeUserForPublic(userInfo);
 
 			// Fetch user's projects
 			const escapedUserId = escapeAirtableFormula(userInfo.recId);
@@ -116,7 +117,7 @@ export async function GET({ cookies, url, request }) {
 			return json({
 				success: true,
 				user: {
-					...userInfo,
+					...publicUserInfo,
 					followerCount,
 					followingCount
 				},
