@@ -11,6 +11,9 @@
 	import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 	import Announcements from '$lib/components/Announcements.svelte';
 	import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
+	import { PUBLIC_SHOW_BLACKHOLE } from '$env/static/public';
+
+	const SHOW_BLACKHOLE = PUBLIC_SHOW_BLACKHOLE === 'true';
 
 	let { data } = $props();
 
@@ -246,6 +249,11 @@
 </svelte:head>
 
 <main>
+
+{#if showOnboarding}
+  <OnboardingOverlay onClose={() => { showOnboarding = false }} {user}>
+  </OnboardingOverlay>
+{/if}
 	{#if showOnboarding}
 		<OnboardingOverlay
 			onClose={() => {
@@ -294,6 +302,13 @@
 	<a href="/referrals" class="referral-button">
 		<img src="/referrals.png" alt="Referrals" />
 	</a>
+
+	<!-- Blackhole -->
+	{#if SHOW_BLACKHOLE}
+		<a href="/blackhole" class="blackhole-link" aria-label="Enter the Black Hole">
+			<img src="/blackhole.png" alt="Black Hole" />
+		</a>
+	{/if}
 
 	<!-- Furniture Sidebar - Rendered at page level so it appears on top -->
 	{#if showFurnitureSidebar}
@@ -393,4 +408,22 @@
 		height: 150px;
 		width: auto;
 	}
+
+	.blackhole-link { 
+		position: fixed;
+		top: 200px;
+		right: 32px;
+		z-index: 120;
+		cursor: pointer;
+		display: block;
+		transform: none;
+	}
+	
+	.blackhole-link img {
+		display: block;
+		height: 150px;
+		width: auto;
+		pointer-events: auto;
+	}
+
 </style>

@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { getUserProjectsByEmail } from '$lib/server/projects.js';
 import { getUserFurnitureByEmail } from '$lib/server/furniture.js';
 import { getUserCoinsAndStellarships, sanitizeUserForFrontend } from '$lib/server/auth.js';
+import { PUBLIC_SHOW_BLACKHOLE } from '$env/static/public';
 
 export async function load({ locals }) {
 	if (!locals.user) {
@@ -27,6 +28,7 @@ export async function load({ locals }) {
 		coins,
 		stellarships,
 		paintchips,
-		hasOnboarded
+		hasOnboarded,
+		showBlackhole: PUBLIC_SHOW_BLACKHOLE === 'true'
 	};
 }
