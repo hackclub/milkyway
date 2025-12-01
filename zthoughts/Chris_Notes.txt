@@ -1,0 +1,26 @@
+Notes for da tongue:
+
+Imported ZOD 
+
+Added Airtable stuff:
+    User - added new view(BlackholeSubmission) 
+    BlackholeSubmissions - new table with fields
+        submission_number
+        User(from user table)
+        username(from user table)
+        Project(from projects table)
+        Status (approved/rejected/pending)
+        CoinsSpent(10)
+        CoinsBefore
+        CoinsAfter
+        HackatimeHoursAtSubmission
+        StellarshipsAtSubmission
+        Reviewer(uhh probably gonna link this to user so auth works)
+        Reason 
+
+Added env variables:
+    REVIEWER_PASSWORD
+        password for reviewer page
+        gonna change to use field "permissions" thats made
+    PUBLIC_SHOW_BLACKHOLE
+        true/false to let others see blackhole
