@@ -17,7 +17,7 @@ const MIN_HOURS_REQUIRED = 25;
 export const blackholeSubmitSchema = z.object({
   username: z.string().min(1, 'username is required'),
   projectId: z.string().min(1, 'projectId is required'),
-  justification: z.string().optional()
+  justification: z.string().max(2000).optional()
 });
 
 export const blackholeModerateSchema = z.object({
@@ -101,6 +101,7 @@ function normalizeSubmission(record) {
     coinsAfter: f.CoinsAfter ?? null,
     hackatimeHours: f.HackatimeHoursAtSubmission ?? null,
     stellarshipsAtSubmission: f.StellarshipsAtSubmission ?? null,
+    justification: f.Justification ?? null,
     reviewer: f.Reviewer ?? null,
     reason: f.Reason ?? null,
     justification: f.Justification ?? null,
@@ -127,6 +128,30 @@ async function getNextSubmissionNumber() {
   return Number(lastNum) + 1;
 }
 
+/**
+ * @param {string} userRecordId
+ * @param {string} projectRecordId
+ * @returns {Promise<boolean>}
+ */
+async function hasActiveSubmission(userRecordId, projectRecordId) {
+  const escapedUser = escapeAirtableFormula(userRecordId);
+  const escapedProject = escapeAirtableFormula(projectRecordId);
+
+  const records = await base(BLACKHOLE_TABLE)
+    .select({
+      filterByFormula: `
+        AND(
+          FIND("${escapedUser}", ARRAYJOIN({User}, ",")),
+          FIND("${escapedProject}", ARRAYJOIN({Project}, ",")),
+          OR({Status} = "pending", {Status} = "approved")
+        )
+      `
+    })
+    .firstPage();
+
+  return records.length > 0;
+}
+
 
 /**
  * submittin
@@ -135,11 +160,6 @@ async function getNextSubmissionNumber() {
  */
 export async function submitToBlackhole(rawInput) {
   const { username, projectId, justification } = blackholeSubmitSchema.parse(rawInput);
-
-  // Require justification
-  if (!justification || !justification.trim()) {
-    throw new Error('Please explain why your project deserves a stellar ship');
-  }
 
   const user = await getUserbyUsername(username);
   if (!user) {
@@ -162,15 +182,21 @@ export async function submitToBlackhole(rawInput) {
   // ASSERT DOMINANCE
   assertProjectOwnership(project, user);
 
-  // Check if project has already been submitted to blackhole
-  const existingSubmissions = await base(BLACKHOLE_TABLE)
-    .select({
-      filterByFormula: `FIND("${projectId}", ARRAYJOIN({Project}, ","))`
-    })
-    .firstPage();
+  //Checking if submitted
+  const alreadySubmitted = await hasActiveSubmission(user.id, project.id);
+  if (alreadySubmitted) {
+    throw new Error(
+      'This project already has a pending or approved black hole submission.'
+    );
+  }
 
-  if (existingSubmissions.length > 0) {
-    throw new Error('This project has already been submitted to the black hole');
+
+  //Checking if submitted
+  const alreadySubmitted = await hasActiveSubmission(user.id, project.id);
+  if (alreadySubmitted) {
+    throw new Error(
+      'This project already has a pending or approved black hole submission.'
+    );
   }
 
   // Hackatime hours
@@ -200,6 +226,8 @@ export async function submitToBlackhole(rawInput) {
     CoinsAfter: coinsAfter,
     HackatimeHoursAtSubmission: hackatimeHours,
     StellarshipsAtSubmission: stellarships,
+    submissionNumber,
+    Justification: justification ?? ''
     submissionNumber,
     Justification: justification ?? ''
   });

@@ -173,6 +173,27 @@
       loading = false;
     }
   }
+
+  let availableProjects = projects;
+
+  $: {
+    const blocked = new Set(
+      submissions
+        .filter(
+          (s: any) => s && (s.status === 'pending' || s.status === 'approved')
+        )
+        .map((s: any) => s.projectId)
+    );
+
+    availableProjects = projects.filter((p: any) => {
+      const pid = p.id ?? p.projectid;
+      return !blocked.has(pid);
+    });
+
+    if (!availableProjects.find((p: any) => p.id === selectedProjectId)) {
+      selectedProjectId = availableProjects[0]?.id ?? '';
+    }
+  }
 </script>
 
 <svelte:head>
@@ -228,8 +249,10 @@
       <section class="intro">
 
         <p>
-          if your creature makes it out — congrats, you've got a stellar ship!<br />
-          if it doesn't — it will walk shamefully back home. (don't worry, it won't die.)
+          The black how is how your creature(project) proves itself.<br />
+          If it makes it out, you earn a <strong>stellar ship</strong> - a sign that your project 
+          is polished, playabel, and loved by players.<br />
+          If it doesn't it'll walk shamefully back home. (don't worry, it won't die.)
         </p>
 
         <p class="spacer"></p>
@@ -262,14 +285,11 @@
       <section class="choose">
         <h1>choose your project</h1>
 
-        {#if !shippedProjects || shippedProjects.length === 0}
-          <p class="no-projects-msg">ship a project first.</p>
-          <div class="back-option">
-            <a href={homeHref}>&gt; return home</a>
-          </div>
+        {#if !availableProjects || availableProjects.length === 0}
+          <p>you don't have any creatures avalible to submit right now.w</p>
         {:else}
           <div class="project-row">
-            {#each shippedProjects as p}
+            {#each availableProjects as p}
               {#if p}
                 {@const submission = submissions.find((s: any) => s.projectId === p.id)}
                 {@const isSubmitted = !!submission}
@@ -649,12 +669,16 @@
   }
 
   .explanation-box {
-    max-width: 640px;
-    margin: 0 auto 1rem;
-    padding: 0.75rem;
-    border-radius: 0.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.4);   /* lighter border */
-    background: rgba(0, 0, 0, 0.3);               /* lighter box */
+    width: 100%;
+    min-height: 90px;
+    border: none;
+    outline: none;
+    resize: vertical;
+    background: transparent;
+    color: #eaeaea;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    font-weight: 300;
   }
 
   .explanation-box textarea {
