@@ -2,7 +2,11 @@ TODO pageee (in list of importance):
 
 CONFICT ERRORS WITH PR #17
     - Probably bc library version conflicts
-    -  
+    - Coolify server error:
+        -      
+    - multiple loc files apparently? 
+        - Double check that 
+    - 
 
 Blackhole page:
     - Need to add "check submission page" so users can check their submissions
@@ -11,7 +15,7 @@ Blackhole page:
     - Change current comments so it explains more
     - Make justification box a bit lighter(text font)
     - Check sentry[bot] errors
-        - appearntly approve doesnt work?
+        - apparently approve doesnt work?
     - Add animations to:
         - submitting creature
         - switching pages from start to submit
@@ -21,7 +25,7 @@ Reviewer page:
     - Need to use "permissions" to let reviewers review 
     - Get rid of/stop using REVIEWER_PASSWORD?
     - Similar to siege reviews...
-        - Fraud review + Github repo + Itch  page + Slack msg 
+        - Fraud review + Github repo + Itch game page + Slack User ID 
         - Attach to bot?
         - check siege bot + page(but it is rails...)
     - Fix the entire system sob

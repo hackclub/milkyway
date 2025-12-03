@@ -1,0 +1,69 @@
+Small collection of the errors:
+
+
+#10 1.067   specifiers in the lockfile don't match specifiers in package.json:
+2025-Nov-29 10:13:50.460293
+#10 1.067 * 1 dependencies were added: zod@^4.1.12
+2025-Nov-29 10:13:50.460293
+#10 1.067 * 6 dependencies are mismatched: 
+2025-Nov-29 10:13:50.460293
+#10 1.067   - @sveltejs/adapter-auto (lockfile: ^6.0.0, manifest: ^6.1.0)
+2025-Nov-29 10:13:50.460293
+#10 1.067   - @sveltejs/kit (lockfile: ^2.22.0, manifest: ^2.48.4)
+2025-Nov-29 10:13:50.460293
+#10 1.067   - @sveltejs/vite-plugin-svelte (lockfile: ^6.0.0, manifest: ^6.2.0)
+2025-Nov-29 10:13:50.460293
+#10 1.067   - @types/node (lockfile: ^22, manifest: ^22
+.18.6)
+2025-Nov-29 10:13:50.460293
+#10 1.067   - svelte (lockfile: ^5.0.0, manifest: ^5.39.2)
+2025-Nov-29 10:13:50.460293
+#10 1.067   - vite (lockfile: ^7.0.4, manifest: ^7.1.6)
+2025-Nov-29 10:13:50.460293
+#10 1.067
+2025-Nov-29 10:13:50.460293
+#10 ERROR: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
+2025-Nov-29 10:13:50.460293
+------
+2025-Nov-29 10:13:50.460293
+> [builder 5/7] RUN pnpm install --frozen-lockfile:
+2025-Nov-29 10:13:50.460293
+1.067   specifiers in the lockfile don't match specifiers in package.json:
+2025-Nov-29 10:13:50.460293
+1.067 * 1 dependencies were added: zod@^4.1.12
+2025-Nov-29 10:13:50.460293
+1.067 * 6 dependencies are mismatched:
+2025-Nov-29 10:13:50.460293
+1.067   - @sveltejs/adapter-auto (lockfile: ^6.0.0, manifest: ^6.1.0)
+2025-Nov-29 10:13:50.460293
+1.067   - @sveltejs/kit (lockfile: ^2.22.0, manifest: ^2.48.4)
+2025-Nov-29 10:13:50.460293
+1.067   - @sveltejs/vite-plugin-svelte (lockfile: ^6.0.0, manifest: ^6.2.0)
+2025-Nov-29 10:13:50.460293
+1.067   - @types/node (lockfile: ^22, manifest: ^22.18.6)
+2025-Nov-29 10:13:50.460293
+1.067   - svelte (lockfile: ^5.0.0, manifest: ^5.39.2)
+2025-Nov-29 10:13:50.460293
+1.067   - vite (lockfile: ^7.0.4, manifest: ^7.1.6)
+2025-Nov-29 10:13:50.460293
+1.067
+2025-Nov-29 10:13:50.460293
+------
+2025-Nov-29 10:13:50.460293
+2025-Nov-29 10:13:50.460293
+3 warnings found (use docker --debug to expand):
+2025-Nov-29 10:13:50.460293
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "AIRTABLE_API_KEY") (line 6)
+2025-Nov-29 10:13:50.460293
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "STATS_API_KEY") (line 2)
+2025-Nov-29 10:13:50.460293
+- SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "IDV_KEY") (line 3)
+2025-Nov-29 10:13:50.460293
+Dockerfile:10
+2025-Nov-29 10:13:50.460293
+
+
+ERROR: failed to build: failed to solve: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
+
+Failed deployment...
+:sad face:
