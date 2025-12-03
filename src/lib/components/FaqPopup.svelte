@@ -73,7 +73,7 @@ Art hours do count for paint chips, however, and you can convert some paint chip
     
     {
       question: "What are stellar ships? How do I get them?",
-      answer: "After you ship a project, you can polish it even more and release it to the public to earn stellar ships. The stellar ship requirements are a combination of efforts — your project must be publicly accessible, look awesome, and hit a certain public reception requirement! Don't worry, it will not be too difficult. More information will come soon."
+      answer: "After you ship a project, you can polish it even more and release it to the public to earn stellar ships. Click on the Black Hole at the right of the home page to check out stellar ship requirements and submit a project!"
     },
     {
       question: "What are paint chips? How do I get them?",

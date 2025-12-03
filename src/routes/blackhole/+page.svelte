@@ -8,13 +8,86 @@
   let stellarships: number = data.stellarships ?? 0;
   let projects = Array.isArray(data.projects) ? data.projects : [];
   let submissions = Array.isArray(data.submissions) ? data.submissions : [];
-  let showIntro = true;
+  // step 0: "what's a stellar ship?" | step 1: criteria intro | step 2: choose project | step 3: success
+  let step = 0;
+  let submittedProjectName = '';
 
-  let selectedProjectId: string = projects[0]?.id ?? '';
+  // Only show projects that have been shipped (have a shipURL)
+  $: shippedProjects = projects.filter((p: any) => p.shipURL && p.shipURL.trim() !== '');
+
+  // Get project IDs that have NOT been submitted yet
+  $: availableProjects = shippedProjects.filter((p: any) => 
+    !submissions.some((s: any) => s.projectId === p.id)
+  );
+
+  let selectedProjectId: string = '';
+  
+  // Initialize selectedProjectId - prefer non-submitted projects first
+  $: if (!selectedProjectId || !shippedProjects.some((p: any) => p.id === selectedProjectId)) {
+    if (availableProjects.length > 0) {
+      selectedProjectId = availableProjects[0]?.id ?? '';
+    } else if (shippedProjects.length > 0) {
+      selectedProjectId = shippedProjects[0]?.id ?? '';
+    }
+  }
   let justification = '';
+  let uploadedImages: { data: string; name: string }[] = [];
+  let fileInput: HTMLInputElement;
 
   let loading = false;
   let message = '';
+
+  function handleFileSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const files = input.files;
+    if (!files) return;
+
+    // Limit to 5 images total
+    const remaining = 5 - uploadedImages.length;
+    const filesToProcess = Array.from(files).slice(0, remaining);
+
+    filesToProcess.forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      if (file.size > 5 * 1024 * 1024) {
+        message = 'Image too large (max 5MB each)';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        uploadedImages = [...uploadedImages, { data: result, name: file.name }];
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset file input
+    input.value = '';
+  }
+
+  function removeImage(index: number) {
+    uploadedImages = uploadedImages.filter((_, i) => i !== index);
+  }
+
+  // Filter pending submissions
+  $: pendingSubmissions = submissions.filter((s: any) => s.status === 'pending');
+
+  // Get ALL project IDs that have been submitted to the blackhole (any status)
+  $: submittedProjectIds = new Set(submissions.map((s: any) => s.projectId));
+
+  // Check if selected project has already been submitted
+  $: isSelectedProjectSubmitted = submittedProjectIds.has(selectedProjectId);
+
+  // Check if selected project is currently pending
+  $: isSelectedProjectPending = pendingSubmissions.some((s: any) => s.projectId === selectedProjectId);
+
+  // Get selected project name
+  $: selectedProjectName = projects.find((p: any) => p.id === selectedProjectId)?.name ?? 'a creature';
+
+  // Get project info by projectId
+  function getProjectForSubmission(submission: any) {
+    return projects.find((p: any) => p.id === submission.projectId);
+  }
 
   function getEggSrc(egg: string | undefined) {
     if (!egg) return '/projects/sparkle_egg1.png'; // not sure what base img for project is..
@@ -27,6 +100,21 @@
       return;
     }
 
+    if (isSelectedProjectSubmitted) {
+      message = 'this project has already been submitted to the black hole.';
+      return;
+    }
+
+    if (coins < 10) {
+      message = 'not enough coins (requires 10 coins).';
+      return;
+    }
+
+    if (!justification.trim()) {
+      message = 'please explain why your project deserves a stellar ship.';
+      return;
+    }
+
     loading = true;
     message = '';
 
@@ -36,8 +124,8 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: user?.username,
-          projectId: selectedProjectId
-          // NEED TO ADD JUSTIFICATION
+          projectId: selectedProjectId,
+          justification: justification.trim() || undefined
         })
       });
 
@@ -48,10 +136,36 @@
 
       const submission = await res.json();
 
-      message = `submitted! status: ${submission.status}`;
+      // Upload images if any
+      if (uploadedImages.length > 0 && submission.id) {
+        for (const img of uploadedImages) {
+          try {
+            await fetch('/api/blackhole/upload-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                submissionId: submission.id,
+                imageData: img.data,
+                filename: img.name
+              })
+            });
+          } catch (imgErr) {
+            console.error('Failed to upload image:', imgErr);
+          }
+        }
+      }
+
+      // Store the name for the success screen
+      submittedProjectName = selectedProjectName;
+      
       submissions = [submission, ...submissions];
       coins = coins - 10;
       justification = '';
+      uploadedImages = [];
+      message = '';
+      
+      // Go to success screen
+      step = 3;
     } catch (err) {
       const e = err as Error;
       message = e.message ?? 'error submitting';
@@ -66,33 +180,73 @@
 </svelte:head>
 
 <div class="blackhole-page">
-  {#if !showIntro}
+  {#if step >= 2}
     <div class="bg-layer"></div>
   {/if}
 
-  <main class="content {showIntro ? 'fade-in-slow' : 'fade-in'}">
-    {#if showIntro}
+  {#key step}
+    <main class="content {step < 2 ? 'fade-in-slow' : 'fade-in'}">
+      {#if step === 0}
+      <section class="intro poem-intro">
+        <h1 class="title">what's a stellar ship?</h1>
+
+        <p class="poem">
+          a brightly shining star —<br />
+          a ship that sails.<br />
+          a ship that flies.<br />
+          a ship that soars far in the sky.
+        </p>
+
+        <p class="poem-question">does your ship have what it takes?</p>
+
+        <div class="intro-options">
+          <button type="button" on:click={() => (step = 1)}>
+            &gt; peer into the black hole
+          </button>
+          <a href={homeHref}>
+            &gt; or: return home.
+          </a>
+        </div>
+
+        {#if pendingSubmissions.length > 0}
+          <div class="pending-section">
+            <p class="pending-label">currently in the black hole:</p>
+            <div class="pending-row">
+              {#each pendingSubmissions as sub}
+                {@const proj = getProjectForSubmission(sub)}
+                <div class="pending-card">
+                  <img src={getEggSrc(proj?.egg)} alt={proj?.name ?? 'project'} />
+                  <div class="pending-name">{proj?.name ?? 'unknown'}</div>
+                  <div class="pending-status">pending</div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </section>
+    {:else if step === 1}
       <section class="intro">
-        <h1 class="title">stellarships</h1>
 
         <p>
           if your creature makes it out — congrats, you've got a stellar ship!<br />
-          if it doesn’t — it will walk shamefully back home. (don’t worry, it won’t die.)
+          if it doesn't — it will walk shamefully back home. (don't worry, it won't die.)
         </p>
 
         <p class="spacer"></p>
 
-        <p>some examples of what the black hole looks for:</p>
+        <p>the black hole rewards effort and innovation.<br/>
+        some examples of what it wants:</p>
         <ul>
-          <li>at least 25 hours spent on your project</li>
+          <li>high-quality hours spent on your project</li>
           <li>a fully functional game with an engaging game loop</li>
           <li>unique art styles, assets, gameplay features that make it an interesting game</li>
           <li>a good storefront — steam or itch.io page</li>
-          <li>most importantly, if you get a lot of people playing it!!!</li>
+          <li>proof that people like your game: play/download counts, popular posts on social media, etc!</li>
         </ul>
+        <p>you do not need all of them to have a stellarship, but the more the better.</p>
 
         <div class="intro-options">
-          <button type="button" on:click={() => (showIntro = false)}>
+          <button type="button" on:click={() => (step = 2)}>
             &gt; select a creature
           </button>
           <a href={homeHref}>
@@ -104,25 +258,33 @@
           coins: {coins} · stellarships: {stellarships}
         </p>
       </section>
-    {:else}
+    {:else if step === 2}
       <section class="choose">
         <h1>choose your project</h1>
 
-        {#if !projects || projects.length === 0}
-          <p>you don't have any creatures yet.</p>
+        {#if !shippedProjects || shippedProjects.length === 0}
+          <p class="no-projects-msg">ship a project first.</p>
+          <div class="back-option">
+            <a href={homeHref}>&gt; return home</a>
+          </div>
         {:else}
           <div class="project-row">
-            {#each projects as p}
+            {#each shippedProjects as p}
               {#if p}
+                {@const submission = submissions.find((s: any) => s.projectId === p.id)}
+                {@const isSubmitted = !!submission}
                 <button
                   type="button"
-                  class={"project-card" + (selectedProjectId === p.id ? " selected" : "")}
+                  class="project-card{selectedProjectId === p.id ? ' selected' : ''}{isSubmitted ? ' submitted' : ''}"
                   on:click={() => (selectedProjectId = p.id)}
                 >
                   <img src={getEggSrc(p.egg)} alt={p.name ?? 'project'} />
                   <div class="project-name">
                     &gt; {p.name ?? 'unnamed project'}
                   </div>
+                  {#if isSubmitted}
+                    <div class="status-badge {submission.status}">{submission.status}</div>
+                  {/if}
                 </button>
               {/if}
             {/each}
@@ -131,17 +293,51 @@
           <div class="explanation-box">
             <textarea
               bind:value={justification}
-              placeholder="explain why your creature will survive the black hole
-(eg. explain what’s so awesome about your project/the reception!)"
+              placeholder="explain how your creature will survive the black hole
+(eg. what's special about your project? how many people play it? what's the reception like?)"
             ></textarea>
           </div>
 
+          <div class="upload-section">
+            <p class="upload-label">add screenshots as proof (optional, up to 5 - such as screenshots of itch.io play count)</p>
+            
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              bind:this={fileInput}
+              on:change={handleFileSelect}
+              style="display: none;"
+            />
+            
+            {#if uploadedImages.length > 0}
+              <div class="image-previews">
+                {#each uploadedImages as img, i}
+                  <div class="preview-item">
+                    <img src={img.data} alt="preview" />
+                    <button type="button" class="remove-btn" on:click={() => removeImage(i)}>×</button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
+            {#if uploadedImages.length < 5}
+              <button type="button" class="add-image-btn" on:click={() => fileInput.click()}>
+                + add {uploadedImages.length > 0 ? 'more ' : ''}screenshots
+              </button>
+            {/if}
+          </div>
+
           <div class="submit-options">
-            <button type="button" on:click={submit} disabled={loading}>
+            <button type="button" on:click={submit} disabled={loading || isSelectedProjectSubmitted || coins < 10}>
               {#if loading}
-                &gt; submitting creature into the black hole...
+                &gt; submitting {selectedProjectName} into the black hole...
+              {:else if isSelectedProjectSubmitted}
+                &gt; {selectedProjectName} has already been submitted
+              {:else if coins < 10}
+                &gt; not enough coins (need 10, have {coins})
               {:else}
-                &gt; submit a creature into the black hole (10 coins)
+                &gt; submit {selectedProjectName} into the black hole (10 coins)
               {/if}
             </button>
 
@@ -159,8 +355,25 @@
           </p>
         {/if}
       </section>
+    {:else if step === 3}
+      <section class="intro success-screen">
+        <p class="success-message">
+          {submittedProjectName} went into the black hole.
+        </p>
+
+        <p class="success-message">
+          you will hear back from it in a few working days.
+        </p>
+
+        <div class="intro-options">
+          <a href={homeHref}>
+            &gt; go home and wait.
+          </a>
+        </div>
+      </section>
     {/if}
-  </main>
+    </main>
+  {/key}
 </div>
 
 <style>
@@ -197,8 +410,8 @@
       filter: brightness(0.2);
     }
     to {
-      opacity: 1;
-      filter: brightness(1);
+      opacity: 0.5;
+      filter: brightness(0.6);
     }
   }
 
@@ -241,6 +454,63 @@
   .intro {
     font-size: 1rem;
     line-height: 1.6;
+  }
+
+  .poem-intro .poem {
+    font-style: italic;
+    margin: 1.5rem 0;
+    line-height: 2;
+  }
+
+  .poem-intro .poem-question {
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .success-screen .success-message {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.8;
+  }
+
+  .pending-section {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .pending-label {
+    font-size: 0.9rem;
+    opacity: 0.7;
+    margin-bottom: 1rem;
+  }
+
+  .pending-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    justify-content: center;
+  }
+
+  .pending-card {
+    text-align: center;
+  }
+
+  .pending-card img {
+    width: 80px;
+    height: auto;
+    opacity: 0.8;
+  }
+
+  .pending-name {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+  }
+
+  .pending-status {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    font-style: italic;
   }
 
   .intro ul {
@@ -295,6 +565,26 @@
     margin-bottom: 2rem;
   }
 
+  .no-projects-msg {
+    font-size: 1.1rem;
+    opacity: 0.8;
+    margin-bottom: 1.5rem;
+  }
+
+  .back-option {
+    margin-top: 1rem;
+  }
+
+  .back-option a {
+    color: #f5f5f5;
+    text-decoration: none;
+    font-size: 1rem;
+  }
+
+  .back-option a:hover {
+    text-decoration: underline;
+  }
+
   .project-row {
     display: flex;
     flex-wrap: wrap;
@@ -329,6 +619,35 @@
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7));
   }
 
+  .project-card.submitted {
+    opacity: 0.6;
+  }
+
+  .project-card.submitted img {
+    filter: grayscale(0.4);
+  }
+
+  .status-badge {
+    margin-top: 0.25rem;
+    font-size: 0.7rem;
+    font-style: italic;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    display: inline-block;
+  }
+
+  .status-badge.pending {
+    color: #fbbf24;
+  }
+
+  .status-badge.approved {
+    color: #34d399;
+  }
+
+  .status-badge.rejected {
+    color: #f87171;
+  }
+
   .explanation-box {
     max-width: 640px;
     margin: 0 auto 1rem;
@@ -348,6 +667,78 @@
     color: #f5f5f5;
     font-size: 0.9rem;
     line-height: 1.4;
+  }
+
+  .upload-section {
+    max-width: 640px;
+    margin: 0 auto 1.5rem;
+  }
+
+  .upload-label {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    margin-bottom: 0.75rem;
+  }
+
+  .image-previews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .preview-item {
+    position: relative;
+    width: 80px;
+    height: 80px;
+  }
+
+  .preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .preview-item .remove-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: #f5f5f5;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .preview-item .remove-btn:hover {
+    background: rgba(255, 50, 50, 0.8);
+  }
+
+  .add-image-btn {
+    background: none;
+    border: 1px dashed rgba(255, 255, 255, 0.4);
+    color: #f5f5f5;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.15s ease;
+  }
+
+  .add-image-btn:hover {
+    opacity: 1;
+    border-color: rgba(255, 255, 255, 0.6);
   }
 
   .submit-options {

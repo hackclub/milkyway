@@ -16,7 +16,8 @@ const MIN_HOURS_REQUIRED = 25;
 // zod schemas
 export const blackholeSubmitSchema = z.object({
   username: z.string().min(1, 'username is required'),
-  projectId: z.string().min(1, 'projectId is required')
+  projectId: z.string().min(1, 'projectId is required'),
+  justification: z.string().optional()
 });
 
 export const blackholeModerateSchema = z.object({
@@ -102,6 +103,7 @@ function normalizeSubmission(record) {
     stellarshipsAtSubmission: f.StellarshipsAtSubmission ?? null,
     reviewer: f.Reviewer ?? null,
     reason: f.Reason ?? null,
+    justification: f.Justification ?? null,
     createdTime: record._rawJson?.createdTime ?? null
   };
 }
@@ -132,7 +134,12 @@ async function getNextSubmissionNumber() {
  * @returns {Promise<any>}
  */
 export async function submitToBlackhole(rawInput) {
-  const { username, projectId } = blackholeSubmitSchema.parse(rawInput);
+  const { username, projectId, justification } = blackholeSubmitSchema.parse(rawInput);
+
+  // Require justification
+  if (!justification || !justification.trim()) {
+    throw new Error('Please explain why your project deserves a stellar ship');
+  }
 
   const user = await getUserbyUsername(username);
   if (!user) {
@@ -154,6 +161,17 @@ export async function submitToBlackhole(rawInput) {
 
   // ASSERT DOMINANCE
   assertProjectOwnership(project, user);
+
+  // Check if project has already been submitted to blackhole
+  const existingSubmissions = await base(BLACKHOLE_TABLE)
+    .select({
+      filterByFormula: `FIND("${projectId}", ARRAYJOIN({Project}, ","))`
+    })
+    .firstPage();
+
+  if (existingSubmissions.length > 0) {
+    throw new Error('This project has already been submitted to the black hole');
+  }
 
   // Hackatime hours
   const hackatimeHours = Number(project.fields.hackatimeHours ?? 0);
@@ -182,7 +200,8 @@ export async function submitToBlackhole(rawInput) {
     CoinsAfter: coinsAfter,
     HackatimeHoursAtSubmission: hackatimeHours,
     StellarshipsAtSubmission: stellarships,
-    submissionNumber
+    submissionNumber,
+    Justification: justification ?? ''
   });
 
   await base(USER_TABLE).update(user.id, {
