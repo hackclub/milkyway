@@ -1,12 +1,11 @@
 TODO pageee (in list of importance):
 
 CONFICT ERRORS WITH PR #17
-    - Probably bc library version conflicts
-    - Coolify server error:
-        -      
-    - multiple loc files apparently? 
-        - Double check that 
-    - 
+    - Coolify server error(essentially sentry):
+        -      check error.txt
+    - (Zod) " it didn’t install zod in the requirements"
+    - Apparently bc subitting images?
+    - AUGHYAHUDD TONGUE ALREADY FIXED WHAT I WAS TRYING TO DO :sob:
 
 Blackhole page:
     - Need to add "check submission page" so users can check their submissions
