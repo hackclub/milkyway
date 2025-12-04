@@ -167,7 +167,7 @@ export const quests = [
 		name: 'Keep your streak alive for two weeks!',
 		description: 'Get an irl tamagotchi!',
 		variant: 'max',
-		target: 1,
+		target: 14,
 		rewardField: 'tamagotchiCompleted'
 	}),
 	{
