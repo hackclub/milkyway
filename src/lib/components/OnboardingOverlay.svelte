@@ -27,7 +27,8 @@
     "after you've made a game, you can polish it even more to earn stellar ships, which are useful for buying special items in the shop...",
     "like the ticket to OVERGLADE, our singapore game jam hackathon in january!",
     "the shop is down at the right. go check it out when you have time.",
-    "i'll let you look around for now. if you ever need me, i'll be just here at the bottom left — and definitely head to <a href='https://hackclub.slack.com/archives/C09EZSEMB16' target='_blank'>#milkyway on slack</a> for more questions!"
+    "i'll let you look around for now. if you ever need me, i'll be just here at the bottom left — and definitely head to <a href='https://hackclub.slack.com/archives/C09EZSEMB16' target='_blank'>#milkyway on slack</a> for more questions!",
+    "btw — check out the <a href='https://hcmilkyway.notion.site' target='_blank'>tutorials</a> too if you don't know where to start. see ya!"
   ];
 
   function typeWriter(text, speed = 20) {
