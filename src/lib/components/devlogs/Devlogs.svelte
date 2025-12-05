@@ -27,9 +27,9 @@
 	import DevlogLike from '$lib/components/devlogs/DevlogLike.svelte';
 
 	/** @type {{ devlogs?: Devlog[], username?: string, currentUser?: any, isFeed?: boolean, totalCount?: number, page?: number, limit?: number, sort?: string, error?: string, user?: any }} */
-	let { 
-		devlogs = [], 
-		username = 'User', 
+	let {
+		devlogs = [],
+		username = 'User',
 		currentUser,
 		isFeed = false,
 		totalCount = 0,
@@ -106,10 +106,8 @@
 	 */
 	function getPfp(usr) {
 		// Use username hash to get consistent PFP for each user
-		const hash = usr
-			.split('')
-			.reduce((acc, char) => acc + char.charCodeAt(0), 0);
-		const pfpNum = (hash % 7) + 1;
+		const hash = usr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+		const pfpNum = (hash % 8) + 1;
 		return `/pfps/pfp-${pfpNum}.png`;
 	}
 
@@ -120,14 +118,17 @@
 	function getProjectDisplayName(project) {
 		if (typeof project === 'string') return project;
 		if (!project || typeof project !== 'object') return String(project || '');
-		return project.name || project.projectname || project.title || project.name === '' ? project.name : (project.projectid || project.id || 'Untitled Project');
+		return project.name || project.projectname || project.title || project.name === ''
+			? project.name
+			: project.projectid || project.id || 'Untitled Project';
 	}
 
 	// On mount, check if user has a saved sort preference and no sort param was provided
 	if (typeof window !== 'undefined' && isFeed) {
 		const urlParams = new URLSearchParams(window.location.search);
-		const savedSort = typeof localStorage !== 'undefined' ? localStorage.getItem('devlogsSortPreference') : null;
-		
+		const savedSort =
+			typeof localStorage !== 'undefined' ? localStorage.getItem('devlogsSortPreference') : null;
+
 		// If no sort param in URL but we have a saved preference, redirect to use it
 		if (!urlParams.has('sort') && savedSort && savedSort !== 'newest') {
 			window.location.href = `?page=1&limit=${limit}&sort=${encodeURIComponent(savedSort)}`;
@@ -186,7 +187,8 @@
 													<span class="project-item">
 														<span class="project-name">{getProjectDisplayName(project)}</span>
 													</span>
-													{#if i < devlog.projects.length - 1}, {/if}
+													{#if i < devlog.projects.length - 1},
+													{/if}
 												{/each}
 											</span>
 										{/if}
@@ -226,31 +228,55 @@
 								</div>
 							{/if}
 
-						<div class="devlog-actions">
-							<DevlogLike devlogId={devlog.id} likes={devlog.likes} currentUser={currentUser || user} />
-							<DevlogComments devlogId={devlog.id} comments={devlog.comments || []} currentUser={currentUser || user} />
-							{#if devlog.projects && devlog.projects.length > 0}
-								<div class="project-action-links">
+							<div class="devlog-actions">
+								<DevlogLike
+									devlogId={devlog.id}
+									likes={devlog.likes}
+									currentUser={currentUser || user}
+								/>
+								<DevlogComments
+									devlogId={devlog.id}
+									comments={devlog.comments || []}
+									currentUser={currentUser || user}
+								/>
+								{#if devlog.projects && devlog.projects.length > 0}
+									<div class="project-action-links">
 										{#each devlog.projects as project, j (j)}
 											{@const proj = typeof project === 'string' ? {} : project}
 											{#if proj.githubURL}
-												<a class="project-link github-link" href={proj.githubURL} target="_blank" rel="noopener noreferrer" title={`View ${getProjectDisplayName(project)} on GitHub`} aria-label={`GitHub repository for ${getProjectDisplayName(project)}`}>
-												<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-													<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v 3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-												</svg>
-											</a>
-										{/if}
-										{#if proj.shipURL}
-											<a class="project-link ship-link" href={proj.shipURL} target="_blank" rel="noopener noreferrer" title={`Play ${getProjectDisplayName(project)} on Itch.io`} aria-label={`Itch.io page for ${getProjectDisplayName(project)}`}>
-												<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-													<path d="M8 5v14l11-7z"/>
-												</svg>
-											</a>
-										{/if}
-									{/each}
-								</div>
-							{/if}
-						</div>
+												<a
+													class="project-link github-link"
+													href={proj.githubURL}
+													target="_blank"
+													rel="noopener noreferrer"
+													title={`View ${getProjectDisplayName(project)} on GitHub`}
+													aria-label={`GitHub repository for ${getProjectDisplayName(project)}`}
+												>
+													<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+														<path
+															d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v 3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+														/>
+													</svg>
+												</a>
+											{/if}
+											{#if proj.shipURL}
+												<a
+													class="project-link ship-link"
+													href={proj.shipURL}
+													target="_blank"
+													rel="noopener noreferrer"
+													title={`Play ${getProjectDisplayName(project)} on Itch.io`}
+													aria-label={`Itch.io page for ${getProjectDisplayName(project)}`}
+												>
+													<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+														<path d="M8 5v14l11-7z" />
+													</svg>
+												</a>
+											{/if}
+										{/each}
+									</div>
+								{/if}
+							</div>
 						</div>
 					</article>
 				{/each}
@@ -333,39 +359,61 @@
 										{#if attachment.type?.startsWith('image/')}
 											<img src={attachment.url} alt="Devlog attachment" class="attachment-image" />
 										{:else if attachment.type?.startsWith('video/')}
-											<video src={attachment.url} controls class="attachment-video"><track kind="captions" /></video>
+											<video src={attachment.url} controls class="attachment-video"
+												><track kind="captions" /></video
+											>
 										{/if}
 									{/each}
 								</div>
 							{/if}
-						<div class="devlog-actions">
-							<DevlogLike devlogId={devlog.id} likes={devlog.likes} {currentUser} />
-							<DevlogComments devlogId={devlog.id} comments={devlog.comments || []} {currentUser} />
-							{#if devlog.projects && devlog.projects.length > 0}
-								<div class="project-action-links">
-									{#each devlog.projects as project, j (j)}
-										{@const proj = typeof project === 'string' ? {} : project}
-										{#if proj.githubURL}
-											<a class="project-link github-link" href={proj.githubURL} target="_blank" rel="noopener noreferrer" title={`View ${getProjectDisplayName(project)} on GitHub`} aria-label={`GitHub repository for ${getProjectDisplayName(project)}`}>
-												<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-													<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v 3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-												</svg>
-											</a>
-										{/if}
-										{#if proj.shipURL}
-											<a class="project-link ship-link" href={proj.shipURL} target="_blank" rel="noopener noreferrer" title={`Play ${getProjectDisplayName(project)} on Itch.io`} aria-label={`Itch.io page for ${getProjectDisplayName(project)}`}>
-												<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-													<path d="M8 5v14l11-7z"/>
-												</svg>
-											</a>
-										{/if}
-										{#if !proj.githubURL && !proj.shipURL}
-											<span class="project-tag">{getProjectDisplayName(project)}</span>
-										{/if}
-									{/each}
-								</div>
-							{/if}
-						</div>
+							<div class="devlog-actions">
+								<DevlogLike devlogId={devlog.id} likes={devlog.likes} {currentUser} />
+								<DevlogComments
+									devlogId={devlog.id}
+									comments={devlog.comments || []}
+									{currentUser}
+								/>
+								{#if devlog.projects && devlog.projects.length > 0}
+									<div class="project-action-links">
+										{#each devlog.projects as project, j (j)}
+											{@const proj = typeof project === 'string' ? {} : project}
+											{#if proj.githubURL}
+												<a
+													class="project-link github-link"
+													href={proj.githubURL}
+													target="_blank"
+													rel="noopener noreferrer"
+													title={`View ${getProjectDisplayName(project)} on GitHub`}
+													aria-label={`GitHub repository for ${getProjectDisplayName(project)}`}
+												>
+													<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+														<path
+															d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v 3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+														/>
+													</svg>
+												</a>
+											{/if}
+											{#if proj.shipURL}
+												<a
+													class="project-link ship-link"
+													href={proj.shipURL}
+													target="_blank"
+													rel="noopener noreferrer"
+													title={`Play ${getProjectDisplayName(project)} on Itch.io`}
+													aria-label={`Itch.io page for ${getProjectDisplayName(project)}`}
+												>
+													<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+														<path d="M8 5v14l11-7z" />
+													</svg>
+												</a>
+											{/if}
+											{#if !proj.githubURL && !proj.shipURL}
+												<span class="project-tag">{getProjectDisplayName(project)}</span>
+											{/if}
+										{/each}
+									</div>
+								{/if}
+							</div>
 						</div>
 					</article>
 				{/each}
@@ -441,7 +489,7 @@
 	.page-link {
 		padding: 6px 8px;
 		border-radius: 6px;
-		background: rgba(255,255,255,0.08);
+		background: rgba(255, 255, 255, 0.08);
 		color: white;
 		text-decoration: none;
 		font-weight: 700;
