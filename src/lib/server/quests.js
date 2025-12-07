@@ -94,12 +94,9 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 
 	try {
 		const userRecords = await getUserDevlogs(userId, cachedDevlogs);
-		console.log('[calculateApprovedHours] User devlogs count:', userRecords.length);
 
 		// Fetch all user's projects once to check submission status
 		const allProjects = await base('Projects').select().all();
-
-		console.log('[calculateApprovedHours] Total projects in DB:', allProjects.length);
 
 		const submittedProjectIds = new Set();
 		for (const project of allProjects) {
@@ -112,19 +109,11 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 					: [];
 
 			if (projectUserIds.includes(userId)) {
-				console.log(
-					'[calculateApprovedHours] User project:',
-					project.id,
-					'status:',
-					project.fields.status
-				);
 				if (project.fields.status === 'submitted') {
 					submittedProjectIds.add(project.id);
 				}
 			}
 		}
-
-		console.log('[calculateApprovedHours] Submitted project IDs:', Array.from(submittedProjectIds));
 
 		let totalApprovedCodeHours = 0;
 		let totalApprovedArtHours = 0;
@@ -133,25 +122,9 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 		for (const record of userRecords) {
 			const fields = record.fields;
 
-			// Only count hours that have been approved
+			// Get all hours (including pending)
 			const codeHours = typeof fields.codeHours === 'number' ? fields.codeHours : 0;
 			const artHours = typeof fields.artHours === 'number' ? fields.artHours : 0;
-			const pendingCodeHours =
-				typeof fields.pendingCodeHours === 'number' ? fields.pendingCodeHours : 0;
-			const pendingArtHours =
-				typeof fields.pendingArtHours === 'number' ? fields.pendingArtHours : 0;
-
-			const approvedCodeHours = Math.max(0, codeHours - pendingCodeHours);
-			const approvedArtHours = Math.max(0, artHours - pendingArtHours);
-
-			console.log('[calculateApprovedHours] Devlog:', {
-				codeHours,
-				artHours,
-				pendingCodeHours,
-				pendingArtHours,
-				approvedCodeHours,
-				approvedArtHours
-			});
 
 			// Track hours per project (projectIds is comma-separated string)
 			const projectIds = fields.projectIds;
@@ -170,17 +143,14 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 					}
 				}
 
-				console.log(
-					'[calculateApprovedHours] Devlog projects:',
-					projects,
-					'has submitted?',
-					hasSubmittedProject
-				);
-
 				// Only count hours if at least one project is submitted
+				// When a project is submitted, all hours (including pending) are approved
 				if (hasSubmittedProject) {
-					totalApprovedCodeHours += approvedCodeHours;
-					totalApprovedArtHours += approvedArtHours;
+					const finalCodeHours = codeHours; // Use all code hours, not just approved
+					const finalArtHours = artHours; // Use all art hours, not just approved
+
+					totalApprovedCodeHours += finalCodeHours;
+					totalApprovedArtHours += finalArtHours;
 
 					for (const projectId of projects) {
 						const trimmedId = projectId.trim();
@@ -196,8 +166,8 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 
 						// For devlogs with multiple projects, distribute hours evenly
 						const projectCount = projects.length;
-						const distributedCodeHours = approvedCodeHours / projectCount;
-						const distributedArtHours = approvedArtHours / projectCount;
+						const distributedCodeHours = finalCodeHours / projectCount;
+						const distributedArtHours = finalArtHours / projectCount;
 
 						projectBreakdown[trimmedId].codeHours += distributedCodeHours;
 						projectBreakdown[trimmedId].artHours += distributedArtHours;
@@ -206,13 +176,6 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 				}
 			}
 		}
-
-		console.log(
-			'[calculateApprovedHours] Final totals - code:',
-			totalApprovedCodeHours,
-			'art:',
-			totalApprovedArtHours
-		);
 
 		return {
 			codeHours: totalApprovedCodeHours,
@@ -227,8 +190,8 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 }
 
 /**
- * Calculate total hours for a user (including pending/non-shipped hours)
- * Only counts devlogs linked to at least one submitted project
+ * Calculate total hours for a user (including all hours, pending or not)
+ * Used for progress bar visualization - shows all work done
  * @param {string} userId - User's record ID
  * @param {Array} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
  * @returns {Promise<{codeHours: number, artHours: number, totalHours: number, projectBreakdown: Object}>}
@@ -241,24 +204,6 @@ export async function calculateTotalHours(userId, cachedDevlogs) {
 	try {
 		const userRecords = await getUserDevlogs(userId, cachedDevlogs);
 
-		// Fetch all user's projects once to check submission status
-		const allProjects = await base('Projects').select().all();
-
-		const submittedProjectIds = new Set();
-		for (const project of allProjects) {
-			// Check if project belongs to this user
-			const projectUserField = project.fields.user;
-			const projectUserIds = Array.isArray(projectUserField)
-				? projectUserField
-				: projectUserField
-					? [String(projectUserField)]
-					: [];
-
-			if (projectUserIds.includes(userId) && project.fields.status === 'submitted') {
-				submittedProjectIds.add(project.id);
-			}
-		}
-
 		let totalCodeHours = 0;
 		let totalArtHours = 0;
 		const projectBreakdown = {};
@@ -269,49 +214,35 @@ export async function calculateTotalHours(userId, cachedDevlogs) {
 			const codeHours = typeof fields.codeHours === 'number' ? fields.codeHours : 0;
 			const artHours = typeof fields.artHours === 'number' ? fields.artHours : 0;
 
+			// Count ALL hours from all devlogs
+			totalCodeHours += codeHours;
+			totalArtHours += artHours;
+
 			// Track hours per project (projectIds is comma-separated string)
 			const projectIds = fields.projectIds;
 			if (projectIds && typeof projectIds === 'string') {
 				const projects = projectIds.split(',').filter((id) => id.trim());
 
-				// Check if at least one project is submitted
-				let hasSubmittedProject = false;
 				for (const projectId of projects) {
 					const trimmedId = projectId.trim();
 					if (!trimmedId) continue;
 
-					if (submittedProjectIds.has(trimmedId)) {
-						hasSubmittedProject = true;
-						break;
+					if (!projectBreakdown[trimmedId]) {
+						projectBreakdown[trimmedId] = {
+							codeHours: 0,
+							artHours: 0,
+							totalHours: 0
+						};
 					}
-				}
 
-				// Only count hours if at least one project is submitted
-				if (hasSubmittedProject) {
-					totalCodeHours += codeHours;
-					totalArtHours += artHours;
+					// For devlogs with multiple projects, distribute hours evenly
+					const projectCount = projects.length;
+					const distributedCodeHours = codeHours / projectCount;
+					const distributedArtHours = artHours / projectCount;
 
-					for (const projectId of projects) {
-						const trimmedId = projectId.trim();
-						if (!trimmedId) continue;
-
-						if (!projectBreakdown[trimmedId]) {
-							projectBreakdown[trimmedId] = {
-								codeHours: 0,
-								artHours: 0,
-								totalHours: 0
-							};
-						}
-
-						// For devlogs with multiple projects, distribute hours evenly
-						const projectCount = projects.length;
-						const distributedCodeHours = codeHours / projectCount;
-						const distributedArtHours = artHours / projectCount;
-
-						projectBreakdown[trimmedId].codeHours += distributedCodeHours;
-						projectBreakdown[trimmedId].artHours += distributedArtHours;
-						projectBreakdown[trimmedId].totalHours += distributedCodeHours + distributedArtHours;
-					}
+					projectBreakdown[trimmedId].codeHours += distributedCodeHours;
+					projectBreakdown[trimmedId].artHours += distributedArtHours;
+					projectBreakdown[trimmedId].totalHours += distributedCodeHours + distributedArtHours;
 				}
 			}
 		}
@@ -365,7 +296,7 @@ export async function getUserQuestProgress(userId) {
 		// Build progress for all quests
 		const allQuests = getAllQuests();
 
-		const questsProgress = await Promise.all(
+		return await Promise.all(
 			allQuests.map(async (quest) => {
 				const effectiveStreak = quest.useRawStreak
 					? streakStats.rawCurrentStreak
@@ -460,8 +391,6 @@ export async function getUserQuestProgress(userId) {
 				};
 			})
 		);
-
-		return questsProgress;
 	} catch (error) {
 		console.error('Error getting quest progress:', error);
 		throw error;

@@ -167,17 +167,9 @@ export const quests = [
 		name: 'Keep your streak alive for two weeks!',
 		description: 'Get an irl tamagotchi!',
 		variant: 'max',
-		target: 14,
+		target: 1,
 		rewardField: 'tamagotchiCompleted'
-	}),
-	{
-		id: 'souvenir',
-		name: 'Work on your game for 5 hours!',
-		description: 'get some fancy new furniture!',
-		type: 'totalHours',
-		target: 5,
-		rewardField: 'souvenirCompleted'
-	}
+	})
 ];
 
 /**
