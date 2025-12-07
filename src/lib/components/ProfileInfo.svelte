@@ -114,7 +114,7 @@
 				<p>·</p>
 				<p>{stellarships || 0}</p>
 				<Tooltip
-					text="earn stellar ships by polishing projects after shipping them. use them for special items in the shop!"
+					text="earn stellar ships by submitting projects to the black hole after you polish them. use them for special items in the shop!"
 				>
 					<img src="/stellarship.png" alt="Stellar ships" />
 				</Tooltip>

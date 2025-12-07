@@ -38,6 +38,13 @@
 	</button>
 </div>
 
+<!-- Tutorials button -->
+<div class="zlayer tutorials-button">
+	<a href="https://hcmilkyway.notion.site" target="_blank" rel="noopener noreferrer" class="tutorials-icon" aria-label="Open Tutorials">
+		<img src="/mimi_tutorials.png" alt="Tutorials" />
+	</a>
+</div>
+
 <style>
 	.zlayer {
 		position: absolute;
@@ -172,5 +179,33 @@
 
 	.faq-icon:hover::after {
 		opacity: 1;
+	}
+
+	.tutorials-button {
+		z-index: 2;
+		bottom: -5px;
+		left: 350px;
+		top: auto;
+	}
+
+	.tutorials-button:hover {
+		bottom: 0;
+	}
+
+	.tutorials-icon {
+		background: none;
+		border: none;
+		padding: 0;
+		margin: 0;
+		cursor: pointer;
+		display: block;
+		line-height: 0;
+		position: relative;
+	}
+
+	.tutorials-icon img {
+		width: auto;
+		height: 100px;
+		display: block;
 	}
 </style>

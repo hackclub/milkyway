@@ -11,6 +11,9 @@
 	import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 	import Announcements from '$lib/components/Announcements.svelte';
 	import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
+	import { PUBLIC_SHOW_BLACKHOLE } from '$env/static/public';
+
+	const SHOW_BLACKHOLE = PUBLIC_SHOW_BLACKHOLE === 'true';
 
 	let { data } = $props();
 
@@ -246,6 +249,11 @@
 </svelte:head>
 
 <main>
+
+{#if showOnboarding}
+  <OnboardingOverlay onClose={() => { showOnboarding = false }} {user}>
+  </OnboardingOverlay>
+{/if}
 	{#if showOnboarding}
 		<OnboardingOverlay
 			onClose={() => {
@@ -294,6 +302,13 @@
 	<a href="/referrals" class="referral-button">
 		<img src="/referrals.png" alt="Referrals" />
 	</a>
+
+	<!-- Blackhole -->
+	{#if SHOW_BLACKHOLE}
+		<a href="/blackhole" class="blackhole-link" aria-label="Enter the Black Hole">
+			<img src="/blackhole.png" alt="Black Hole" />
+		</a>
+	{/if}
 
 	<!-- Furniture Sidebar - Rendered at page level so it appears on top -->
 	{#if showFurnitureSidebar}
@@ -393,4 +408,47 @@
 		height: 150px;
 		width: auto;
 	}
+
+	.blackhole-link { 
+		position: fixed;
+		top: 200px;
+		right: 24px;
+		z-index: 120;
+		cursor: pointer;
+		display: block;
+		transform: none;
+	}
+	
+	.blackhole-link img {
+		display: block;
+		height: 160px;
+		width: auto;
+		pointer-events: auto;
+		animation: spin 20s linear infinite, glow-pulse 50s ease-in-out infinite;
+	}
+
+	@keyframes glow-pulse {
+		0%, 100% {
+			filter: drop-shadow(0 0 12px rgba(100, 149, 237, 0.5)) drop-shadow(0 0 25px rgba(70, 130, 220, 0.3));
+		}
+		25% {
+			filter: drop-shadow(0 0 18px rgba(120, 100, 220, 0.6)) drop-shadow(0 0 35px rgba(140, 80, 200, 0.4));
+		}
+		50% {
+			filter: drop-shadow(0 0 14px rgba(160, 80, 200, 0.55)) drop-shadow(0 0 30px rgba(130, 70, 180, 0.35));
+		}
+		75% {
+			filter: drop-shadow(0 0 16px rgba(130, 120, 230, 0.55)) drop-shadow(0 0 32px rgba(100, 100, 210, 0.35));
+		}
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
 </style>
