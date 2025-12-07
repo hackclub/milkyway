@@ -96,11 +96,12 @@ export function sanitizeUserForPublic(serverUser) {
 	if (!serverUser) return null;
 
 	return {
+		recId: serverUser.recId,
 		username: serverUser.username,
 		githubUsername: serverUser.githubUsername || '',
 		devlogStreak: serverUser.devlogStreak || 0,
 		maxDevlogStreak: serverUser.maxDevlogStreak || 0
-		// DO NOT include: recId, email, address, idv, coins, stellarships, paintchips, birthday, or other personal/sensitive fields
+		// DO NOT include: email, address, idv, coins, stellarships, paintchips, birthday, or other personal/sensitive fields
 	};
 }
 
