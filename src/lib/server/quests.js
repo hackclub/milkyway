@@ -18,6 +18,67 @@ async function getUserDevlogs(userId, cachedRecords) {
 }
 
 /**
+ * Check if user has at least one submitted project linked to devlogs with streak days
+ * @param {string} userId - User's record ID
+ * @param {Array} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
+ * @returns {Promise<{hasSubmittedProject: boolean, submittedStreakDays: number}>}
+ */
+async function checkSubmittedStreakProjects(userId, cachedDevlogs) {
+	try {
+		const userDevlogs = await getUserDevlogs(userId, cachedDevlogs);
+		const streakDaysWithSubmittedProject = new Set();
+
+		for (const devlog of userDevlogs) {
+			const hasPendingStreak = devlog.fields.pendingStreak === true;
+			if (hasPendingStreak) {
+				// Skip devlogs that haven't been shipped yet
+				continue;
+			}
+
+			const projectIds = devlog.fields.projectIds;
+			if (!projectIds || typeof projectIds !== 'string') {
+				continue;
+			}
+
+			const projects = projectIds
+				.split(',')
+				.map((id) => id.trim())
+				.filter(Boolean);
+
+			// Check if at least one project is submitted
+			let hasSubmitted = false;
+			for (const projectId of projects) {
+				try {
+					const project = await base('Projects').find(projectId);
+					if (project?.fields?.status === 'submitted') {
+						hasSubmitted = true;
+						break;
+					}
+				} catch (error) {
+					console.error('Error checking project status:', projectId, error);
+				}
+			}
+
+			if (hasSubmitted && devlog.fields.Created) {
+				const dayKey = new Date(devlog.fields.Created).toISOString().slice(0, 10);
+				streakDaysWithSubmittedProject.add(dayKey);
+			}
+		}
+
+		return {
+			hasSubmittedProject: streakDaysWithSubmittedProject.size > 0,
+			submittedStreakDays: streakDaysWithSubmittedProject.size
+		};
+	} catch (error) {
+		console.error('Error checking submitted streak projects:', error);
+		return {
+			hasSubmittedProject: false,
+			submittedStreakDays: 0
+		};
+	}
+}
+
+/**
  * Calculate total approved hours for a user
  * Only counts devlogs where pendingCodeHours and pendingArtHours are 0
  * (meaning they were approved when a project shipped)
@@ -34,6 +95,26 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 	try {
 		const userRecords = await getUserDevlogs(userId, cachedDevlogs);
 
+		// Fetch all user's projects once to check submission status
+		const allProjects = await base('Projects').select().all();
+
+		const submittedProjectIds = new Set();
+		for (const project of allProjects) {
+			// Check if project belongs to this user
+			const projectUserField = project.fields.user;
+			const projectUserIds = Array.isArray(projectUserField)
+				? projectUserField
+				: projectUserField
+					? [String(projectUserField)]
+					: [];
+
+			if (projectUserIds.includes(userId)) {
+				if (project.fields.status === 'submitted') {
+					submittedProjectIds.add(project.id);
+				}
+			}
+		}
+
 		let totalApprovedCodeHours = 0;
 		let totalApprovedArtHours = 0;
 		const projectBreakdown = {};
@@ -41,45 +122,57 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 		for (const record of userRecords) {
 			const fields = record.fields;
 
-			// Only count hours that have been approved
+			// Get all hours (including pending)
 			const codeHours = typeof fields.codeHours === 'number' ? fields.codeHours : 0;
 			const artHours = typeof fields.artHours === 'number' ? fields.artHours : 0;
-			const pendingCodeHours =
-				typeof fields.pendingCodeHours === 'number' ? fields.pendingCodeHours : 0;
-			const pendingArtHours =
-				typeof fields.pendingArtHours === 'number' ? fields.pendingArtHours : 0;
-
-			const approvedCodeHours = Math.max(0, codeHours - pendingCodeHours);
-			const approvedArtHours = Math.max(0, artHours - pendingArtHours);
-
-			totalApprovedCodeHours += approvedCodeHours;
-			totalApprovedArtHours += approvedArtHours;
 
 			// Track hours per project (projectIds is comma-separated string)
 			const projectIds = fields.projectIds;
 			if (projectIds && typeof projectIds === 'string') {
 				const projects = projectIds.split(',').filter((id) => id.trim());
 
+				// Check if at least one project is submitted
+				let hasSubmittedProject = false;
 				for (const projectId of projects) {
 					const trimmedId = projectId.trim();
 					if (!trimmedId) continue;
 
-					if (!projectBreakdown[trimmedId]) {
-						projectBreakdown[trimmedId] = {
-							codeHours: 0,
-							artHours: 0,
-							totalHours: 0
-						};
+					if (submittedProjectIds.has(trimmedId)) {
+						hasSubmittedProject = true;
+						break;
 					}
+				}
 
-					// For devlogs with multiple projects, distribute hours evenly
-					const projectCount = projects.length;
-					const distributedCodeHours = approvedCodeHours / projectCount;
-					const distributedArtHours = approvedArtHours / projectCount;
+				// Only count hours if at least one project is submitted
+				// When a project is submitted, all hours (including pending) are approved
+				if (hasSubmittedProject) {
+					const finalCodeHours = codeHours; // Use all code hours, not just approved
+					const finalArtHours = artHours; // Use all art hours, not just approved
 
-					projectBreakdown[trimmedId].codeHours += distributedCodeHours;
-					projectBreakdown[trimmedId].artHours += distributedArtHours;
-					projectBreakdown[trimmedId].totalHours += distributedCodeHours + distributedArtHours;
+					totalApprovedCodeHours += finalCodeHours;
+					totalApprovedArtHours += finalArtHours;
+
+					for (const projectId of projects) {
+						const trimmedId = projectId.trim();
+						if (!trimmedId) continue;
+
+						if (!projectBreakdown[trimmedId]) {
+							projectBreakdown[trimmedId] = {
+								codeHours: 0,
+								artHours: 0,
+								totalHours: 0
+							};
+						}
+
+						// For devlogs with multiple projects, distribute hours evenly
+						const projectCount = projects.length;
+						const distributedCodeHours = finalCodeHours / projectCount;
+						const distributedArtHours = finalArtHours / projectCount;
+
+						projectBreakdown[trimmedId].codeHours += distributedCodeHours;
+						projectBreakdown[trimmedId].artHours += distributedArtHours;
+						projectBreakdown[trimmedId].totalHours += distributedCodeHours + distributedArtHours;
+					}
 				}
 			}
 		}
@@ -97,7 +190,8 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 }
 
 /**
- * Calculate total hours for a user (including pending/non-shipped hours)
+ * Calculate total hours for a user (including all hours, pending or not)
+ * Used for progress bar visualization - shows all work done
  * @param {string} userId - User's record ID
  * @param {Array} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
  * @returns {Promise<{codeHours: number, artHours: number, totalHours: number, projectBreakdown: Object}>}
@@ -120,15 +214,7 @@ export async function calculateTotalHours(userId, cachedDevlogs) {
 			const codeHours = typeof fields.codeHours === 'number' ? fields.codeHours : 0;
 			const artHours = typeof fields.artHours === 'number' ? fields.artHours : 0;
 
-			console.log('Devlog:', {
-				id: record.id,
-				created: fields.Created,
-				codeHours,
-				artHours,
-				projectIds: fields.projectIds,
-				projectIdsType: typeof fields.projectIds
-			});
-
+			// Count ALL hours from all devlogs
 			totalCodeHours += codeHours;
 			totalArtHours += artHours;
 
@@ -158,8 +244,6 @@ export async function calculateTotalHours(userId, cachedDevlogs) {
 					projectBreakdown[trimmedId].artHours += distributedArtHours;
 					projectBreakdown[trimmedId].totalHours += distributedCodeHours + distributedArtHours;
 				}
-			} else {
-				console.log('No projectIds or not a string, skipping project breakdown');
 			}
 		}
 		return {
@@ -212,99 +296,101 @@ export async function getUserQuestProgress(userId) {
 		// Build progress for all quests
 		const allQuests = getAllQuests();
 
-		return allQuests.map((quest) => {
-			const effectiveStreak = quest.useRawStreak
-				? streakStats.rawCurrentStreak
-				: streakStats.approvedCurrentStreak;
-			const effectiveMaxStreak = quest.useRawStreak
-				? streakStats.rawMaxStreak
-				: streakStats.approvedMaxStreak;
+		return await Promise.all(
+			allQuests.map(async (quest) => {
+				const effectiveStreak = quest.useRawStreak
+					? streakStats.rawCurrentStreak
+					: streakStats.approvedCurrentStreak;
+				const effectiveMaxStreak = quest.useRawStreak
+					? streakStats.rawMaxStreak
+					: streakStats.approvedMaxStreak;
 
-			const visualEffectiveStreak = streakStats.rawCurrentStreak;
-			const visualEffectiveMaxStreak = streakStats.rawMaxStreak;
+				const visualEffectiveStreak = streakStats.rawCurrentStreak;
+				const visualEffectiveMaxStreak = streakStats.rawMaxStreak;
 
-			let current = 0;
-			let visualCurrent = 0; // For progress bar display (includes pending hours)
-			let target = quest.target || 0;
-			let completed = false;
+				let current = 0;
+				let visualCurrent = 0; // For progress bar display (includes pending hours)
+				let target = quest.target || 0;
+				let completed = false;
 
-			// Handle custom quests with validate function
-			if (quest.type === 'custom' && typeof quest.validate === 'function') {
-				// Calculate with approved hours for completion
-				const stats = {
-					codeHours: approvedHours.codeHours,
-					artHours: approvedHours.artHours,
-					totalHours: approvedHours.totalHours,
-					projectBreakdown: approvedHours.projectBreakdown || {},
-					currentStreak: effectiveStreak,
-					maxStreak: effectiveMaxStreak,
-					rawCurrentStreak: streakStats.rawCurrentStreak,
-					rawMaxStreak: streakStats.rawMaxStreak,
-					approvedCurrentStreak: streakStats.approvedCurrentStreak,
-					approvedMaxStreak: streakStats.approvedMaxStreak
-				};
-				const result = quest.validate(stats);
-				completed = result.completed || false;
-				current = result.current || 0;
-				target = result.target || 0;
+				// Handle custom quests with validate function
+				if (quest.type === 'custom' && typeof quest.validate === 'function') {
+					// Calculate with approved hours for completion
+					const stats = {
+						codeHours: approvedHours.codeHours,
+						artHours: approvedHours.artHours,
+						totalHours: approvedHours.totalHours,
+						projectBreakdown: approvedHours.projectBreakdown || {},
+						currentStreak: effectiveStreak,
+						maxStreak: effectiveMaxStreak,
+						rawCurrentStreak: streakStats.rawCurrentStreak,
+						rawMaxStreak: streakStats.rawMaxStreak,
+						approvedCurrentStreak: streakStats.approvedCurrentStreak,
+						approvedMaxStreak: streakStats.approvedMaxStreak
+					};
+					const result = await quest.validate(stats, userId);
+					completed = result.completed || false;
+					current = result.current || 0;
+					target = result.target || 0;
 
-				// Calculate visual progress with total hours and raw streaks for more satisfying display
-				const visualStats = {
-					...stats,
-					codeHours: totalHours.codeHours,
-					artHours: totalHours.artHours,
-					totalHours: totalHours.totalHours,
-					projectBreakdown: totalHours.projectBreakdown || {},
-					currentStreak: visualEffectiveStreak,
-					maxStreak: visualEffectiveMaxStreak
-				};
-				const visualResult = quest.validate(visualStats);
-				visualCurrent = visualResult.current || 0;
-			} else {
-				switch (quest.type) {
-					case 'codeHours':
-						current = approvedHours.codeHours;
-						visualCurrent = totalHours.codeHours;
-						break;
-					case 'artHours':
-						current = approvedHours.artHours;
-						visualCurrent = totalHours.artHours;
-						break;
-					case 'totalHours':
-						current = approvedHours.totalHours;
-						visualCurrent = totalHours.totalHours;
-						break;
-					case 'streak':
-						current = effectiveStreak;
-						visualCurrent = visualEffectiveStreak;
-						break;
-					case 'maxStreak':
-						current = effectiveMaxStreak;
-						visualCurrent = visualEffectiveMaxStreak;
-						break;
-					default:
-						current = 0;
-						visualCurrent = 0;
+					// Calculate visual progress with total hours and raw streaks for more satisfying display
+					const visualStats = {
+						...stats,
+						codeHours: totalHours.codeHours,
+						artHours: totalHours.artHours,
+						totalHours: totalHours.totalHours,
+						projectBreakdown: totalHours.projectBreakdown || {},
+						currentStreak: visualEffectiveStreak,
+						maxStreak: visualEffectiveMaxStreak
+					};
+					const visualResult = await quest.validate(visualStats, userId);
+					visualCurrent = visualResult.current || 0;
+				} else {
+					switch (quest.type) {
+						case 'codeHours':
+							current = approvedHours.codeHours;
+							visualCurrent = totalHours.codeHours;
+							break;
+						case 'artHours':
+							current = approvedHours.artHours;
+							visualCurrent = totalHours.artHours;
+							break;
+						case 'totalHours':
+							current = approvedHours.totalHours;
+							visualCurrent = totalHours.totalHours;
+							break;
+						case 'streak':
+							current = effectiveStreak;
+							visualCurrent = visualEffectiveStreak;
+							break;
+						case 'maxStreak':
+							current = effectiveMaxStreak;
+							visualCurrent = visualEffectiveMaxStreak;
+							break;
+						default:
+							current = 0;
+							visualCurrent = 0;
+					}
+					completed = current >= target;
 				}
-				completed = current >= target;
-			}
 
-			const isCompleted = completedQuests.includes(quest.id);
-			const canClaim = !isCompleted && completed;
+				const isCompleted = completedQuests.includes(quest.id);
+				const canClaim = !isCompleted && completed;
 
-			const { validate, ...questWithoutValidate } = quest;
+				const { validate: _, ...questWithoutValidate } = quest;
 
-			return {
-				...questWithoutValidate,
-				current,
-				visualCurrent,
-				target,
-				isCompleted,
-				canClaim,
-				progress: target > 0 ? Math.min(1, current / target) : 0,
-				visualProgress: target > 0 ? Math.min(1, visualCurrent / target) : 0
-			};
-		});
+				return {
+					...questWithoutValidate,
+					current,
+					visualCurrent,
+					target,
+					isCompleted,
+					canClaim,
+					progress: target > 0 ? Math.min(1, current / target) : 0,
+					visualProgress: target > 0 ? Math.min(1, visualCurrent / target) : 0
+				};
+			})
+		);
 	} catch (error) {
 		console.error('Error getting quest progress:', error);
 		throw error;
@@ -354,7 +440,7 @@ export async function claimQuestReward(userId, questId) {
 				approvedCurrentStreak: streakStats.approvedCurrentStreak,
 				approvedMaxStreak: streakStats.approvedMaxStreak
 			};
-			const result = quest.validate(stats);
+			const result = await quest.validate(stats, userId);
 			if (typeof result === 'object') {
 				completed = result.completed || false;
 			} else {
@@ -378,6 +464,11 @@ export async function claimQuestReward(userId, questId) {
 				case 'maxStreak':
 					current = streakStats.getEffectiveMaxStreak(quest.useRawStreak);
 					break;
+				case 'impossible':
+					current = 0;
+					break;
+				default:
+					current = 0;
 			}
 			completed = current >= (quest.target || 0);
 		}
