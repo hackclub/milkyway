@@ -249,11 +249,14 @@
 </svelte:head>
 
 <main>
-
-{#if showOnboarding}
-  <OnboardingOverlay onClose={() => { showOnboarding = false }} {user}>
-  </OnboardingOverlay>
-{/if}
+	{#if showOnboarding}
+		<OnboardingOverlay
+			onClose={() => {
+				showOnboarding = false;
+			}}
+			{user}
+		></OnboardingOverlay>
+	{/if}
 	{#if showOnboarding}
 		<OnboardingOverlay
 			onClose={() => {
@@ -334,6 +337,7 @@
 			onOpenRouletteSpin={openRouletteSpinHandler}
 			onDeleteProject={() => {}}
 			onShipProject={handleShipProject}
+			variant={user?.wallVariant}
 		/>
 	</div>
 
@@ -409,7 +413,7 @@
 		width: auto;
 	}
 
-	.blackhole-link { 
+	.blackhole-link {
 		position: fixed;
 		top: 200px;
 		right: 24px;
@@ -418,27 +422,34 @@
 		display: block;
 		transform: none;
 	}
-	
+
 	.blackhole-link img {
 		display: block;
 		height: 160px;
 		width: auto;
 		pointer-events: auto;
-		animation: spin 20s linear infinite, glow-pulse 50s ease-in-out infinite;
+		animation:
+			spin 20s linear infinite,
+			glow-pulse 50s ease-in-out infinite;
 	}
 
 	@keyframes glow-pulse {
-		0%, 100% {
-			filter: drop-shadow(0 0 12px rgba(100, 149, 237, 0.5)) drop-shadow(0 0 25px rgba(70, 130, 220, 0.3));
+		0%,
+		100% {
+			filter: drop-shadow(0 0 12px rgba(100, 149, 237, 0.5))
+				drop-shadow(0 0 25px rgba(70, 130, 220, 0.3));
 		}
 		25% {
-			filter: drop-shadow(0 0 18px rgba(120, 100, 220, 0.6)) drop-shadow(0 0 35px rgba(140, 80, 200, 0.4));
+			filter: drop-shadow(0 0 18px rgba(120, 100, 220, 0.6))
+				drop-shadow(0 0 35px rgba(140, 80, 200, 0.4));
 		}
 		50% {
-			filter: drop-shadow(0 0 14px rgba(160, 80, 200, 0.55)) drop-shadow(0 0 30px rgba(130, 70, 180, 0.35));
+			filter: drop-shadow(0 0 14px rgba(160, 80, 200, 0.55))
+				drop-shadow(0 0 30px rgba(130, 70, 180, 0.35));
 		}
 		75% {
-			filter: drop-shadow(0 0 16px rgba(130, 120, 230, 0.55)) drop-shadow(0 0 32px rgba(100, 100, 210, 0.35));
+			filter: drop-shadow(0 0 16px rgba(130, 120, 230, 0.55))
+				drop-shadow(0 0 32px rgba(100, 100, 210, 0.35));
 		}
 	}
 
@@ -450,5 +461,4 @@
 			transform: rotate(360deg);
 		}
 	}
-
 </style>

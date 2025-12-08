@@ -55,6 +55,7 @@ export async function getUserInfoBySessionId(sessionid) {
 		idv: fields.idv,
 		devlogStreak: fields.devlogStreak || 0,
 		maxDevlogStreak: fields.maxDevlogStreak || 0,
+		wallVariant: fields.wallVariant || 'default',
 		lastDevlogDate: fields.lastDevlogDate || null,
 		__serverOnly: true // Flag to indicate this should not be sent to frontend
 	};
@@ -82,7 +83,8 @@ export function sanitizeUserForFrontend(serverUser) {
 		doingWell: serverUser.doingWell || '',
 		improve: serverUser.improve || '',
 		devlogStreak: serverUser.devlogStreak || 0,
-		maxDevlogStreak: serverUser.maxDevlogStreak || 0
+		maxDevlogStreak: serverUser.maxDevlogStreak || 0,
+		wallVariant: serverUser.wallVariant || 'default'
 		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, __serverOnly, or other internal fields
 	};
 }
@@ -100,7 +102,8 @@ export function sanitizeUserForPublic(serverUser) {
 		username: serverUser.username,
 		githubUsername: serverUser.githubUsername || '',
 		devlogStreak: serverUser.devlogStreak || 0,
-		maxDevlogStreak: serverUser.maxDevlogStreak || 0
+		maxDevlogStreak: serverUser.maxDevlogStreak || 0,
+		wallVariant: serverUser.wallVariant || 'default'
 		// DO NOT include: email, address, idv, coins, stellarships, paintchips, birthday, or other personal/sensitive fields
 	};
 }
@@ -296,7 +299,8 @@ export async function getUserInfoByUsername(username) {
 		stellarships: fields.stellarships,
 		paintchips: fields.paintchips,
 		githubUsername: fields.githubUsername,
-		birthday: fields.birthday
+		birthday: fields.birthday,
+		wallVariant: fields.wallVariant || 'default'
 	};
 }
 
