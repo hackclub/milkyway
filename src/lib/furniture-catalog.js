@@ -87,7 +87,10 @@ export const FURNITURE_TYPES = [
 	{ type: 'plant', name: 'plant', cost: 25, purchasable: true },
 	{ type: 'table', name: 'table', cost: 15, purchasable: true },
 	{ type: 'tall_shelf', name: 'tall shelf', cost: 20, purchasable: true, wallOnly: true },
-	{ type: 'wall_lamp', name: 'wall lamp', cost: 20, purchasable: true, wallOnly: true }
+	{ type: 'wall_lamp', name: 'wall lamp', cost: 20, purchasable: true, wallOnly: true },
+	{ type: 'galaxy_bed', name: 'galaxy bed', cost: 0, purchasable: false },
+	{ type: 'galaxy_fishbowl', name: 'galaxy fishbowl', cost: 0, purchasable: false },
+	{ type: 'galaxy_window', name: 'galaxy', cost: 0, purchasable: false },
 ];
 
 /** @type {Record<string, FurnitureType>} */
