@@ -257,14 +257,6 @@
 			{user}
 		></OnboardingOverlay>
 	{/if}
-	{#if showOnboarding}
-		<OnboardingOverlay
-			onClose={() => {
-				showOnboarding = false;
-			}}
-			{user}
-		></OnboardingOverlay>
-	{/if}
 
 	<FaqPopup
 		showPopup={showFaqPopup}
