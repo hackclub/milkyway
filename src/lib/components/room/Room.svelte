@@ -1201,7 +1201,8 @@
 	.notifications {
 		position: absolute;
 		bottom: calc(50vh - 150px);
-		right: calc(50vw - 630px);
+		left: calc(50vw - 630px);
+		right: auto;
 		z-index: 100;
 	}
 
@@ -1215,6 +1216,7 @@
 	@media (max-width: 1400px) {
 		.notifications {
 			left: 20px;
+			right: auto;
 		}
 		.devlogs {
 			right: 20px;
