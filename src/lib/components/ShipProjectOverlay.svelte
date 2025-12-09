@@ -7,7 +7,7 @@
 
 	let isShipping = $state(false);
 	let shippingError = $state('');
-	let currentStep = $state(1); // 1 = confirmation, 2 = questions, 3 = identity verification, 4 = hatching
+	let currentStep = $state(1); // 1 = confirmation, 2 = questions, 3 = hatching, 4 = re-ship success
 	let showQuestions = $state(false);
 	let showInitialContent = $state(false);
 	let clickCount = $state(0);
@@ -15,12 +15,6 @@
 	let showConfetti = $state(false);
 	let showCreature = $state(false);
 	let isFadingOut = $state(false);
-	let submitToken = $state('');
-	let isVerifying = $state(false);
-	let verificationError = $state('');
-	let authData = $state<any>(null);
-	let popupWindow = $state<Window | null>(null);
-	let isCheckingStatus = $state(false);
 	let isHatching = $state(false);
 	let pendingHours = $state<any>(null);
 	let isLoadingPendingHours = $state(false);
@@ -78,7 +72,7 @@
 			isShipping = true;
 			shippingError = '';
 
-			// Create the project submission with the identity verification token
+			// Create the project submission (identity is already verified via Hack Club Auth in user profile)
 			const submissionResponse = await fetch('/api/create-submission', {
 				method: 'POST',
 				headers: {
@@ -86,9 +80,7 @@
 				},
 				credentials: 'include',
 				body: JSON.stringify({
-					projectEggId: projectInfo.id,
-					submitToken: submitToken,
-					identityData: authData
+					projectEggId: projectInfo.id
 				})
 			});
 
@@ -117,7 +109,7 @@
 			const result = await response.json();
 			if (result.success) {
 				// Show success message and close
-				currentStep = 5; // New step for re-ship success
+				currentStep = 4; // Re-ship success step
 
 				// Wait 2 seconds then refresh the page
 				setTimeout(() => {
@@ -136,7 +128,7 @@
 	}
 
 	function handleClose() {
-		if (!isShipping && currentStep !== 4) {
+		if (!isShipping && currentStep !== 3) {
 			shippingError = '';
 			currentStep = 1;
 			showQuestions = false;
@@ -149,14 +141,6 @@
 			notMadeByYou = '';
 			howToPlay = '';
 			additionalComments = '';
-			submitToken = '';
-			isVerifying = false;
-			verificationError = '';
-			authData = null;
-			if (popupWindow && !popupWindow.closed) {
-				popupWindow.close();
-			}
-			popupWindow = null;
 			onClose();
 		}
 	}
@@ -189,14 +173,15 @@
 				user.doingWell.trim() !== '' &&
 				user.improve &&
 				typeof user.improve === 'string' &&
-				user.improve.trim() !== '';
+				user.improve.trim() !== '' &&
+				// Hack Club Auth is required for shipping
+				user.hackclub_id &&
+				typeof user.hackclub_id === 'string' &&
+				user.hackclub_id.trim() !== '';
 
 			return formValid && profileValid;
-		} else if (currentStep === 3) {
-			// Step 3: Identity Verification - need submit token
-			return submitToken.trim() !== '';
 		} else {
-			// Step 4: Hatching - no validation needed
+			// Step 3: Hatching - no validation needed
 			return true;
 		}
 	});
@@ -213,7 +198,7 @@
 				}, 600);
 			}, 100);
 		} else if (currentStep === 2) {
-			// Step 2: Questions -> Step 3: Identity Verification
+			// Step 2: Questions -> Step 3: Hatching (or re-ship directly)
 			if (canProceed()) {
 				try {
 					// Save form data to Airtable when proceeding to next step
@@ -235,7 +220,14 @@
 					const result = await response.json();
 
 					if (result.success) {
-						currentStep = 3;
+						if (isReShip) {
+							// For re-ships, skip the hatching animation and just ship directly
+							await handleReShip();
+						} else {
+							// For first-time ships, go to hatching step
+							currentStep = 3;
+							clickCount = 0; // Reset click count for hatching
+						}
 					} else {
 						console.error('Failed to save form data:', result.error);
 						shippingError = result.error?.message || 'Failed to save form data. Please try again.';
@@ -245,165 +237,14 @@
 					shippingError = 'Network error. Please check your connection and try again.';
 				}
 			}
-		} else if (currentStep === 3) {
-			// Step 3: Identity Verification -> Step 4: Hatching (or skip for re-ship)
-			if (canProceed()) {
-				if (isReShip) {
-					// For re-ships, skip the hatching animation and just ship directly
-					await handleReShip();
-				} else {
-					// For first-time ships, go to hatching step
-					currentStep = 4;
-					clickCount = 0; // Reset click count for hatching
-				}
-			}
 		}
 	}
 
 	function handleBack() {
-		if (currentStep === 4) {
-			currentStep = 3; // Go back to identity verification from hatching
-		} else if (currentStep === 3) {
-			currentStep = 2; // Go back to questions from identity verification
+		if (currentStep === 3) {
+			currentStep = 2; // Go back to questions from hatching
 		} else if (currentStep === 2) {
 			currentStep = 1; // Go back to confirmation from questions
-		}
-	}
-
-	async function initiateVerification() {
-		isVerifying = true;
-		verificationError = '';
-		authData = null;
-
-		try {
-			const response = await fetch('/api/identity-verify', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
-
-			const result = await response.json();
-
-			if (!result.success) {
-				verificationError = result.error || 'Failed to initiate verification';
-				return;
-			}
-
-			authData = result.data;
-
-			// Open popup window
-			const popupUrl = result.data.popup_url;
-			const popupFeatures = 'width=500,height=700,scrollbars=yes,resizable=yes';
-			popupWindow = window.open(popupUrl, 'identityVerification', popupFeatures);
-
-			if (!popupWindow) {
-				verificationError = 'Popup blocked. Please allow popups and try again.';
-				return;
-			}
-
-			// Poll for completion
-			pollForCompletion();
-		} catch (error) {
-			verificationError = 'Network error. Please try again.';
-		} finally {
-			isVerifying = false;
-		}
-	}
-
-	async function pollForCompletion() {
-		const pollInterval = setInterval(async () => {
-			// Prevent multiple simultaneous status checks
-			if (isCheckingStatus) {
-				return;
-			}
-
-			try {
-				isCheckingStatus = true;
-
-				// Check if popup is closed
-				if (popupWindow?.closed) {
-					clearInterval(pollInterval);
-					// Check status one final time
-					await checkVerificationStatus();
-					return;
-				}
-
-				// Check verification status
-				const response = await fetch(`/api/submit/status?auth_id=${authData.auth_id}`, {
-					method: 'GET',
-					headers: {
-						'Content-Type': 'application/json'
-					}
-				});
-
-				const result = await response.json();
-
-				if (result.status === 'completed') {
-					clearInterval(pollInterval);
-					popupWindow?.close();
-
-					// Update authData with the complete result (includes identity_response)
-					authData = result;
-
-					// Set the submit token
-					submitToken = authData.auth_id;
-					verificationError = '';
-				} else if (result.status === 'rejected') {
-					clearInterval(pollInterval);
-					popupWindow?.close();
-					verificationError = 'Identity verification was rejected. Please try again.';
-				}
-			} catch (error) {
-				console.error('Polling error:', error);
-			} finally {
-				isCheckingStatus = false;
-			}
-		}, 2000); // Poll every 2 seconds
-
-		// Clear interval after 10 minutes
-		setTimeout(() => {
-			clearInterval(pollInterval);
-			if (popupWindow && !popupWindow.closed) {
-				popupWindow.close();
-				verificationError = 'Verification timed out. Please try again.';
-			}
-		}, 600000);
-	}
-
-	async function checkVerificationStatus() {
-		// Prevent duplicate status checks
-		if (isCheckingStatus) {
-			return;
-		}
-
-		try {
-			isCheckingStatus = true;
-
-			const response = await fetch(`/api/submit/status?auth_id=${authData.auth_id}`, {
-				method: 'GET',
-				headers: {
-					'Content-Type': 'application/json'
-				}
-			});
-
-			const result = await response.json();
-
-			if (result.status === 'completed') {
-				// Update authData with the complete result (includes identity_response)
-				authData = result;
-
-				submitToken = authData.auth_id;
-				verificationError = '';
-			} else if (result.status === 'rejected') {
-				verificationError = 'Identity verification was rejected. Please try again.';
-			} else {
-				verificationError = 'Verification was not completed. Please try again.';
-			}
-		} catch (error) {
-			verificationError = 'Failed to check verification status. Please try again.';
-		} finally {
-			isCheckingStatus = false;
 		}
 	}
 
@@ -430,7 +271,7 @@
 		isHatching = true;
 
 		try {
-			// First, create the project submission with the identity verification token
+			// First, create the project submission (identity is already verified via Hack Club Auth)
 			const submissionResponse = await fetch('/api/create-submission', {
 				method: 'POST',
 				headers: {
@@ -438,9 +279,7 @@
 				},
 				credentials: 'include',
 				body: JSON.stringify({
-					projectEggId: projectInfo.id, // Use the Airtable record ID, not projectid field
-					submitToken: submitToken,
-					identityData: authData // Pass the full identity verification data
+					projectEggId: projectInfo.id // Use the Airtable record ID, not projectid field
 				})
 			});
 
@@ -448,6 +287,7 @@
 			if (!submissionResult.success) {
 				console.error('Failed to create project submission:', submissionResult.error);
 				shippingError = 'Failed to create project submission. Please try again.';
+				isHatching = false;
 				return;
 			}
 
@@ -780,55 +620,7 @@
 					</div>
 				{/if}
 			{:else if currentStep === 3}
-				<!-- Step 3: Identity Verification -->
-				<div class="identity-verification-container">
-					<h1 class="ship-title">identity verification</h1>
-					<p class="verification-subtitle">
-						we need to verify your identity before shipping your project
-					</p>
-
-					{#if submitToken}
-						<div class="verification-success">
-							<div class="success-icon">✓</div>
-							<p>Identity verified successfully!</p>
-							<p class="token-info">Token: {submitToken.substring(0, 8)}...</p>
-						</div>
-					{:else}
-						<div class="verification-prompt">
-							<p>Click the button below to start the identity verification process.</p>
-							<button
-								class="verify-identity-btn"
-								onclick={initiateVerification}
-								disabled={isVerifying}
-							>
-								{isVerifying ? 'Starting verification...' : 'Start Identity Verification'}
-							</button>
-						</div>
-					{/if}
-
-					{#if verificationError}
-						<div class="error-message">
-							<span>{verificationError}</span>
-						</div>
-					{/if}
-
-					{#if shippingError}
-						<div class="error-message">
-							<span>{shippingError}</span>
-						</div>
-					{/if}
-
-					<div class="ship-actions">
-						{#if currentStep > 1}
-							<button class="cancel-btn" onclick={handleBack}>back</button>
-						{/if}
-						<button class="next-btn" onclick={handleNext} disabled={!canProceed()}>
-							{canProceed() ? 'continue' : 'complete verification...'}
-						</button>
-					</div>
-				</div>
-			{:else if currentStep === 4}
-				<!-- Step 4: Egg Hatching (first-time ships only) -->
+				<!-- Step 3: Egg Hatching (first-time ships only) -->
 				<div class="hatching-container">
 					{#if showCreature}
 						<!-- Show creature with dramatic entrance -->
@@ -892,8 +684,8 @@
 						{/if}
 					{/if}
 				</div>
-			{:else if currentStep === 5}
-				<!-- Step 5: Re-ship Success (no animation, just confirmation) -->
+			{:else if currentStep === 4}
+				<!-- Step 4: Re-ship Success (no animation, just confirmation) -->
 				<div class="reship-success-container" transition:fade={{ duration: 600 }}>
 					<div class="success-icon-large">✓</div>
 					<h1 class="ship-title">project re-shipped!</h1>
@@ -1402,75 +1194,6 @@
 		font-size: 1em;
 		color: var(--yellow);
 		font-weight: 600;
-	}
-
-	/* Identity Verification Styles */
-	.identity-verification-container {
-		text-align: center;
-		color: white;
-	}
-
-	.verification-subtitle {
-		font-size: 1.1em;
-		color: #ccc;
-		margin-bottom: 30px;
-		line-height: 1.5;
-	}
-
-	.verification-success {
-		background: rgba(76, 175, 80, 0.1);
-		border: 1px solid #4caf50;
-		border-radius: 8px;
-		padding: 20px;
-		margin: 20px 0;
-	}
-
-	.success-icon {
-		font-size: 2em;
-		color: #4caf50;
-		margin-bottom: 10px;
-	}
-
-	.verification-success p {
-		margin: 5px 0;
-		color: #4caf50;
-	}
-
-	.token-info {
-		font-family: monospace;
-		font-size: 0.9em;
-		color: #ccc;
-	}
-
-	.verification-prompt {
-		margin: 20px 0;
-	}
-
-	.verification-prompt p {
-		color: #ccc;
-		margin-bottom: 20px;
-	}
-
-	.verify-identity-btn {
-		background: var(--orange);
-		color: white;
-		border: none;
-		padding: 12px 24px;
-		border-radius: 8px;
-		font-size: 1.1em;
-		font-weight: 600;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.verify-identity-btn:hover:not(:disabled) {
-		background: var(--yellow);
-		color: black;
-	}
-
-	.verify-identity-btn:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
 	}
 
 	/* Re-ship Success Styles */

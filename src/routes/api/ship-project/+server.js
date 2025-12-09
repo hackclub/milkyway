@@ -157,6 +157,20 @@ export async function POST({ request, cookies }) {
 			});
 		}
 
+		// SECURITY: Verify Hack Club Auth before any shipping action
+		if (hatchEgg || reShip || shipProject) {
+			const hackclubId = String(userInfo.hackclub_id || '');
+			if (!hackclubId || hackclubId.trim() === '') {
+				return json(
+					{
+						success: false,
+						error: { message: 'You must authenticate with Hack Club before shipping projects. Go to Profile Settings to verify your identity.' }
+					},
+					{ status: 403 }
+				);
+			}
+		}
+
 		if (hatchEgg) {
 			// Hatch the egg - change image to corresponding creature and status
 			const currentEggImage = String(projectData.egg || 'projects/new_egg1.png');
@@ -168,10 +182,8 @@ export async function POST({ request, cookies }) {
 				status: 'submitted'
 			};
 
-			// Add YSWS submission link if provided
-			if (yswsSubmissionId) {
-				updateData['YSWS Project Submission'] = [yswsSubmissionId];
-			}
+			// Note: YSWS Project Submission link is automatically set by Airtable's
+			// two-way link when create-submission sets projectEgg
 
 			await projectsTable.update(projectRecord.id, updateData);
 
@@ -197,12 +209,8 @@ export async function POST({ request, cookies }) {
 				shippedDate: new Date().toISOString()
 			};
 
-			// Add YSWS submission link if provided - APPEND to existing submissions, don't replace
-			if (yswsSubmissionId) {
-				const existingSubmissions = projectData['YSWS Project Submission'];
-				const submissionsArray = Array.isArray(existingSubmissions) ? existingSubmissions : [];
-				updateData['YSWS Project Submission'] = [...submissionsArray, yswsSubmissionId];
-			}
+			// Note: YSWS Project Submission link is automatically set by Airtable's
+			// two-way link when create-submission sets projectEgg
 
 			await projectsTable.update(projectRecord.id, updateData);
 
@@ -323,10 +331,8 @@ export async function POST({ request, cookies }) {
 				shippedDate: new Date().toISOString()
 			};
 
-			// Add YSWS submission link if provided
-			if (yswsSubmissionId) {
-				updateData['YSWS Project Submission'] = [yswsSubmissionId];
-			}
+			// Note: YSWS Project Submission link is automatically set by Airtable's
+			// two-way link when create-submission sets projectEgg
 
 			await projectsTable.update(projectRecord.id, updateData);
 		}

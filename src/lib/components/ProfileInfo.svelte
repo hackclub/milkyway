@@ -42,6 +42,11 @@
 			missing.push('How can we improve?');
 		}
 
+		// Check Hack Club Auth - required for shipping projects
+		if (!user?.hackclub_id || !user.hackclub_id.trim()) {
+			missing.push('Hack Club verification');
+		}
+
 		return missing;
 	}
 
