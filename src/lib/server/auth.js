@@ -56,6 +56,13 @@ export async function getUserInfoBySessionId(sessionid) {
 		devlogStreak: fields.devlogStreak || 0,
 		maxDevlogStreak: fields.maxDevlogStreak || 0,
 		lastDevlogDate: fields.lastDevlogDate || null,
+		// Hack Club Auth fields
+		hackclub_id: fields.hackclub_id || null,
+		hackclub_name: fields.hackclub_name || null,
+		hackclub_slack_id: fields.hackclub_slack_id || null,
+		hackclub_email: fields.hackclub_email || null,
+		hackclub_address: fields.hackclub_address || null, // SERVER SIDE ONLY - never expose to frontend
+		hackclub_verification_status: fields.hackclub_verification_status || null,
 		__serverOnly: true // Flag to indicate this should not be sent to frontend
 	};
 }
@@ -82,8 +89,12 @@ export function sanitizeUserForFrontend(serverUser) {
 		doingWell: serverUser.doingWell || '',
 		improve: serverUser.improve || '',
 		devlogStreak: serverUser.devlogStreak || 0,
-		maxDevlogStreak: serverUser.maxDevlogStreak || 0
-		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, __serverOnly, or other internal fields
+		maxDevlogStreak: serverUser.maxDevlogStreak || 0,
+		// Hack Club Auth - only include non-sensitive fields
+		hackclub_id: serverUser.hackclub_id || null,
+		hackclub_name: serverUser.hackclub_name || null,
+		hackclub_slack_id: serverUser.hackclub_slack_id || null
+		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, hackclub_address, __serverOnly, or other internal fields
 	};
 }
 

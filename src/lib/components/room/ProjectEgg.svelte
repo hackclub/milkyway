@@ -358,6 +358,12 @@
       missing.push('profile information');
     }
     
+    // Check Hack Club Auth requirement
+    const hasHackclubAuth = user?.hackclub_id && user.hackclub_id.trim() !== '';
+    if (!hasHackclubAuth) {
+      missing.push('Hack Club verification (go to Profile Settings)');
+    }
+    
     // Check if this is a roulette project that needs wheel spinning
     if (projInfo.promptinfo === 'roulette') {
       try {
