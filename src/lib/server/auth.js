@@ -91,8 +91,7 @@ export function sanitizeUserForFrontend(serverUser) {
 		improve: serverUser.improve || '',
 		devlogStreak: serverUser.devlogStreak || 0,
 		maxDevlogStreak: serverUser.maxDevlogStreak || 0,
-		wallVariant: serverUser.wallVariant || 'default'
-		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, __serverOnly, or other internal fields
+		wallVariant: serverUser.wallVariant || 'default',
 		// Hack Club Auth - only include non-sensitive fields
 		hackclub_id: serverUser.hackclub_id || null,
 		hackclub_name: serverUser.hackclub_name || null,
