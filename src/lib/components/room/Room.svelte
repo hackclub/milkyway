@@ -6,6 +6,7 @@
 	import { FURNITURE_TYPES } from '$lib/furniture-catalog';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import Devlogs from '$lib/components/devlogs/Devlogs.svelte';
+	import RoomVariantSelector from '$lib/components/room/RoomVariantSelector.svelte';
 
 	let {
 		projectList = $bindable([]),
@@ -21,10 +22,13 @@
 		selectedProjectId = null,
 		onSelectProject = null,
 		hideControls = false,
-		showFurnitureSidebar = $bindable(false)
+		showFurnitureSidebar = $bindable(false),
+		variant
 	} = $props();
 
 	let isEditingRoom = $state(false);
+	let selectedVariant = $state('default');
+
 	let selectedEggForMove = $state(null);
 	let selectedFurnitureForMove = $state(null);
 	let isPlacingStickyNote = $state(false);
@@ -74,6 +78,22 @@
 		return () => {
 			cancelled = true;
 		};
+	});
+
+	$effect(() => {
+		// Always sync variant prop to selectedVariant state, using nullish coalescing
+		const incomingVariant = variant ?? 'default';
+		console.log(
+			'Room: variant prop changed to',
+			incomingVariant,
+			'| isEditingRoom:',
+			isEditingRoom,
+			'| current selectedVariant:',
+			selectedVariant
+		);
+		if (!isEditingRoom) {
+			selectedVariant = incomingVariant;
+		}
 	});
 
 	// Floor bounds - true rhombus shape (diamond)
@@ -360,6 +380,7 @@
 	async function saveRoomChanges() {
 		isSaving = true;
 		try {
+			const variantChanged = variant !== selectedVariant;
 			// Only update projects that have actually changed position
 			const changedProjects = projectList.filter((project) => {
 				const original = originalPositions.find((p) => p.id === project.id);
@@ -372,7 +393,7 @@
 				return original && (original.x !== furniture.x || original.y !== furniture.y);
 			});
 
-			if (changedProjects.length === 0 && changedFurniture.length === 0) {
+			if (changedProjects.length === 0 && changedFurniture.length === 0 && !variantChanged) {
 				// No changes to save
 				isEditingRoom = false;
 				showFurnitureSidebar = false;
@@ -428,6 +449,25 @@
 				)
 			];
 
+			if (variantChanged) {
+				updatePromises.push(
+					fetch('/api/update-profile', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							wallVariant: selectedVariant
+						})
+					}).then((response) => {
+						if (!response.ok) {
+							throw new Error('Failed to update room variant');
+						}
+						return response.json();
+					})
+				);
+			}
+
 			// Wait for all updates to complete
 			await Promise.all(updatePromises);
 
@@ -454,6 +494,11 @@
 			selectedFurnitureForMove = null;
 			originalPositions = [];
 			originalFurniturePositions = [];
+
+			// If variant was changed, reload to get fresh user data
+			if (variantChanged) {
+				window.location.reload();
+			}
 		} catch (error) {
 			console.error('Error saving room changes:', error);
 			alert('Failed to save room changes. Please try again.');
@@ -808,7 +853,24 @@
 	onmousedown={handleMouseDown}
 	role="presentation"
 >
-	<img aria-hidden="true" class="room-bg" src="/room_draft.png" alt="Room background" />
+	{#key selectedVariant}
+		<img
+			aria-hidden="true"
+			class="room-bg variant-transition"
+			src="/room/walls/room_{selectedVariant}.png?v={Date.now()}"
+			alt="Room background - {selectedVariant}"
+			onerror={(e) => {
+				console.error('Failed to load wall variant:', selectedVariant, e);
+				// Fallback to default if image fails
+				if (selectedVariant !== 'default') {
+					selectedVariant = 'default';
+				}
+			}}
+			onload={() => {
+				console.log('Successfully loaded variant:', selectedVariant);
+			}}
+		/>
+	{/key}
 
 	<FloorTile></FloorTile>
 
@@ -946,6 +1008,18 @@
 				onkeydown={(e) => e.stopPropagation()}
 				role="presentation"
 			>
+				<RoomVariantSelector
+					bind:selectedVariant
+					disabled={isSaving}
+					variants={[
+						{ id: 'default', label: 'default', preview: '/room/walls/room_default.png' },
+						{ id: 'pink', label: 'pink', preview: '/room/walls/room_pink.png' },
+						{ id: 'clouds', label: 'clouds', preview: '/room/walls/room_clouds.png' },
+						{ id: 'mimo', label: 'mimo', preview: '/room/walls/room_mimo.png' },
+						{ id: 'glitched', label: 'glitched', preview: '/room/walls/room_glitched.png' },
+						{ id: 'gradient', label: 'gradient', preview: '/room/walls/room_gradient.png' }
+					]}
+				/>
 				<p>editing your room →</p>
 				<button class="edit-mode-btn discard-edit-btn" onclick={exitEditMode} disabled={isSaving}>
 					<span class="btn-text">discard 🗑️</span>
@@ -1007,6 +1081,19 @@
 		-moz-user-select: none; /* Firefox */
 		-ms-user-select: none; /* IE10+/Edge */
 		user-select: none; /* Standard */
+	}
+
+	.variant-transition {
+		animation: fadeIn 0.4s ease-in-out;
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 
 	.room .new-project {
@@ -1114,7 +1201,8 @@
 	.notifications {
 		position: absolute;
 		bottom: calc(50vh - 150px);
-		right: calc(50vw - 630px);
+		left: calc(50vw - 630px);
+		right: auto;
 		z-index: 100;
 	}
 
@@ -1128,6 +1216,7 @@
 	@media (max-width: 1400px) {
 		.notifications {
 			left: 20px;
+			right: auto;
 		}
 		.devlogs {
 			right: 20px;

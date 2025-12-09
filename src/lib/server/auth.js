@@ -55,6 +55,7 @@ export async function getUserInfoBySessionId(sessionid) {
 		idv: fields.idv,
 		devlogStreak: fields.devlogStreak || 0,
 		maxDevlogStreak: fields.maxDevlogStreak || 0,
+		wallVariant: fields.wallVariant || 'default',
 		lastDevlogDate: fields.lastDevlogDate || null,
 		// Hack Club Auth fields
 		hackclub_id: fields.hackclub_id || null,
@@ -90,6 +91,7 @@ export function sanitizeUserForFrontend(serverUser) {
 		improve: serverUser.improve || '',
 		devlogStreak: serverUser.devlogStreak || 0,
 		maxDevlogStreak: serverUser.maxDevlogStreak || 0,
+		wallVariant: serverUser.wallVariant || 'default',
 		// Hack Club Auth - only include non-sensitive fields
 		hackclub_id: serverUser.hackclub_id || null,
 		hackclub_name: serverUser.hackclub_name || null,
@@ -111,7 +113,8 @@ export function sanitizeUserForPublic(serverUser) {
 		username: serverUser.username,
 		githubUsername: serverUser.githubUsername || '',
 		devlogStreak: serverUser.devlogStreak || 0,
-		maxDevlogStreak: serverUser.maxDevlogStreak || 0
+		maxDevlogStreak: serverUser.maxDevlogStreak || 0,
+		wallVariant: serverUser.wallVariant || 'default'
 		// DO NOT include: email, address, idv, coins, stellarships, paintchips, birthday, or other personal/sensitive fields
 	};
 }
@@ -307,7 +310,8 @@ export async function getUserInfoByUsername(username) {
 		stellarships: fields.stellarships,
 		paintchips: fields.paintchips,
 		githubUsername: fields.githubUsername,
-		birthday: fields.birthday
+		birthday: fields.birthday,
+		wallVariant: fields.wallVariant || 'default'
 	};
 }
 

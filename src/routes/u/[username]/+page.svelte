@@ -192,6 +192,7 @@
 				onShipProject={() => {}}
 				readOnly={true}
 				hideControls={false}
+				variant={userData.wallVariant}
 			/>
 		</div>
 

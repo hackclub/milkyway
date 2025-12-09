@@ -10,7 +10,6 @@ export async function load({ params, locals, url }) {
 		console.log('Fetching user info for:', params.username);
 		const userInfo = await getUserInfoByUsername(params.username);
 		console.log('User info fetched:', userInfo ? 'success' : 'not found');
-
 		if (!userInfo) {
 			return {
 				username: params.username,
@@ -88,6 +87,7 @@ export async function load({ params, locals, url }) {
 				: null,
 			user: {
 				...publicUserInfo,
+				wallVariant: publicUserInfo.wallVariant || 'default',
 				followerCount,
 				followingCount
 			},
@@ -109,6 +109,7 @@ export async function load({ params, locals, url }) {
 			user: null,
 			projects: [],
 			furniture: [],
+			wallVariant: 'default',
 			error: 'Failed to load user profile'
 		};
 	}
