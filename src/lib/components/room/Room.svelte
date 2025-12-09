@@ -18,6 +18,7 @@
 		onOpenRouletteSpin,
 		onDeleteProject,
 		onShipProject,
+		onPaintChipsClaimed = null,
 		readOnly = false,
 		selectedProjectId = null,
 		onSelectProject = null,
@@ -896,6 +897,7 @@
 			onDelete={deleteProjectHandler}
 			{onOpenRouletteSpin}
 			onShipProject={handleShipProject}
+			{onPaintChipsClaimed}
 			{user}
 			isRoomEditing={isEditingRoom}
 			{readOnly}

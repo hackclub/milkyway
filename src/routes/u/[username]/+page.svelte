@@ -53,7 +53,7 @@
 		Number(
 			projectList.reduce(
 				(/** @type {number} */ sum, /** @type {any} */ project) =>
-					sum + (project.totalHours || project.hours || 0),
+					sum + ((project.hackatimeHours || 0) + (project.artHours || 0)),
 				0
 			)
 		)

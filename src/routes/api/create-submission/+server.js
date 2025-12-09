@@ -109,9 +109,10 @@ export async function POST({ request, cookies }) {
         }, { status: 403 });
       }
       
-      if (projectRecord && projectRecord.fields.totalHours) {
-        hoursLogged = typeof projectRecord.fields.totalHours === 'number' ? 
-                     projectRecord.fields.totalHours : 0;
+      if (projectRecord) {
+        const hackatimeHours = typeof projectRecord.fields.hackatimeHours === 'number' ? projectRecord.fields.hackatimeHours : 0;
+        const artHours = typeof projectRecord.fields.artHours === 'number' ? projectRecord.fields.artHours : 0;
+        hoursLogged = hackatimeHours + artHours;
       }
     } catch (error) {
       console.error('Failed to fetch project hours:', error);

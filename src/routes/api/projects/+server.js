@@ -63,14 +63,18 @@ export async function GET({ url, locals, request, cookies }) {
       y: y,
       status: record.fields.status || 'active',
       hours: record.fields.hours || 0,
-      totalHours: record.fields.totalHours || 0,
+      hackatimeHours: record.fields.hackatimeHours || 0,
+      artHours: record.fields.artHours || 0,
       hoursShipped: record.fields.hoursShipped || 0,
       hackatimeProjects: record.fields.hackatimeProjects || [],
       created: record.fields.countingFrom,
       // Form fields for shipping
       notMadeBy: record.fields.notMadeBy || '',
       howToPlay: record.fields.howToPlay || '',
-      addnComments: record.fields.addnComments || ''
+      addnComments: record.fields.addnComments || '',
+      // Paint chips tracking
+      hoursAtFirstShip: record.fields.hoursAtFirstShip || 0,
+      paintChipsClaimed: record.fields.paintChipsClaimed || 0
     };
 
     return json({ success: true, project });

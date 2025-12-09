@@ -42,7 +42,6 @@ export async function getUserProjectsByEmail(userEmail) {
         y: y,
         status: record.fields.status || 'active',
         hours: record.fields.hours || 0,
-        totalHours: record.fields.totalHours || 0,
         hackatimeHours: record.fields.hackatimeHours || 0,
         artHours: record.fields.artHours || 0,
         hackatimeProjects: record.fields.hackatimeProjects || [],
@@ -51,7 +50,10 @@ export async function getUserProjectsByEmail(userEmail) {
         notMadeBy: record.fields.notMadeBy || '',
         howToPlay: record.fields.howToPlay || '',
         addnComments: record.fields.addnComments || '',
-        hoursShipped: record.fields.hoursShipped || 0
+        hoursShipped: record.fields.hoursShipped || 0,
+        // Paint chips tracking
+        hoursAtFirstShip: record.fields.hoursAtFirstShip || 0,
+        paintChipsClaimed: record.fields.paintChipsClaimed || 0
       };
     });
 

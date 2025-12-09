@@ -344,6 +344,19 @@ export async function POST({ request, cookies }) {
 				typeof projectData.hackatimeHours === 'number' ? projectData.hackatimeHours : 0;
 			const coinsPerHour = 8; // Default rate, could be adjusted based on project quality
 			const coinsEarned = Math.round(hoursWorked * coinsPerHour);
+			
+			// Track hoursAtFirstShip for paint chip rewards (only on first ship)
+			const existingHoursAtFirstShip = projectData.hoursAtFirstShip;
+			const isFirstShip = !existingHoursAtFirstShip || existingHoursAtFirstShip === 0;
+			
+			if (isFirstShip) {
+				// Calculate total hours (code + art) at first ship
+				const artHours = typeof projectData.artHours === 'number' ? projectData.artHours : 0;
+				const totalHoursAtShip = hoursWorked + artHours;
+				await projectsTable.update(projectRecord.id, {
+					hoursAtFirstShip: totalHoursAtShip
+				});
+			}
 
 			// Convert pending hours to regular hours for this project
 			// Get all devlogs associated with this project that have pending hours or streaks

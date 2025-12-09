@@ -6,7 +6,11 @@
   import ArtlogListPopup from '../ArtlogListPopup.svelte';
   import { getCreatureShapeFromCreature } from '$lib/data/prompt-data.js';
 
-  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, user, isRoomEditing = false, readOnly = false} = $props();
+  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, onPaintChipsClaimed = null, user, isRoomEditing = false, readOnly = false} = $props();
+  
+  // Flying chips animation state
+  /** @type {Array<{id: number, x: number, y: number}>} */
+  let flyingChips = $state([]);
   
   let isEditing = $state(false);
   let isUpdating = $state(false);
@@ -50,8 +54,19 @@
   /** @type {string | null} */
   let lastFetchedProjectId = $state(null);
   
+  // Paint chips claim state (for post-first-ship hours)
+  let isClaimingPaintChips = $state(false);
+  let paintChipsClaimSuccess = $state(false);
+  
   // Shipping confirmation state - check if project status is "submitted"
   let isProjectShipped = $derived(projInfo.status === 'submitted');
+  
+  // Calculate total hours (code + art)
+  let totalDisplayHours = $derived(() => {
+    const codeHours = projInfo.hackatimeHours || 0;
+    const artHours = projInfo.artHours || 0;
+    return Math.round((codeHours + artHours) * 100) / 100;
+  });
   
   // Extract specific values to avoid unnecessary effect re-runs
   let projectStatus = $derived(projInfo.status);
@@ -221,7 +236,7 @@
     if (projectUpdateSuccess && imageUploadSuccess) {
       // Update the local projInfo object with the saved values
       projInfo.hackatimeProjects = selectedProjectsString;
-      projInfo.totalHours = calculatedHours;
+      projInfo.hackatimeHours = calculatedHours;
       
       isEditing = false;
       originalValues = {};
@@ -306,8 +321,11 @@
    * @param {number} hours
    */
   function handleArtlogSuccess(hours) {
-    artlogSuccessMessage = `artlog for ${hours} hour${hours !== 1 ? 's' : ''} successfully created!\nyou'll get paint chips for these artlogs once you ship your project :)`;
+    artlogSuccessMessage = `artlog for ${hours} hour${hours !== 1 ? 's' : ''} successfully created!\nyou'll get coins for these artlogs once you ship your project :)`;
     showArtlogSuccess = true;
+    
+    // Update local artHours state
+    projInfo.artHours = (projInfo.artHours || 0) + hours;
     
     // Hide the message after 5 seconds
     setTimeout(() => {
@@ -396,14 +414,14 @@
         }
       }
       
-      const currentHours = projInfo.totalHours || 0;
+      const currentHours = (projInfo.hackatimeHours || 0) + (projInfo.artHours || 0);
       
       console.log('Frontend hours validation:', { 
         shippedHours, 
         currentHours, 
         hoursShippedRaw: projInfo.hoursShipped || 0,
-        totalHours: projInfo.totalHours,
         hackatimeHours: projInfo.hackatimeHours,
+        artHours: projInfo.artHours,
         projInfo 
       });
       
@@ -599,21 +617,21 @@
       selectedHackatimeProjects = new Set();
     }
     
-    // Update the hours count and totalHours
+    // Update the hours count and hackatimeHours
     updateCurrentHours();
     
     console.log('Restored selected projects:', {
       projects: Array.from(selectedHackatimeProjects),
       hours: currentHackatimeHours,
-      totalHours: projInfo.totalHours
+      hackatimeHours: projInfo.hackatimeHours
     });
   }
 
   // Update current hours count
   function updateCurrentHours() {
     currentHackatimeHours = calculateSelectedHackatimeHours();
-    // Also update the projInfo.totalHours to reflect changes in real-time
-    projInfo.totalHours = currentHackatimeHours;
+    // Also update the projInfo.hackatimeHours to reflect changes in real-time
+    projInfo.hackatimeHours = currentHackatimeHours;
   }
 
   // Toggle HackaTime project selection
@@ -633,6 +651,77 @@
   function continueRouletteSpinning() {
     if (onOpenRouletteSpin) {
       onOpenRouletteSpin(projInfo.id, rouletteProgress());
+    }
+  }
+
+  // Create flying chips animation
+  function createFlyingChips(count) {
+    const chipsToCreate = Math.min(count, 10); // Max 10 chips for performance
+    const newChips = [];
+    for (let i = 0; i < chipsToCreate; i++) {
+      newChips.push({
+        id: Date.now() + i,
+        x: Math.random() * 40 - 20, // Random offset
+        y: Math.random() * 20 - 10
+      });
+    }
+    flyingChips = [...flyingChips, ...newChips];
+    
+    // Remove chips after animation completes
+    setTimeout(() => {
+      flyingChips = flyingChips.filter(c => !newChips.find(nc => nc.id === c.id));
+    }, 1000);
+  }
+  
+  // Claim paint chips for shipped projects (5 per total hour worked)
+  async function claimPaintChips() {
+    // Calculate pending chips (total hours * 5, minus already claimed)
+    const totalChipsEarned = Math.floor(totalDisplayHours() * 5);
+    const pendingChips = Math.max(0, totalChipsEarned - (projInfo.paintChipsClaimed || 0));
+
+    if (isClaimingPaintChips || pendingChips <= 0) return;
+    
+    try {
+      isClaimingPaintChips = true;
+      paintChipsClaimSuccess = false;
+      
+      const response = await fetch('/api/claim-paint-chips', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId: projInfo.id,
+          paintChips: pendingChips
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        paintChipsClaimSuccess = true;
+        // Update local state
+        projInfo.paintChipsClaimed = (projInfo.paintChipsClaimed || 0) + pendingChips;
+        
+        // Create flying chips animation
+        createFlyingChips(pendingChips);
+        
+        // Notify parent to update paintchips count
+        if (onPaintChipsClaimed) {
+          onPaintChipsClaimed(pendingChips);
+        }
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => {
+          paintChipsClaimSuccess = false;
+        }, 3000);
+      } else {
+        console.error('Failed to claim paint chips:', result.error);
+      }
+    } catch (error) {
+      console.error('Error claiming paint chips:', error);
+    } finally {
+      isClaimingPaintChips = false;
     }
   }
 
@@ -714,12 +803,50 @@
 {/if}
 
 {#if selected && !isRoomEditing}
-<div class="project-info" transition:slide={{duration: 200}}>
+<div class="project-panels-container" transition:slide={{duration: 200}}>
+
+<!-- Paint Chips Box (separate box above project info, visible after first ship) -->
+{#if isProjectShipped && !readOnly}
+  {@const totalChipsEarned = Math.floor(totalDisplayHours() * 5)}
+  {@const pendingChips = Math.max(0, totalChipsEarned - (projInfo.paintChipsClaimed || 0))}
+  <div class="claim-chips-wrapper">
+    <Tooltip text="5 paint chips per hour">
+      <button 
+        class="claim-chips-btn" 
+        class:claimed={pendingChips === 0 || paintChipsClaimSuccess}
+        onclick={() => claimPaintChips()}
+        disabled={isClaimingPaintChips || pendingChips === 0}
+      >
+        <img src="/paintchip.png" alt="Paint Chips" class="chips-icon" />
+        {#if paintChipsClaimSuccess}
+          claimed!
+        {:else if isClaimingPaintChips}
+          claiming...
+        {:else if pendingChips > 0}
+          claim {pendingChips}
+        {:else}
+          all claimed ({totalChipsEarned} total)
+        {/if}
+      </button>
+    </Tooltip>
+    <!-- Flying chips animation -->
+    {#each flyingChips as chip (chip.id)}
+      <img 
+        src="/paintchip.png" 
+        alt="" 
+        class="flying-chip"
+        style="--offset-x: {chip.x}px; --offset-y: {chip.y}px;"
+      />
+    {/each}
+  </div>
+{/if}
+
+<div class="project-info">
 
   <div class="project-header">
     <div class="project-main-info">
       <div class="project-meta">
-        <span class="hours-info">{projInfo.hackatimeHours || 0} code hours · {projInfo.artHours || 0} art hours</span>
+        <span class="hours-info" title="{projInfo.hackatimeHours || 0} code hours, {projInfo.artHours || 0} art hours">{totalDisplayHours()} total hours</span>
         <span class="separator">·</span>
         <button class="prompt-info-link" onclick={() => onShowPromptPopup(projInfo.promptinfo, rouletteProgress())}>{projInfo.promptinfo}</button>
       </div>
@@ -877,10 +1004,16 @@
 
     <!-- Artlog Hours Section (always visible when selected) -->
     {#if !readOnly}
+      {@const maxArtHours = Math.floor(((projInfo.hackatimeHours || 0) * 0.3 / 0.7) * 100) / 100}
+      {@const currentArtHours = projInfo.artHours || 0}
+      {@const remainingArtHours = Math.max(0, Math.floor((maxArtHours - currentArtHours) * 100) / 100)}
       <div class="artlog-section">
         <div class="artlog-header">
-          <h4 class="artlog-title">🎨 {projInfo.artHours || 0} art hours</h4>
+          <h4 class="artlog-title">🎨 {currentArtHours} art hours</h4>
           <button class="view-artlogs-btn" onclick={viewPastArtlogs}>(view past artlogs)</button>
+        </div>
+        <div class="artlog-cap-info">
+          art hours can be up to 30% of total project hours. you can log up to <strong>{remainingArtHours}</strong> more art hours.
         </div>
       </div>
     {/if}
@@ -903,7 +1036,7 @@
         <div class="confirmation-content">
           <div class="confirmation-title">project shipped!</div>
           <div class="confirmation-details">
-            you shipped your project at {projInfo.hoursShipped || projInfo.totalHours || 0}h logged.
+            you shipped your project at {projInfo.hoursShipped || ((projInfo.hackatimeHours || 0) + (projInfo.artHours || 0)) || 0}h logged.
             <br>
             {#if yswsSubmissionData}
               <!-- Show review results if available -->
@@ -974,9 +1107,9 @@
                   }
                 }
                 
-                const currentHours = projInfo.totalHours || 0;
+                const currentHours = (projInfo.hackatimeHours || 0) + (projInfo.artHours || 0);
                 if (currentHours < 5) {
-                  return 'at least 5 hackatime hours';
+                  return 'at least 5 hours';
                 } else {
                   const hoursNeeded = shippedHours + 5;
                   const hoursMore = hoursNeeded - currentHours;
@@ -995,6 +1128,7 @@
     </div>
   {/if}
 
+</div>
 </div>
 {/if}
 </div>
@@ -1029,7 +1163,7 @@
 {/if}
 
 <!-- Artlog Popup -->
-<ArtlogPopup bind:show={showArtlogPopup} projectId={projInfo.id} onSuccess={handleArtlogSuccess} />
+<ArtlogPopup bind:show={showArtlogPopup} projectId={projInfo.id} codeHours={projInfo.hackatimeHours || 0} artHours={projInfo.artHours || 0} onSuccess={handleArtlogSuccess} />
 
 <!-- Artlog List Popup -->
 <ArtlogListPopup bind:show={showArtlogListPopup} projectId={projInfo.id} />
@@ -1104,18 +1238,10 @@
 }
 
 .project-info {
-  position: absolute;
   border: 4px solid var(--orange);
   border-radius: 8px;
   background: var(--yellow);
-
-  left: calc(100% + 50px);
-  top: 50%;
-  transform: translateY(-50%);
-
   padding: 12px;
-  width: 32vw;
-  z-index: 1500;
 }
 
 .project-header {
@@ -1769,6 +1895,7 @@ input:hover, textarea:hover {
 /* Artlog Section */
 .artlog-section {
   display: flex;
+  flex-flow: column;
   align-items: center;
   gap: 6px;
   margin: 8px 0;
@@ -1782,6 +1909,8 @@ input:hover, textarea:hover {
 .artlog-header {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  width: 100%;
   gap: 6px;
   flex: 1;
 }
@@ -1954,4 +2083,89 @@ input:hover, textarea:hover {
   color: #065f46;
   font-size: 0.8em;
 }
+
+/* Project Panels Container */
+.project-panels-container {
+  position: absolute;
+  left: calc(100% + 50px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 32vw;
+  z-index: 1500;
+}
+
+/* Paint Chips Box (above project info) */
+
+.chips-icon {
+  height: 18px;
+  width: auto;
+  margin-bottom: -2px;
+  margin-left: -2px;
+}
+
+.claim-chips-btn {
+  padding: 4px 10px;
+  background: var(--orange);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-family: inherit;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+.claim-chips-btn:hover:not(:disabled) {
+  background: #e67e00;
+}
+
+.claim-chips-btn:disabled {
+  cursor: not-allowed;
+}
+
+.claim-chips-btn.claimed {
+  background: #ccc;
+  color: #888;
+}
+
+/* Flying chips animation */
+.claim-chips-wrapper {
+  position: relative;
+}
+
+.flying-chip {
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  z-index: 99999;
+  animation: flyToTopLeft 1s ease-out forwards;
+  transform: translate(var(--offset-x), var(--offset-y));
+}
+
+@keyframes flyToTopLeft {
+  0% {
+    opacity: 1;
+    transform: translate(var(--offset-x), var(--offset-y)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-80vw + var(--offset-x)), calc(-80vh + var(--offset-y))) scale(0.5);
+  }
+}
+
+/* Artlog Cap Info */
+.artlog-cap-info {
+  font-size: 0.75em;
+  color: #666;
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+/* .artlog-cap-info strong {
+  color: var(--orange);
+} */
 </style>

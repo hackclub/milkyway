@@ -492,7 +492,7 @@
 							<div class="info-item">
 								<span class="info-label">Hours:</span>
 								<span class="info-value"
-									>{projectInfo?.totalHours || projectInfo?.hours || 0} hours</span
+									>{((projectInfo?.hackatimeHours || 0) + (projectInfo?.artHours || 0)) || projectInfo?.hours || 0} hours</span
 								>
 							</div>
 							{#if pendingHours && pendingHours.total > 0}
