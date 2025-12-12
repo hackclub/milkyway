@@ -17,109 +17,30 @@ function createStreakQuest({ variant = 'streak', target = 0, ...quest }) {
 		type: 'custom',
 		target,
 		validateAsync: true,
-		validate: async (stats = {}, userId) => {
-			// Import dynamically to avoid circular dependency
-			const { base } = await import('$lib/server/db.js');
+		validate: async (stats = {}) => {
+			// stats are provided by the server-side quests logic and already include:
+			// - currentStreak / maxStreak (effective, raw or approved depending on quest.useRawStreak)
+			// - rawCurrentStreak / rawMaxStreak
+			// - approvedCurrentStreak / approvedMaxStreak
+			// - hasSubmittedStreakProject: at least one devlog in streak has submitted status
 
-			// Get all user devlogs and check which have submitted projects
-			const submittedStreakDays = new Set();
+			const hasSubmitted = Boolean(stats.hasSubmittedStreakProject);
 
-			if (userId) {
-				try {
-					// Fetch all user's projects once to check submission status
-					const allProjects = await base('Projects').select().all();
-
-					const submittedProjectIds = new Set();
-					for (const project of allProjects) {
-						// Check if project belongs to this user
-						const projectUserField = project.fields.user;
-						const projectUserIds = Array.isArray(projectUserField)
-							? projectUserField
-							: projectUserField
-								? [String(projectUserField)]
-								: [];
-
-						if (projectUserIds.includes(userId) && project.fields.status === 'submitted') {
-							submittedProjectIds.add(project.id);
-						}
-					}
-
-					// Fetch all user devlogs
-					const allDevlogs = await base('Devlogs').select().all();
-					const userDevlogs = allDevlogs.filter((record) => {
-						const userIds = record.fields.user || [];
-						return userIds.includes(userId);
-					});
-
-					for (const devlog of userDevlogs) {
-						const hasPendingStreak = devlog.fields.pendingStreak === true;
-						if (hasPendingStreak) continue;
-
-						const projectIds = devlog.fields.projectIds;
-						if (!projectIds || typeof projectIds !== 'string') continue;
-
-						const projects = projectIds
-							.split(',')
-							.map((id) => id.trim())
-							.filter(Boolean);
-
-						// Check if at least one project is submitted using the pre-fetched set
-						let hasSubmitted = false;
-						for (const projectId of projects) {
-							if (submittedProjectIds.has(projectId)) {
-								hasSubmitted = true;
-								break;
-							}
-						}
-
-						if (hasSubmitted && devlog.fields.Created) {
-							const dayKey = new Date(devlog.fields.Created).toISOString().slice(0, 10);
-							submittedStreakDays.add(dayKey);
-						}
-					}
-				} catch (error) {
-					console.error('Error validating streak quest:', error);
-				}
+			// Use approved values if available (> 0), otherwise fall back to raw values
+			let approvedValue;
+			if (normalizedVariant === 'max') {
+				const approvedMax = Number(stats.approvedMaxStreak ?? 0);
+				const rawMax = Number(stats.rawMaxStreak ?? 0);
+				approvedValue = approvedMax > 0 ? approvedMax : rawMax;
+			} else {
+				const approvedCurrent = Number(stats.approvedCurrentStreak ?? 0);
+				const rawCurrent = Number(stats.rawCurrentStreak ?? 0);
+				approvedValue = approvedCurrent > 0 ? approvedCurrent : rawCurrent;
 			}
-
-			// Calculate streak from submitted days
-			const sortedDays = Array.from(submittedStreakDays).sort();
-			let currentStreak = 0;
-			let maxStreak = 0;
-			let tempStreak = 0;
-
-			for (let i = 0; i < sortedDays.length; i++) {
-				if (i === 0) {
-					tempStreak = 1;
-				} else {
-					const prevDate = new Date(sortedDays[i - 1]);
-					const currDate = new Date(sortedDays[i]);
-					const daysDiff = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
-
-					if (daysDiff === 1) {
-						tempStreak++;
-					} else {
-						tempStreak = 1;
-					}
-				}
-
-				if (tempStreak > maxStreak) {
-					maxStreak = tempStreak;
-				}
-
-				// Current streak is the last streak
-				if (i === sortedDays.length - 1) {
-					currentStreak = tempStreak;
-				}
-			}
-
-			const approvedValue = normalizedVariant === 'max' ? maxStreak : currentStreak;
-			const visualValue =
-				normalizedVariant === 'max' ? Number(stats.maxStreak) : Number(stats.currentStreak);
 
 			return {
-				completed: approvedValue >= target,
-				current: Number.isFinite(visualValue) ? visualValue : approvedValue,
+				completed: hasSubmitted && approvedValue >= target,
+				current: approvedValue,
 				target
 			};
 		}
