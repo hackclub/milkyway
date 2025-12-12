@@ -91,6 +91,13 @@ export const FURNITURE_TYPES = [
 	{ type: 'galaxy_bed', name: 'galaxy bed', cost: 0, purchasable: false },
 	{ type: 'galaxy_fishbowl', name: 'galaxy fishbowl', cost: 0, purchasable: false },
 	{ type: 'galaxy_window', name: 'galaxy', cost: 0, purchasable: false },
+	{ type: 'christmas_tree', name: 'christmas tree', cost: 0, purchasable: false },
+	{
+		type: 'christmas_fireplace',
+		name: 'fireplace (christmas edition)',
+		cost: 0,
+		purchasable: false
+	}
 ];
 
 /** @type {Record<string, FurnitureType>} */
