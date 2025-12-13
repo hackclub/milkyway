@@ -91,6 +91,18 @@ export const FURNITURE_TYPES = [
 	{ type: 'galaxy_bed', name: 'galaxy bed', cost: 0, purchasable: false },
 	{ type: 'galaxy_fishbowl', name: 'galaxy fishbowl', cost: 0, purchasable: false },
 	{ type: 'galaxy_window', name: 'galaxy', cost: 0, purchasable: false },
+	{ type: 'chair_glitched', name: 'glitched chair', cost: 10, purchasable: true },
+	{ type: 'chair_glitched_blue', name: 'glitched chair blue', cost: 10, purchasable: true },
+	{ type: 'chair_glitched_green', name: 'glitched chair green', cost: 10, purchasable: true },
+	{ type: 'chair_glitched_red', name: 'glitched chair red', cost: 10, purchasable: true },
+	{ type: 'bed_glitched', name: 'bed glitched', cost: 20, purchasable: true },
+	{ type: 'bed_glitched_blue', name: 'bed glitched blue', cost: 20, purchasable: true },
+	{ type: 'bed_glitched_green', name: 'bed glitched green', cost: 20, purchasable: true },
+	{ type: 'bed_glitched_red', name: 'bed glitched red', cost: 20, purchasable: true },
+	{ type: 'desk_glitched', name: 'desk glitched', cost: 20, purchasable: true },
+	{ type: 'desk_glitched_blue', name: 'desk glitched blue', cost: 20, purchasable: true },
+	{ type: 'desk_glitched_green', name: 'desk glitched green', cost: 20, purchasable: true },
+	{ type: 'desk_glitched_red', name: 'desk glitched red', cost: 20, purchasable: true }
 ];
 
 /** @type {Record<string, FurnitureType>} */
