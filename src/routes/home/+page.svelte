@@ -11,9 +11,9 @@
 	import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 	import Announcements from '$lib/components/Announcements.svelte';
 	import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
-	import { PUBLIC_SHOW_BLACKHOLE } from '$env/static/public';
+	import { env as PUBLIC_ENV } from '$env/dynamic/public';
 
-	const SHOW_BLACKHOLE = PUBLIC_SHOW_BLACKHOLE === 'true';
+	const SHOW_BLACKHOLE = PUBLIC_ENV.PUBLIC_SHOW_BLACKHOLE === 'true';
 
 	let { data } = $props();
 

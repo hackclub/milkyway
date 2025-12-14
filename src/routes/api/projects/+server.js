@@ -36,11 +36,12 @@ export async function GET({ url, locals, request, cookies }) {
     const { base } = await import('$lib/server/db.js');
     const record = await base('Projects').find(projectId);
     
-    // Parse position data
-    const positionStr = typeof record.fields.position === 'string' ? record.fields.position : '0,0';
+    // Parse position data (format: "x,y,layer")
+    const positionStr = typeof record.fields.position === 'string' ? record.fields.position : '0,0,0';
     const positionParts = positionStr.split(',');
     const x = parseFloat(positionParts[0]) || 0;
     const y = parseFloat(positionParts[1]) || 0;
+    const layer = parseInt(positionParts[2]) || 0;
     
     // Handle image attachment - get URL from first attachment if available
     const imageAttachment = getFirstAttachment(record.fields.image);
@@ -58,9 +59,10 @@ export async function GET({ url, locals, request, cookies }) {
       addn: record.fields.addn || '',
       event: 'new',
       egg: record.fields.egg || 'projects/sparkle_egg1.png',
-      position: record.fields.position || '0,0',
+      position: record.fields.position || '0,0,0',
       x: x,
       y: y,
+      layer: layer,
       status: record.fields.status || 'active',
       hours: record.fields.hours || 0,
       hackatimeHours: record.fields.hackatimeHours || 0,

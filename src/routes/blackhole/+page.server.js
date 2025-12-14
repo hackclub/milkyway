@@ -1,12 +1,12 @@
 import { redirect, error } from '@sveltejs/kit';
-import { PUBLIC_SHOW_BLACKHOLE } from '$env/static/public';
+import { env as PUBLIC_ENV } from '$env/dynamic/public';
 import { getUserCoinsAndStellarships, sanitizeUserForFrontend } from '$lib/server/auth';
 import { getUserProjectsByEmail } from '$lib/server/projects';
 import { getMyBlackholeSubmissions } from '$lib/server/blackhole.js';
 
 
 export async function load({ locals }) {
-  if (PUBLIC_SHOW_BLACKHOLE !== 'true') {
+  if (PUBLIC_ENV.PUBLIC_SHOW_BLACKHOLE !== 'true') {
     throw redirect(302, '/home');
   }
 

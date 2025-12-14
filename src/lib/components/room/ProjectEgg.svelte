@@ -783,10 +783,41 @@
     }
   });
 
+
+/**
+ * Change project layer by delta (+1 or -1)
+ * @param {number} delta
+ */
+async function changeLayer(delta) {
+  const newLayer = (projInfo.layer || 0) + delta;
+  const oldLayer = projInfo.layer;
+  projInfo.layer = newLayer;
+
+  try {
+    const response = await fetch('/api/projects', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: projInfo.id,
+        updates: { position: `${Math.round(x)},${Math.round(y)},${newLayer}` }
+      })
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      console.error('Failed to update project layer:', result.error);
+      projInfo.layer = oldLayer;
+    }
+  } catch (err) {
+    console.error('Error updating project layer:', err);
+    projInfo.layer = oldLayer;
+  }
+}
+
 </script>
 
 
-<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''} {projInfo.status === 'submitted' ? 'hatched' : ''}" style:--x={x} style:--y={y} style:--z={Math.round(y)} onclick={(e) => e.stopPropagation()}>
+<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''} {projInfo.status === 'submitted' ? 'hatched' : ''}" style:--x={x} style:--y={y} style:--z={projInfo.layer ?? Math.round(y)} onclick={(e) => e.stopPropagation()}>
 <img class="egg-img" src={projInfo.egg} alt="Project egg" />
 
 <button 
@@ -797,6 +828,14 @@
 >
   <img src={projInfo.status === 'submitted' ? getCreatureShapeFromCreature(projInfo.egg) : "/projects/egg_shape.svg"} alt="Project shape" />
 </button>
+
+{#if selected && isRoomEditing && !readOnly}
+  <div class="egg-controls">
+    <button class="layer-btn layer-up-btn" onclick={() => changeLayer(1)} title="Move forward" aria-label="Move project forward">⬆️</button>
+    <button class="layer-btn layer-down-btn" onclick={() => changeLayer(-1)} title="Move backward" aria-label="Move project backward">⬇️</button>
+    <span class="layer-display" aria-live="polite">Layer: {projInfo.layer ?? 0}</span>
+  </div>
+{/if}
 
 {#if isIncompleteRoulette()}
   <div class="incomplete-badge">!</div>
@@ -1173,7 +1212,7 @@
 .project-egg {
   height: 8%;
   position: absolute;
-  z-index: calc(500 + var(--z));
+  z-index: calc(100 + var(--z));
 
   display: flex;
   justify-content: center;
@@ -1183,7 +1222,7 @@
 }
 
 .project-egg.selected {
-  z-index: calc(1500 + var(--z));
+  z-index: calc(1000 + var(--z));
 }
 
 .project-egg.editing-mode {
@@ -1231,6 +1270,54 @@
 .project-egg:has(.egg-svg:hover) .egg-img, .project-egg.selected .egg-img {
   filter: drop-shadow(-1.5px -1.5px 0 var(--orange)) drop-shadow(1.5px -1.5px 0 var(--orange)) drop-shadow(-1.5px 1.5px 0 var(--orange)) drop-shadow(1.5px 1.5px 0 var(--orange));
 }
+
+.egg-controls {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 2000;
+}
+
+.egg-controls .layer-display {
+  padding: 4px 8px;
+  background: rgba(0,0,0,0.05);
+  border-radius: 12px;
+  font-size: 0.9em;
+  color: var(--orange);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.egg-controls {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 2000;
+  align-items: center;
+}
+
+.layer-btn {
+  padding: 6px 10px;
+  border: 2px solid var(--orange);
+  border-radius: 50px;
+  background: var(--yellow);
+  color: var(--orange);
+  font-family: inherit;
+  font-size: 1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.12s;
+  line-height: 1;
+}
+
+.layer-up-btn:hover { background: #4CAF50; border-color: #4CAF50; color: white; }
+.layer-down-btn:hover { background: #2196F3; border-color: #2196F3; color: white; }
 
 /* Hatched creature styling - subtle glow to show it's special */
 .project-egg.hatched .egg-img {
