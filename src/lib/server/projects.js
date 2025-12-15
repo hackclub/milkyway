@@ -35,6 +35,7 @@ export async function getUserProjectsByEmail(userEmail) {
         githubURL: record.fields.githubURL || '',
         projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
         image: imageUrl, // Store the attachment URL
+      stellarShipResult: record.fields.stellarShipResult ?? 0,
         addn: record.fields.addn || '',
         event: 'new', // Default since you don't have this field
         egg: record.fields.egg || 'projects/sparkle_egg1.png',
@@ -115,6 +116,7 @@ export async function createProject(userId, projectData) {
       promptinfo: record.fields.promptinfo,
       projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
       image: imageUrl, // Store the attachment URL
+      stellarShipResult: record.fields.stellarShipResult ?? 0,
       addn: record.fields.addn || '',
       event: 'new', // Default since you don't have this field
       egg: record.fields.egg,
@@ -164,6 +166,7 @@ export async function updateProject(projectId, updates) {
       projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
       image: imageUrl, // Store the attachment URL
       promptinfo: record.fields.promptinfo,
+      stellarShipResult: record.fields.stellarShipResult ?? 0,
       addn: record.fields.addn || '',
       event: 'new', // Default since you don't have this field
       egg: record.fields.egg,

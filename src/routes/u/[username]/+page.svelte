@@ -15,6 +15,7 @@
 	let loading = $state(false);
 	let userData = $state(data.user);
 	let showReportModal = $state(false);
+	let stellarShipProjectIds = $state(new Set(data.stellarShipProjectIds || []));
 
 	// Filter furniture to hide owner-only items when viewing another user's profile
 	let filteredFurnitureList = $derived(
@@ -193,6 +194,7 @@
 				readOnly={true}
 				hideControls={false}
 				variant={userData.wallVariant}
+				{stellarShipProjectIds}
 			/>
 		</div>
 

@@ -24,7 +24,8 @@
 		onSelectProject = null,
 		hideControls = false,
 		showFurnitureSidebar = $bindable(false),
-		variant
+		variant,
+		stellarShipProjectIds = new Set()
 	} = $props();
 
 	let isEditingRoom = $state(false);
@@ -901,6 +902,7 @@
 			{user}
 			isRoomEditing={isEditingRoom}
 			{readOnly}
+			hasStellarShip={stellarShipProjectIds.has(project.id)}
 			bind:this={projectEggRefs[index]}
 		/>
 	{/each}

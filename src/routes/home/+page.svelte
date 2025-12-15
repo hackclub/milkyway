@@ -36,6 +36,18 @@
 	let showShipOverlay = $state(false);
 	let shipProjectInfo = $state(/** @type {any} */ (null));
 	let showFurnitureSidebar = $state(false);
+	
+	// Blackhole results state
+	let unclaimedBlackholeResults = $state(data.unclaimedBlackholeResults || []);
+	let stellarShipProjectIds = $state(new Set(data.stellarShipProjectIds || []));
+	let showBlackholePopup = $state(false);
+	let selectedBlackholeResult = $state(/** @type {any} */ (null));
+	let isClaimingBlackhole = $state(false);
+	let isCreatureFading = $state(false);
+	
+	// Flying stellar ship animation
+	/** @type {Array<{id: number, x: number, y: number}>} */
+	let flyingStellarShips = $state([]);
 
 	// Calculate total hours and project count
 	let totalHours = $derived(
@@ -242,6 +254,122 @@
 			window.removeEventListener('streak-updated', handleStreakUpdate);
 		};
 	});
+	
+	// Blackhole result handling
+	function openBlackholeResult(result) {
+		selectedBlackholeResult = result;
+		showBlackholePopup = true;
+	}
+	
+	function closeBlackholePopup() {
+		showBlackholePopup = false;
+		selectedBlackholeResult = null;
+	}
+	
+	// Create flying stellar ship animation
+	function createFlyingStellarShips() {
+		const newShips = [];
+		for (let i = 0; i < 5; i++) {
+			newShips.push({
+				id: Date.now() + i,
+				x: Math.random() * 40 - 20,
+				y: Math.random() * 20 - 10
+			});
+		}
+		flyingStellarShips = [...flyingStellarShips, ...newShips];
+		
+		// Remove ships after animation completes
+		setTimeout(() => {
+			flyingStellarShips = flyingStellarShips.filter(s => !newShips.find(ns => ns.id === s.id));
+		}, 1000);
+	}
+	
+	async function claimStellarShip() {
+		if (!selectedBlackholeResult || isClaimingBlackhole) return;
+		
+		isClaimingBlackhole = true;
+		try {
+			const response = await fetch('/api/blackhole/claim', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					submissionId: selectedBlackholeResult.id,
+					action: 'claim'
+				})
+			});
+			
+			const result = await response.json();
+			
+			if (result.success) {
+				// Create flying animation
+				createFlyingStellarShips();
+				
+				// Start fading the creature
+				isCreatureFading = true;
+				
+				// Close popup and remove from list after fade animation
+				setTimeout(() => {
+					unclaimedBlackholeResults = unclaimedBlackholeResults.filter(
+						(/** @type {any} */ r) => r.id !== selectedBlackholeResult.id
+					);
+					isCreatureFading = false;
+					closeBlackholePopup();
+				// Refresh to pull updated stellarship count from Airtable formula
+				window.location.reload();
+				}, 600);
+			} else {
+				console.error('Failed to claim stellar ship:', result);
+			}
+		} catch (error) {
+			console.error('Error claiming stellar ship:', error);
+		} finally {
+			isClaimingBlackhole = false;
+		}
+	}
+	
+	async function dismissBlackholeResult() {
+		if (!selectedBlackholeResult || isClaimingBlackhole) return;
+		
+		isClaimingBlackhole = true;
+		try {
+			const response = await fetch('/api/blackhole/claim', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					submissionId: selectedBlackholeResult.id,
+					action: 'dismiss'
+				})
+			});
+			
+			const result = await response.json();
+			
+			if (result.success) {
+				// Start fading the creature
+				isCreatureFading = true;
+				
+				// Remove from list after fade animation
+				setTimeout(() => {
+					unclaimedBlackholeResults = unclaimedBlackholeResults.filter(
+						(/** @type {any} */ r) => r.id !== selectedBlackholeResult.id
+					);
+					isCreatureFading = false;
+					closeBlackholePopup();
+				}, 600);
+			} else {
+				console.error('Failed to dismiss:', result);
+			}
+		} catch (error) {
+			console.error('Error dismissing result:', error);
+		} finally {
+			isClaimingBlackhole = false;
+		}
+	}
+	
+	// Get egg source with fallback
+	function getEggSrc(egg) {
+		if (!egg) return '/projects/sparkle_egg1.png';
+		return egg.startsWith('/') ? egg : `/${egg}`;
+	}
 </script>
 
 <svelte:head>
@@ -303,6 +431,78 @@
 		<a href="/blackhole" class="blackhole-link" aria-label="Enter the Black Hole">
 			<img src="/blackhole.png" alt="Black Hole" />
 		</a>
+		
+		<!-- Creature peeking from blackhole with result -->
+		{#if unclaimedBlackholeResults.length > 0 && !isCreatureFading}
+			{@const result = unclaimedBlackholeResults[0]}
+			<button 
+				class="blackhole-creature-peek" 
+				onclick={() => openBlackholeResult(result)}
+				aria-label="View blackhole result"
+			>
+				<img src={getEggSrc(result.projectEgg)} alt={result.projectName} class="peek-creature-img" />
+				<span class="peek-exclamation">!</span>
+			</button>
+		{/if}
+		
+		<!-- Fading creature when claimed/dismissed -->
+		{#if isCreatureFading && selectedBlackholeResult}
+			<div class="blackhole-creature-peek fading">
+				<img src={getEggSrc(selectedBlackholeResult.projectEgg)} alt={selectedBlackholeResult.projectName || 'project'} class="peek-creature-img" />
+			</div>
+		{/if}
+		
+		<!-- Blackhole result popup (no overlay, just side panel) -->
+		{#if showBlackholePopup && selectedBlackholeResult}
+			<div class="blackhole-popup">
+				<div class="blackhole-popup-content">
+					{#if selectedBlackholeResult.status === 'approved'}
+						<p class="blackhole-popup-title">
+							{selectedBlackholeResult.projectName} returned successfully from the black hole!
+						</p>
+					{:else}
+						<p class="blackhole-popup-title">
+							{selectedBlackholeResult.projectName} was rejected from the black hole :(
+						</p>
+					{/if}
+					
+					{#if selectedBlackholeResult.reason}
+						<p class="blackhole-popup-reason">{selectedBlackholeResult.reason}</p>
+					{/if}
+					
+					<div class="blackhole-popup-actions">
+						{#if selectedBlackholeResult.status === 'approved'}
+							<button 
+								class="blackhole-claim-btn" 
+								onclick={claimStellarShip}
+								disabled={isClaimingBlackhole}
+							>
+								<img src="/stellarship.png" alt="" aria-hidden="true" class="blackhole-claim-icon" />
+								{isClaimingBlackhole ? 'claiming...' : 'claim stellar ship'}
+							</button>
+						{:else}
+							<button 
+								class="blackhole-dismiss-btn" 
+								onclick={dismissBlackholeResult}
+								disabled={isClaimingBlackhole}
+							>
+								{isClaimingBlackhole ? '...' : 'oh okay.'}
+							</button>
+						{/if}
+					</div>
+				</div>
+			</div>
+		{/if}
+		
+		<!-- Flying stellar ships animation -->
+		{#each flyingStellarShips as ship (ship.id)}
+			<img 
+				src="/stellarship.png" 
+				alt="" 
+				class="flying-stellar-ship"
+				style="--offset-x: {ship.x}px; --offset-y: {ship.y}px;"
+			/>
+		{/each}
 	{/if}
 
 	<!-- Furniture Sidebar - Rendered at page level so it appears on top -->
@@ -331,6 +531,7 @@
 			onShipProject={handleShipProject}
 			onPaintChipsClaimed={(chips) => { paintchips += chips; }}
 			variant={user?.wallVariant}
+			{stellarShipProjectIds}
 		/>
 	</div>
 
@@ -452,6 +653,179 @@
 		}
 		to {
 			transform: rotate(360deg);
+		}
+	}
+
+	/* Creature peeking from blackhole */
+	.blackhole-creature-peek {
+		position: fixed;
+		top: 340px;
+		right: 70px;
+		z-index: 125;
+		cursor: pointer;
+		background: none;
+		border: none;
+		padding: 0;
+		display: flex;
+		align-items: center;
+	}
+
+	.blackhole-creature-peek.fading {
+		animation: creatureFadeOut 0.6s ease-out forwards;
+		pointer-events: none;
+	}
+
+	@keyframes creatureFadeOut {
+		0% {
+			opacity: 1;
+			transform: scale(1);
+		}
+		100% {
+			opacity: 0;
+			transform: scale(0.8);
+		}
+	}
+
+	.peek-creature-img {
+		width: 60px;
+		height: auto;
+		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+		transition: transform 0.2s;
+	}
+
+	.blackhole-creature-peek:hover .peek-creature-img {
+		transform: scale(1.1);
+	}
+
+	.peek-exclamation {
+		position: absolute;
+		top: -8px;
+		right: -4px;
+		background: var(--orange, #ff6b35);
+		color: white;
+		font-weight: bold;
+		font-size: 14px;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		animation: exclamationPulse 1s ease-in-out infinite;
+	}
+
+	@keyframes exclamationPulse {
+		0%, 100% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.1);
+		}
+	}
+
+	/* Blackhole popup - styled like project info box */
+	.blackhole-popup {
+		position: fixed;
+		top: 200px;
+		right: 200px;
+		z-index: 130;
+	}
+
+	.blackhole-popup-content {
+		border: 4px solid var(--orange, #ff6b35);
+		border-radius: 8px;
+		background: var(--yellow, #ffd166);
+		padding: 12px;
+		max-width: 280px;
+		color: #333;
+	}
+
+	.blackhole-popup-title {
+		font-size: 0.95rem;
+		line-height: 1.4;
+		margin: 0 0 8px 0;
+		font-weight: 500;
+	}
+
+	.blackhole-popup-reason {
+		font-size: 0.8rem;
+		color: #555;
+		margin: 0 0 12px 0;
+		padding: 8px;
+		background: rgba(0, 0, 0, 0.05);
+		border-radius: 4px;
+		line-height: 1.4;
+	}
+
+	.blackhole-popup-actions {
+		display: flex;
+		gap: 8px;
+	}
+
+	/* Buttons styled like project info actions (e.g., create artlog) */
+	.blackhole-claim-btn,
+	.blackhole-dismiss-btn {
+		min-width: 0;
+		padding: 6px 10px;
+		border-radius: 6px;
+		border: none; /* match create artlog / ship project buttons */
+		background: var(--orange);
+		color: white;
+		font-size: 0.85rem;
+		font-family: inherit;
+		cursor: pointer;
+		transition: background 0.1s ease;
+		box-shadow: none;
+		transform: none;
+	}
+
+	.blackhole-dismiss-btn:hover:not(:disabled), .blackhole-claim-btn:hover:not(:disabled) {
+		background: #e67e00;
+	}
+
+	.blackhole-claim-icon {
+		height: 1em;
+		width: auto;
+		margin-right: 2px;
+		margin-bottom: -2px;
+	}
+
+	.blackhole-claim-btn:disabled,
+	.blackhole-dismiss-btn:disabled {
+		opacity: 0.7;
+		cursor: not-allowed;
+	}
+
+	/* Dismiss button uses gray variant, same shape/no border */
+	/* .blackhole-dismiss-btn {
+		background: #e6e6e6;
+		color: #444;
+	}
+
+	.blackhole-dismiss-btn:hover:not(:disabled) {
+		background: #d9d9d9;
+	} */
+
+	/* Flying stellar ship animation */
+	.flying-stellar-ship {
+		position: fixed;
+		top: 340px;
+		right: 100px;
+		width: 30px;
+		height: auto;
+		pointer-events: none;
+		z-index: 99999;
+		animation: flyToTopLeft 1s ease-out forwards;
+	}
+
+	@keyframes flyToTopLeft {
+		0% {
+			opacity: 1;
+			transform: translate(var(--offset-x, 0), var(--offset-y, 0)) scale(1);
+		}
+		100% {
+			opacity: 0;
+			transform: translate(calc(-70vw + var(--offset-x, 0)), calc(-30vh + var(--offset-y, 0))) scale(0.5);
 		}
 	}
 </style>

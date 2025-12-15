@@ -6,7 +6,13 @@
   import ArtlogListPopup from '../ArtlogListPopup.svelte';
   import { getCreatureShapeFromCreature } from '$lib/data/prompt-data.js';
 
-  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, onPaintChipsClaimed = null, user, isRoomEditing = false, readOnly = false} = $props();
+  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, onPaintChipsClaimed = null, user, isRoomEditing = false, readOnly = false, hasStellarShip = false} = $props();
+
+  // Show stellar ship if prop is true OR project field stellarShipResult === 1
+  let displayHasStellarShip = $derived(() => {
+    const fieldVal = Number(projInfo?.stellarShipResult ?? 0);
+    return Boolean(hasStellarShip || fieldVal === 1);
+  });
   
   // Flying chips animation state
   /** @type {Array<{id: number, x: number, y: number}>} */
@@ -892,11 +898,18 @@ async function changeLayer(delta) {
       {#if isEditing}
         <input class="project-name" bind:value={projInfo.name} placeholder="your game name..." />
       {:else}
-        {#if projInfo.status === 'submitted'}
-          <a target="_blank" href={projInfo.shipURL} class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
-        {:else}
-          <a class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
-        {/if}
+        <div class="project-name-row">
+          {#if projInfo.status === 'submitted'}
+            <a target="_blank" href={projInfo.shipURL} class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
+          {:else}
+            <a class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
+          {/if}
+          {#if displayHasStellarShip}
+            <Tooltip text="this is a stellar ship!" position="top">
+              <img src="/stellarship.png" alt="Stellar Ship" class="stellar-ship-badge" />
+            </Tooltip>
+          {/if}
+        </div>
       {/if}
     </div>
     {#if isEditing}
@@ -2255,4 +2268,24 @@ input:hover, textarea:hover {
 /* .artlog-cap-info strong {
   color: var(--orange);
 } */
+
+/* Stellar Ship Badge */
+.project-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stellar-ship-badge {
+  width: 20px;
+  height: auto;
+  cursor: help;
+  filter:
+    drop-shadow(-1.5px -1.5px 0 white)
+    drop-shadow(1.5px -1.5px 0 white)
+    drop-shadow(-1.5px 1.5px 0 white)
+    drop-shadow(1.5px 1.5px 0 white)
+    drop-shadow(0 0 3px white);
+}
+
 </style>

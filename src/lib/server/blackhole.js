@@ -11,7 +11,6 @@ const BLACKHOLE_TABLE = 'BlackholeSubmissions'; // make sure this matches your A
 
 // Tongyu change dis based on what you want
 const SUBMISSION_COST_COINS = 10;
-const MIN_HOURS_REQUIRED = 25;
 
 // zod schemas
 export const blackholeSubmitSchema = z.object({
@@ -104,7 +103,25 @@ function normalizeSubmission(record) {
     reviewer: f.Reviewer ?? null,
     reason: f.Reason ?? null,
     justification: f.Justification ?? null,
+    claimed: f.Claimed ?? false,
     createdTime: record._rawJson?.createdTime ?? null
+  };
+}
+
+/**
+ * Normalize submission with project info
+ * @param {any} record
+ * @param {any} projectRecord
+ */
+function normalizeSubmissionWithProject(record, projectRecord) {
+  const submission = normalizeSubmission(record);
+  if (!submission) return null;
+  
+  const pf = projectRecord?.fields ?? {};
+  return {
+    ...submission,
+    projectName: pf.projectname ?? pf.Name ?? 'Unknown Project',
+    projectEgg: pf.egg ?? null
   };
 }
 
@@ -173,13 +190,8 @@ export async function submitToBlackhole(rawInput) {
     throw new Error('This project has already been submitted to the black hole');
   }
 
-  // Hackatime hours
+  // Hackatime hours (for recording in submission, not a requirement)
   const hackatimeHours = Number(project.fields.hackatimeHours ?? 0);
-  if (hackatimeHours < MIN_HOURS_REQUIRED) {
-    throw new Error(
-      `Project must have at least ${MIN_HOURS_REQUIRED} hackatimeHours`
-    );
-  }
 
   // Coin deduction
   const coinsBefore = coins;
@@ -315,4 +327,164 @@ export async function getUserSubmissions(userRecId) {
     .all();
 
   return records.map((r) => normalizeSubmission(r));
+}
+
+/**
+ * Get unclaimed blackhole results (approved or rejected, not yet claimed/dismissed)
+ * @param {string} username
+ * @returns {Promise<any[]>}
+ */
+export async function getUnclaimedBlackholeResults(username) {
+  const escaped = escapeAirtableFormula(username);
+
+  const records = await base(BLACKHOLE_TABLE)
+    .select({
+      filterByFormula: `AND(
+        {Username} = "${escaped}",
+        OR({Status} = "approved", {Status} = "rejected"),
+        NOT({Claimed})
+      )`
+    })
+    .all();
+
+  // Get project info for each submission
+  const results = await Promise.all(
+    records.map(async (record) => {
+      const projectId = Array.isArray(record.fields.Project) 
+        ? record.fields.Project[0] 
+        : null;
+      
+      let projectRecord = null;
+      if (projectId) {
+        try {
+          projectRecord = await base(PROJECTS_TABLE).find(projectId);
+        } catch {
+          // Project may have been deleted
+        }
+      }
+      
+      return normalizeSubmissionWithProject(record, projectRecord);
+    })
+  );
+
+  return results.filter(Boolean);
+}
+
+/**
+ * Claim a stellar ship (for approved submissions)
+ * Awards the stellar ship and marks submission as claimed
+ * @param {string} submissionId
+ * @param {string} username - for verification
+ * @returns {Promise<{success: boolean, stellarships?: number}>}
+ */
+export async function claimStellarShip(submissionId, username) {
+  // Get the submission
+  const record = await base(BLACKHOLE_TABLE).find(submissionId);
+  
+  if (!record) {
+    throw new Error('Submission not found');
+  }
+  
+  const f = record.fields;
+  
+  // Verify ownership
+  if (f.Username !== username) {
+    throw new Error('Not your submission');
+  }
+  
+  // Verify it's approved
+  if (f.Status !== 'approved') {
+    throw new Error('Submission is not approved');
+  }
+  
+  // Verify not already claimed
+  if (f.Claimed) {
+    throw new Error('Already claimed');
+  }
+  
+  // Mark submission as claimed
+  await base(BLACKHOLE_TABLE).update(submissionId, {
+    Claimed: true
+  });
+  
+  // Stellarship count is handled by Airtable formula; nothing to return here
+  return { success: true };
+}
+
+/**
+ * Dismiss a rejected submission (marks it as claimed so it doesn't show again)
+ * @param {string} submissionId
+ * @param {string} username - for verification
+ * @returns {Promise<{success: boolean}>}
+ */
+export async function dismissBlackholeResult(submissionId, username) {
+  // Get the submission
+  const record = await base(BLACKHOLE_TABLE).find(submissionId);
+  
+  if (!record) {
+    throw new Error('Submission not found');
+  }
+  
+  const f = record.fields;
+  
+  // Verify ownership
+  if (f.Username !== username) {
+    throw new Error('Not your submission');
+  }
+  
+  // Verify it's approved or rejected (not pending)
+  if (f.Status === 'pending') {
+    throw new Error('Submission is still pending');
+  }
+  
+  // Verify not already claimed
+  if (f.Claimed) {
+    throw new Error('Already dismissed');
+  }
+  
+  // Mark submission as claimed/dismissed
+  await base(BLACKHOLE_TABLE).update(submissionId, {
+    Claimed: true
+  });
+  
+  return { success: true };
+}
+
+/**
+ * Get approved blackhole submissions for a list of project IDs
+ * Used to determine which projects have stellar ships
+ * @param {string[]} projectIds
+ * @returns {Promise<Set<string>>} Set of project IDs that have stellar ships
+ */
+export async function getProjectsWithStellarShips(projectIds) {
+  if (!projectIds || projectIds.length === 0) {
+    return new Set();
+  }
+  
+  // Create formula to find approved submissions for these projects
+  const projectIdChecks = projectIds.map(id => `FIND("${id}", ARRAYJOIN({Project}, ","))`);
+  const formula = `AND({Status} = "approved", OR(${projectIdChecks.join(', ')}))`;
+  
+  try {
+    const records = await base(BLACKHOLE_TABLE)
+      .select({
+        filterByFormula: formula
+      })
+      .all();
+    
+    const stellarShipProjectIds = new Set();
+    for (const record of records) {
+      const projectId = Array.isArray(record.fields.Project) 
+        ? record.fields.Project[0] 
+        : null;
+      if (projectId) {
+        stellarShipProjectIds.add(projectId);
+      }
+    }
+    
+    return stellarShipProjectIds;
+  } catch (e) {
+    console.error('Error fetching stellar ship projects:', e);
+    return new Set();
+  }
 }
