@@ -902,7 +902,6 @@
 			{user}
 			isRoomEditing={isEditingRoom}
 			{readOnly}
-			hasStellarShip={stellarShipProjectIds.has(project.id)}
 			bind:this={projectEggRefs[index]}
 		/>
 	{/each}

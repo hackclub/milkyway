@@ -6,12 +6,24 @@
   import ArtlogListPopup from '../ArtlogListPopup.svelte';
   import { getCreatureShapeFromCreature } from '$lib/data/prompt-data.js';
 
-  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, onPaintChipsClaimed = null, user, isRoomEditing = false, readOnly = false, hasStellarShip = false} = $props();
+  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, onPaintChipsClaimed = null, user, isRoomEditing = false, readOnly = false} = $props();
 
-  // Show stellar ship if prop is true OR project field stellarShipResult === 1
-  let displayHasStellarShip = $derived(() => {
-    const fieldVal = Number(projInfo?.stellarShipResult ?? 0);
-    return Boolean(hasStellarShip || fieldVal === 1);
+  // Show stellar ship only if the project field stellarShipResult indicates true
+  let displayHasStellarShip = $derived(
+    (projInfo?.stellarShipResult === 1) ||
+    (projInfo?.stellarShipResult === '1') ||
+    (projInfo?.stellarShipResult === true) ||
+    (projInfo?.stellarShipResult === 'true')
+  );
+
+  // Debug logging to trace stellar ship flag state
+  $effect(() => {
+    console.log('stellarShipResult', {
+      id: projInfo?.id,
+      name: projInfo?.name,
+      stellarShipResult: projInfo?.stellarShipResult,
+      displayHasStellarShip
+    });
   });
   
   // Flying chips animation state
