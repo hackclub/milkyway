@@ -817,7 +817,7 @@ async function changeLayer(delta) {
 </script>
 
 
-<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''} {projInfo.status === 'submitted' ? 'hatched' : ''}" style:--x={x} style:--y={y} style:--z={projInfo.layer ?? Math.round(y)} onclick={(e) => e.stopPropagation()}>
+<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''} {projInfo.status === 'submitted' ? 'hatched' : ''}" style:--x={x} style:--y={y} style:--z={5000 + (projInfo.layer || 0) * 100 + Math.round(y)} onclick={(e) => e.stopPropagation()}>
 <img class="egg-img" src={projInfo.egg} alt="Project egg" />
 
 <button 

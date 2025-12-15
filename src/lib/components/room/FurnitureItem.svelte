@@ -210,7 +210,7 @@
 		: ''}"
 	style:--x={x}
 	style:--y={y}
-	style:--z={furnitureInfo.layer ?? Math.round(y)}
+	style:--z={5000 + (furnitureInfo.layer || 0) * 1000 + Math.round(y)}
 	onclick={(e) => {
 		e.stopPropagation();
 		if (isRoomEditing && onSelect) onSelect();
@@ -306,10 +306,7 @@
 		transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px));
 	}
 
-	/* Wall-only items should always appear on top of floor items */
-	.furniture-item.wall-only {
-		z-index: 400;
-	}
+	/* Wall-only items use the same layer system - their lower Y values naturally place them behind floor items */
 
 	.modal-overlay {
 		position: fixed;
@@ -335,10 +332,7 @@
 		z-index: calc(1000 + var(--z));
 	}
 
-	/* Selected wall-only items */
-	.furniture-item.wall-only.selected {
-		z-index: 1400;
-	}
+	/* Selected wall-only items use same z-index calc as other selected items */
 
 	.furniture-item.editing-mode {
 		cursor: grab;
