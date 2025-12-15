@@ -81,7 +81,7 @@
 				body: JSON.stringify({
 					furnitureId: furnitureInfo.id,
 					updates: {
-						position: `${Math.round(x)},${Math.round(y)},${newFlippedState ? '1' : '0'}`
+						position: `${Math.round(x)},${Math.round(y)},${newFlippedState ? '1' : '0'},${furnitureInfo.layer || 0}`
 					}
 				})
 			});
@@ -94,6 +94,39 @@
 		} catch (error) {
 			console.error('Error updating furniture flip:', error);
 			furnitureInfo.flipped = !newFlippedState;
+		}
+	}
+
+	/**
+	 * @param {number} delta - Change in layer (+1 or -1)
+	 */
+	async function changeLayer(delta) {
+		const newLayer = (furnitureInfo.layer || 0) + delta;
+		const oldLayer = furnitureInfo.layer;
+		furnitureInfo.layer = newLayer;
+
+		try {
+			const response = await fetch('/api/furniture', {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					furnitureId: furnitureInfo.id,
+					updates: {
+						position: `${Math.round(x)},${Math.round(y)},${furnitureInfo.flipped ? '1' : '0'},${newLayer}`
+					}
+				})
+			});
+
+			const result = await response.json();
+			if (!result.success) {
+				console.error('Failed to update furniture layer:', result.error);
+				furnitureInfo.layer = oldLayer;
+			}
+		} catch (error) {
+			console.error('Error updating furniture layer:', error);
+			furnitureInfo.layer = oldLayer;
 		}
 	}
 
@@ -177,7 +210,7 @@
 		: ''}"
 	style:--x={x}
 	style:--y={y}
-	style:--z={Math.round(y)}
+	style:--z={furnitureInfo.layer ?? Math.round(y)}
 	onclick={(e) => {
 		e.stopPropagation();
 		if (isRoomEditing && onSelect) onSelect();
@@ -215,6 +248,23 @@
 					↻
 				</button>
 			{/if}
+			<button
+				class="layer-btn layer-up-btn"
+				onclick={() => changeLayer(1)}
+				aria-label="Move furniture forward (up layer)"
+				title="Move forward"
+			>
+				⬆️
+			</button>
+			<button
+				class="layer-btn layer-down-btn"
+				onclick={() => changeLayer(-1)}
+				aria-label="Move furniture backward (down layer)"
+				title="Move backward"
+			>
+				⬇️
+			</button>
+			<span class="layer-display" aria-live="polite">Layer: {furnitureInfo.layer ?? 0}</span>
 			<button
 				class="delete-furniture-btn"
 				onclick={() => {
@@ -349,7 +399,8 @@
 
 	.rotate-furniture-btn,
 	.delete-furniture-btn,
-	.interact-furniture-btn {
+	.interact-furniture-btn,
+	.layer-btn {
 		padding: 6px 12px 10px;
 		border: 2px solid var(--orange);
 		border-radius: 50px;
@@ -368,6 +419,27 @@
 		background: var(--orange);
 		color: white;
 		transform: rotate(180deg);
+	}
+
+	.layer-up-btn:hover {
+		background: #4CAF50;
+		border-color: #4CAF50;
+		color: white;
+	}
+
+	.layer-down-btn:hover {
+		background: #2196F3;
+		border-color: #2196F3;
+		color: white;
+	}
+
+	.layer-display {
+		padding: 4px 8px;
+		background: rgba(0,0,0,0.05);
+		border-radius: 12px;
+		font-size: 0.9em;
+		color: var(--orange);
+		border: 1px solid rgba(0,0,0,0.06);
 	}
 
 	.delete-furniture-btn:hover {
