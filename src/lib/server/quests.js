@@ -1,14 +1,43 @@
 import { base } from '$lib/server/db.js';
 import { getAllQuests, getQuestById } from '$lib/data/quests.js';
 
+/** @typedef {{ codeHours: number; artHours: number; totalHours: number }} ProjectHours */
+/** @typedef {{ [projectId: string]: ProjectHours }} ProjectBreakdown */
+
+/**
+ * Fetch devlogs for a specific user using Airtable filterByFormula
+ * NOTE: Adjusted to support both array and single-value user field.
+ * @param {string} userId
+ */
 async function fetchUserDevlogs(userId) {
-	const allRecords = await base('Devlogs').select().all();
-	return allRecords.filter((record) => {
-		const userIds = record.fields.user || [];
-		return userIds.includes(userId);
-	});
+	// First try simple equality on linked record / single-select field
+	const records = await base('Devlogs')
+		.select({
+			filterByFormula: `OR({user} = '${userId}', FIND('${userId}', ARRAYJOIN({user}&'', ',')))`
+		})
+		.all();
+
+	if (!records || records.length === 0) {
+		// Fallback: fetch all and filter in JS so quest doesn’t silently break
+		const allRecords = await base('Devlogs').select().all();
+		const filtered = allRecords.filter((record) => {
+			const userField = record.fields.user;
+			if (!userField) return false;
+			if (Array.isArray(userField)) return userField.includes(userId);
+			return String(userField) === userId;
+		});
+
+		return filtered;
+	}
+
+	return records;
 }
 
+/**
+ * Get user devlogs, optionally using a cached array
+ * @param {string} userId
+ * @param {any[] | import('airtable').Records<import('airtable').FieldSet> | undefined} cachedRecords
+ */
 async function getUserDevlogs(userId, cachedRecords) {
 	if (cachedRecords && Array.isArray(cachedRecords)) {
 		return cachedRecords;
@@ -17,65 +46,65 @@ async function getUserDevlogs(userId, cachedRecords) {
 	return fetchUserDevlogs(userId);
 }
 
+// Helper: check if user has at least one devlog that contributed to the streak
+// with a submitted project (using the status lookup field on devlog directly)
 /**
- * Check if user has at least one submitted project linked to devlogs with streak days
- * @param {string} userId - User's record ID
- * @param {Array} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
- * @returns {Promise<{hasSubmittedProject: boolean, submittedStreakDays: number}>}
+ * @param {string} userId
+ * @param {any[] | import('airtable').Records<import('airtable').FieldSet> | undefined} cachedDevlogs
  */
-async function checkSubmittedStreakProjects(userId, cachedDevlogs) {
-	try {
-		const userDevlogs = await getUserDevlogs(userId, cachedDevlogs);
-		const streakDaysWithSubmittedProject = new Set();
+async function getSubmittedStreakInfo(userId, cachedDevlogs) {
+	const userDevlogs = await getUserDevlogs(userId, cachedDevlogs);
 
-		for (const devlog of userDevlogs) {
-			const hasPendingStreak = devlog.fields.pendingStreak === true;
-			if (hasPendingStreak) {
-				// Skip devlogs that haven't been shipped yet
-				continue;
-			}
+	const streakDaysWithSubmittedProject = new Set();
+	let devlogsWithSubmittedStatus = 0;
 
-			const projectIds = devlog.fields.projectIds;
-			if (!projectIds || typeof projectIds !== 'string') {
-				continue;
-			}
+	for (const devlog of userDevlogs) {
+		// Skip devlogs that are still pending (not yet part of a shipped project)
+		const hasPendingStreak = devlog.fields.pendingStreak === true;
 
-			const projects = projectIds
-				.split(',')
-				.map((id) => id.trim())
-				.filter(Boolean);
+		// Check the status field (lookup from Projects table)
+		// This can be a string or array depending on how many projects the devlog is linked to
+		const statusField = devlog.fields.status;
+		let hasSubmittedStatus = false;
 
-			// Check if at least one project is submitted
-			let hasSubmitted = false;
-			for (const projectId of projects) {
-				try {
-					const project = await base('Projects').find(projectId);
-					if (project?.fields?.status === 'submitted') {
-						hasSubmitted = true;
-						break;
-					}
-				} catch (error) {
-					console.error('Error checking project status:', projectId, error);
-				}
-			}
-
-			if (hasSubmitted && devlog.fields.Created) {
-				const dayKey = new Date(devlog.fields.Created).toISOString().slice(0, 10);
-				streakDaysWithSubmittedProject.add(dayKey);
+		if (statusField) {
+			if (Array.isArray(statusField)) {
+				// If linked to multiple projects, check if any is 'submitted'
+				hasSubmittedStatus = statusField.includes('submitted');
+			} else if (typeof statusField === 'string') {
+				hasSubmittedStatus = statusField === 'submitted';
 			}
 		}
 
-		return {
-			hasSubmittedProject: streakDaysWithSubmittedProject.size > 0,
-			submittedStreakDays: streakDaysWithSubmittedProject.size
-		};
-	} catch (error) {
-		console.error('Error checking submitted streak projects:', error);
-		return {
-			hasSubmittedProject: false,
-			submittedStreakDays: 0
-		};
+		// If this devlog has a submitted project, count it
+		// (even if pendingStreak is still true due to data inconsistency)
+		if (hasSubmittedStatus) {
+			devlogsWithSubmittedStatus++;
+
+			// Only count as streak day if it's not explicitly pending
+			if (!hasPendingStreak) {
+				const dateField =
+					devlog.fields.devlogDate ||
+					devlog.fields.date ||
+					devlog.fields.Date ||
+					devlog.fields.Created ||
+					devlog.createdTime;
+
+				if (dateField) {
+					const dayKey = new Date(dateField).toISOString().slice(0, 10);
+					streakDaysWithSubmittedProject.add(dayKey);
+				}
+			}
+		}
 	}
+
+	// If we have any devlog with submitted status, consider it valid for streak quest
+	const hasSubmittedProject = devlogsWithSubmittedStatus > 0;
+
+	return {
+		hasSubmittedProject,
+		submittedStreakDays: streakDaysWithSubmittedProject.size
+	};
 }
 
 /**
@@ -84,8 +113,8 @@ async function checkSubmittedStreakProjects(userId, cachedDevlogs) {
  * (meaning they were approved when a project shipped)
  *
  * @param {string} userId - User's record ID
- * @param {Array} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
- * @returns {Promise<{codeHours: number, artHours: number, totalHours: number, projectBreakdown: Object}>}
+ * @param {any[] | import('airtable').Records<import('airtable').FieldSet> | undefined} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
+ * @returns {Promise<{codeHours: number, artHours: number, totalHours: number, projectBreakdown: ProjectBreakdown}>}
  */
 export async function calculateApprovedHours(userId, cachedDevlogs) {
 	if (!userId || typeof userId !== 'string') {
@@ -117,6 +146,7 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
 
 		let totalApprovedCodeHours = 0;
 		let totalApprovedArtHours = 0;
+		/** @type {ProjectBreakdown} */
 		const projectBreakdown = {};
 
 		for (const record of userRecords) {
@@ -193,8 +223,8 @@ export async function calculateApprovedHours(userId, cachedDevlogs) {
  * Calculate total hours for a user (including all hours, pending or not)
  * Used for progress bar visualization - shows all work done
  * @param {string} userId - User's record ID
- * @param {Array} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
- * @returns {Promise<{codeHours: number, artHours: number, totalHours: number, projectBreakdown: Object}>}
+ * @param {any[] | import('airtable').Records<import('airtable').FieldSet> | undefined} [cachedDevlogs] - Optional cached devlogs to avoid extra queries
+ * @returns {Promise<{codeHours: number, artHours: number, totalHours: number, projectBreakdown: ProjectBreakdown}>}
  */
 export async function calculateTotalHours(userId, cachedDevlogs) {
 	if (!userId || typeof userId !== 'string') {
@@ -206,6 +236,7 @@ export async function calculateTotalHours(userId, cachedDevlogs) {
 
 		let totalCodeHours = 0;
 		let totalArtHours = 0;
+		/** @type {ProjectBreakdown} */
 		const projectBreakdown = {};
 
 		for (const record of userRecords) {
@@ -261,7 +292,7 @@ export async function calculateTotalHours(userId, cachedDevlogs) {
 /**
  * Get quest progress for a user
  * @param {string} userId - User's record ID
- * @returns {Promise<Array>} Array of quest progress objects
+ * @returns {Promise<any[]>} Array of quest progress objects
  */
 export async function getUserQuestProgress(userId) {
 	if (!userId || typeof userId !== 'string') {
@@ -270,11 +301,14 @@ export async function getUserQuestProgress(userId) {
 
 	try {
 		const userRecord = await base('User').find(userId);
-		const streakStats = buildStreakStats(userRecord);
+		const streakStats = buildStreakStats(/** @type {any} */ (userRecord));
 
 		const userDevlogs = await fetchUserDevlogs(userId);
-		const approvedHours = await calculateApprovedHours(userId, userDevlogs);
-		const totalHours = await calculateTotalHours(userId, userDevlogs);
+		const approvedHours = await calculateApprovedHours(userId, /** @type {any[]} */ (userDevlogs));
+		const totalHours = await calculateTotalHours(userId, /** @type {any[]} */ (userDevlogs));
+
+		// New: compute submitted streak info once for all quests
+		const { hasSubmittedProject } = await getSubmittedStreakInfo(userId, userDevlogs);
 
 		const completedQuestsField = userRecord.fields.completedQuests;
 		let completedQuests = [];
@@ -326,7 +360,8 @@ export async function getUserQuestProgress(userId) {
 						rawCurrentStreak: streakStats.rawCurrentStreak,
 						rawMaxStreak: streakStats.rawMaxStreak,
 						approvedCurrentStreak: streakStats.approvedCurrentStreak,
-						approvedMaxStreak: streakStats.approvedMaxStreak
+						approvedMaxStreak: streakStats.approvedMaxStreak,
+						hasSubmittedStreakProject: hasSubmittedProject
 					};
 					const result = await quest.validate(stats, userId);
 					completed = result.completed || false;
@@ -362,22 +397,34 @@ export async function getUserQuestProgress(userId) {
 						case 'streak':
 							current = effectiveStreak;
 							visualCurrent = visualEffectiveStreak;
+							// Require at least one submitted streak day to mark completed
+							completed = hasSubmittedProject && current >= target;
 							break;
 						case 'maxStreak':
 							current = effectiveMaxStreak;
 							visualCurrent = visualEffectiveMaxStreak;
+							// Require at least one submitted streak day to mark completed
+							completed = hasSubmittedProject && current >= target;
 							break;
 						default:
 							current = 0;
 							visualCurrent = 0;
+							completed = current >= target;
 					}
-					completed = current >= target;
 				}
 
 				const isCompleted = completedQuests.includes(quest.id);
 				const canClaim = !isCompleted && completed;
 
 				const { validate: _, ...questWithoutValidate } = quest;
+
+				// after computing completed/canClaim, before return, add debug for streak quests
+				// (we keep the existing logic above this comment)
+
+				const isStreakLike =
+					quest.type === 'streak' || quest.type === 'maxStreak' || quest.id === 'tamagotchi';
+				if (isStreakLike) {
+				}
 
 				return {
 					...questWithoutValidate,
@@ -401,7 +448,7 @@ export async function getUserQuestProgress(userId) {
  * Claim a quest reward
  * @param {string} userId - User's record ID
  * @param {string} questId - Quest ID to claim
- * @returns {Promise<{success: boolean, rewardField?: string, error?: string}>}
+ * @returns {Promise<{success: boolean, rewardField?: string, error?: string, newGrowthStage?: number}>}
  */
 export async function claimQuestReward(userId, questId) {
 	if (!userId || typeof userId !== 'string') {
@@ -412,33 +459,44 @@ export async function claimQuestReward(userId, questId) {
 	}
 
 	try {
-		const quest = getQuestById(questId);
+		const quest = /** @type {any} */ (getQuestById(questId));
 		if (!quest) {
 			return { success: false, error: 'Quest not found' };
 		}
 
 		// Get user record
 		const userRecord = await base('User').find(userId);
-		const streakStats = buildStreakStats(userRecord);
+		const streakStats = buildStreakStats(/** @type {any} */ (userRecord));
 
-		const approvedHours = await calculateApprovedHours(userId);
+		// Fetch devlogs once here to reuse in approvedHours and streak project check
+		const userDevlogs = await fetchUserDevlogs(userId);
+		const approvedHours = await calculateApprovedHours(userId, /** @type {any[]} */ (userDevlogs));
+		const { hasSubmittedProject } = await getSubmittedStreakInfo(userId, userDevlogs);
 
 		// Check if quest is completed
 		let completed = false;
 
 		// Handle custom quests with validate function
 		if (quest.type === 'custom' && typeof quest.validate === 'function') {
+			const effectiveStreak = quest.useRawStreak
+				? streakStats.rawCurrentStreak
+				: streakStats.approvedCurrentStreak;
+			const effectiveMaxStreak = quest.useRawStreak
+				? streakStats.rawMaxStreak
+				: streakStats.approvedMaxStreak;
+
 			const stats = {
 				codeHours: approvedHours.codeHours,
 				artHours: approvedHours.artHours,
 				totalHours: approvedHours.totalHours,
 				projectBreakdown: approvedHours.projectBreakdown || {},
-				currentStreak: streakStats.getEffectiveStreak(quest.useRawStreak),
-				maxStreak: streakStats.getEffectiveMaxStreak(quest.useRawStreak),
+				currentStreak: effectiveStreak,
+				maxStreak: effectiveMaxStreak,
 				rawCurrentStreak: streakStats.rawCurrentStreak,
 				rawMaxStreak: streakStats.rawMaxStreak,
 				approvedCurrentStreak: streakStats.approvedCurrentStreak,
-				approvedMaxStreak: streakStats.approvedMaxStreak
+				approvedMaxStreak: streakStats.approvedMaxStreak,
+				hasSubmittedStreakProject: hasSubmittedProject
 			};
 			const result = await quest.validate(stats, userId);
 			if (typeof result === 'object') {
@@ -458,19 +516,32 @@ export async function claimQuestReward(userId, questId) {
 				case 'totalHours':
 					current = approvedHours.totalHours;
 					break;
-				case 'streak':
-					current = streakStats.getEffectiveStreak(quest.useRawStreak);
+				case 'streak': {
+					const effectiveStreak = quest.useRawStreak
+						? streakStats.rawCurrentStreak
+						: streakStats.approvedCurrentStreak;
+					current = effectiveStreak;
+					// require at least one submitted streak day
+					completed = hasSubmittedProject && current >= (quest.target || 0);
 					break;
-				case 'maxStreak':
-					current = streakStats.getEffectiveMaxStreak(quest.useRawStreak);
+				}
+				case 'maxStreak': {
+					const effectiveMaxStreak = quest.useRawStreak
+						? streakStats.rawMaxStreak
+						: streakStats.approvedMaxStreak;
+					current = effectiveMaxStreak;
+					// require at least one submitted streak day
+					completed = hasSubmittedProject && current >= (quest.target || 0);
 					break;
+				}
 				case 'impossible':
 					current = 0;
+					completed = false;
 					break;
 				default:
 					current = 0;
+					completed = current >= (quest.target || 0);
 			}
-			completed = current >= (quest.target || 0);
 		}
 
 		if (!completed) {
@@ -527,6 +598,7 @@ export async function claimQuestReward(userId, questId) {
 				};
 
 				if (quest.rewardField) {
+					// @ts-expect-error dynamic field name
 					tamagotchiUpdateData[quest.rewardField] = true;
 				}
 
@@ -549,8 +621,13 @@ export async function claimQuestReward(userId, questId) {
 
 /**
  * Build streak stats for a user
- * @param {Object} userRecord - User record from the database
- * @returns {Object} Streak stats object
+ * @param {any} userRecord - User record from the database
+ * @returns {{
+ *  approvedCurrentStreak: number;
+ *  approvedMaxStreak: number;
+ *  rawCurrentStreak: number;
+ *  rawMaxStreak: number;
+ * }} Streak stats object
  */
 function buildStreakStats(userRecord) {
 	const approvedCurrentStreak = userRecord?.fields?.approvedDevlogStreak || 0;
@@ -562,12 +639,6 @@ function buildStreakStats(userRecord) {
 		approvedCurrentStreak,
 		approvedMaxStreak,
 		rawCurrentStreak,
-		rawMaxStreak,
-		getEffectiveStreak(useRaw) {
-			return useRaw ? rawCurrentStreak : approvedCurrentStreak;
-		},
-		getEffectiveMaxStreak(useRaw) {
-			return useRaw ? rawMaxStreak : approvedMaxStreak;
-		}
+		rawMaxStreak
 	};
 }
