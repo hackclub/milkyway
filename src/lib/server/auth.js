@@ -189,7 +189,8 @@ export async function createOTPRecord(email, referrer = null, ipAddress = null, 
 		user: [userRecordId],
 		otp: parseInt(otp),
 		token: token,
-		expiry: expiry
+		expiry: expiry,
+		ipAddress: ipAddress
 	});
 
 	return { otp, token, expiry };
