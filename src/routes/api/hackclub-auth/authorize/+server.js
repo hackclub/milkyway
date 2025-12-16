@@ -51,7 +51,7 @@ export async function GET({ cookies, url }) {
   const redirectUri = `${baseUrl}/api/hackclub-auth/callback`;
   
   // Request scopes - HQ official status allows all scopes including address
-  const scopes = ['openid', 'profile', 'email', 'address', 'verification_status', 'slack_id', 'name'];
+  const scopes = ['openid', 'profile', 'email', 'address', 'verification_status', 'slack_id', 'name', 'birthdate'];
   
   const authUrl = new URL(HACKCLUB_AUTH_URL);
   authUrl.searchParams.set('client_id', HACKCLUB_CLIENT_ID);

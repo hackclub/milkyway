@@ -91,6 +91,16 @@ export async function POST({ request, cookies }) {
         console.error('Failed to parse hackclub_address:', e);
       }
     }
+    
+    // Extract birthday if available
+    const hackclubBirthday = userInfo.hackclub_birthday ? String(userInfo.hackclub_birthday).trim() : '';
+    
+    // Debug logging (remove sensitive data in production)
+    if (!hackclubBirthday) {
+      console.log('No hackclub_birthday found in userInfo for submission');
+    } else {
+      console.log('Found hackclub_birthday for submission:', hackclubBirthday.substring(0, 10)); // Log first 10 chars
+    }
 
     // Get the project's hours logged for the submission and verify ownership
     let hoursLogged = 0;
@@ -134,7 +144,8 @@ export async function POST({ request, cookies }) {
       'City': city,
       'State / Province': state,
       'Country': country,
-      'ZIP / Postal Code': zipCode
+      'ZIP / Postal Code': zipCode,
+      'Birthday': hackclubBirthday || ''
     };
 
     const result = await base('YSWS Project Submission').create(submissionData);
