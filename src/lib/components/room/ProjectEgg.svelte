@@ -755,6 +755,13 @@
       
       const response = await fetch(`/api/get-ysws-submission-by-project/${projInfo.id}`);
       
+      // 404 is a valid response - it just means no submission found yet
+      if (response.status === 404) {
+        yswsSubmissionData = null;
+        isLoadingSubmission = false;
+        return;
+      }
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

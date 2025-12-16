@@ -12,10 +12,21 @@
 		<link rel="apple-touch-icon" href="/icon.png" />
 		%sveltekit.head%
 		<!-- Privacy-friendly analytics by Plausible -->
-		<script async src="https://plausible.io/js/pa-OfXYHPq5-GSxHidsLRTPl.js"></script>
 		<script>
-		window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
-		plausible.init()
+		// Initialize Plausible queue before loading script (works even if script is blocked)
+		window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)};
+		plausible.init=plausible.init||function(i){plausible.o=i||{}};
+		plausible.init();
+		
+		// Load script with error handling - gracefully handle ad blockers
+		const script = document.createElement('script');
+		script.async = true;
+		script.src = 'https://plausible.io/js/pa-OfXYHPq5-GSxHidsLRTPl.js';
+		script.onerror = function() {
+			// Script blocked by ad blocker - site continues to work normally
+			console.debug('Plausible analytics script blocked by browser extension');
+		};
+		document.head.appendChild(script);
 		</script>
 
 
