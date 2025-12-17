@@ -47,6 +47,9 @@ export async function getUserProjectsByEmail(userEmail) {
         hours: record.fields.hours || 0,
         hackatimeHours: record.fields.hackatimeHours || 0,
         artHours: record.fields.artHours || 0,
+        // Art hours breakdown (Airtable formulas)
+        approvedArtHours: record.fields.approvedArtHours || 0,
+        pendingArtHours: record.fields.pendingArtHours || 0,
         hackatimeProjects: record.fields.hackatimeProjects || [],
         created: record.fields.countingFrom,
         // Form fields for shipping

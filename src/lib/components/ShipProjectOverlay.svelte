@@ -491,9 +491,16 @@
 							</div>
 							<div class="info-item">
 								<span class="info-label">Hours:</span>
-								<span class="info-value"
-									>{((projectInfo?.hackatimeHours || 0) + (projectInfo?.artHours || 0)) || projectInfo?.hours || 0} hours</span
-								>
+								<span class="info-value">
+									{(projectInfo?.hackatimeHours || 0) + (projectInfo?.approvedArtHours || 0)} hours (for
+									submission)
+									{#if (projectInfo?.pendingArtHours || 0) > 0}
+										<br />
+										<span class="hours-note">
+											+ {(projectInfo?.pendingArtHours || 0)}h art still pending review
+										</span>
+									{/if}
+								</span>
 							</div>
 							{#if pendingHours && pendingHours.total > 0}
 								<div class="info-item pending-hours-item">

@@ -79,11 +79,14 @@
   // Shipping confirmation state - check if project status is "submitted"
   let isProjectShipped = $derived(projInfo.status === 'submitted');
   
-  // Calculate total hours (code + art)
+  // Calculate total project hours for display / paint chips:
+  // total = code hours + approved art hours + pending art hours
   let totalDisplayHours = $derived(() => {
     const codeHours = projInfo.hackatimeHours || 0;
-    const artHours = projInfo.artHours || 0;
-    return Math.round((codeHours + artHours) * 100) / 100;
+    const approvedArt = projInfo.approvedArtHours || 0;
+    const pendingArt = projInfo.pendingArtHours || 0;
+    const totalArt = approvedArt + pendingArt;
+    return Math.round((codeHours + totalArt) * 100) / 100;
   });
   
   // Extract specific values to avoid unnecessary effect re-runs
@@ -342,8 +345,8 @@
     artlogSuccessMessage = `artlog for ${hours} hour${hours !== 1 ? 's' : ''} successfully created!\nyou'll get coins for these artlogs once you ship your project :)`;
     showArtlogSuccess = true;
     
-    // Update local artHours state
-    projInfo.artHours = (projInfo.artHours || 0) + hours;
+    // Update local pending art hours state for immediate feedback
+    projInfo.pendingArtHours = (projInfo.pendingArtHours || 0) + hours;
     
     // Hide the message after 5 seconds
     setTimeout(() => {
@@ -416,7 +419,7 @@
     }
     
     // Separate hours validation from other requirements
-    const hasHoursIssue = (() => {
+      const hasHoursIssue = (() => {
       // Handle shippedHours - it might be an array/object from Airtable
       // Take the highest value since people can ship multiple times
       let shippedHours = 0;
@@ -432,14 +435,17 @@
         }
       }
       
-      const currentHours = (projInfo.hackatimeHours || 0) + (projInfo.artHours || 0);
+      // For submission, only count code hours + approved art hours
+      const currentHours =
+        (projInfo.hackatimeHours || 0) + (projInfo.approvedArtHours || 0);
       
-      console.log('Frontend hours validation:', { 
-        shippedHours, 
-        currentHours, 
+      console.log('Frontend hours validation (submission hours):', { 
+        shippedHours,
+        currentHours,
         hoursShippedRaw: projInfo.hoursShipped || 0,
         hackatimeHours: projInfo.hackatimeHours,
-        artHours: projInfo.artHours,
+        approvedArtHours: projInfo.approvedArtHours,
+        pendingArtHours: projInfo.pendingArtHours,
         projInfo 
       });
       
@@ -910,7 +916,12 @@ async function changeLayer(delta) {
   <div class="project-header">
     <div class="project-main-info">
       <div class="project-meta">
-        <span class="hours-info" title="{projInfo.hackatimeHours || 0} code hours, {projInfo.artHours || 0} art hours">{totalDisplayHours()} total hours</span>
+        <span
+          class="hours-info"
+          title={`${projInfo.hackatimeHours || 0} code hours, ${projInfo.approvedArtHours || 0} approved art, ${projInfo.pendingArtHours || 0} pending art`}
+        >
+          {totalDisplayHours()} total hours
+        </span>
         <span class="separator">·</span>
         <button class="prompt-info-link" onclick={() => onShowPromptPopup(projInfo.promptinfo, rouletteProgress())}>{projInfo.promptinfo}</button>
       </div>
@@ -1075,16 +1086,25 @@ async function changeLayer(delta) {
 
     <!-- Artlog Hours Section (always visible when selected) -->
     {#if !readOnly}
-      {@const maxArtHours = Math.floor(((projInfo.hackatimeHours || 0) * 0.3 / 0.7) * 100) / 100}
-      {@const currentArtHours = projInfo.artHours || 0}
-      {@const remainingArtHours = Math.max(0, Math.floor((maxArtHours - currentArtHours) * 100) / 100)}
+      {@const codeHours = projInfo.hackatimeHours || 0}
+      {@const approvedArtHours = projInfo.approvedArtHours || 0}
+      {@const pendingArtHours = projInfo.pendingArtHours || 0}
+      {@const totalArtHours = Math.round((approvedArtHours + pendingArtHours) * 100) / 100}
+      {@const maxArtHours = Math.floor(((codeHours * 0.3 / 0.7)) * 100) / 100}
+      {@const remainingArtHours = Math.max(0, Math.floor((maxArtHours - totalArtHours) * 100) / 100)}
       <div class="artlog-section">
         <div class="artlog-header">
-          <h4 class="artlog-title">🎨 {currentArtHours} art hours</h4>
+          <h4 class="artlog-title">
+            🎨 {totalArtHours} art hours
+            <span class="artlog-breakdown">
+              ({approvedArtHours} approved, {pendingArtHours} pending)
+            </span>
+          </h4>
           <button class="view-artlogs-btn" onclick={viewPastArtlogs}>(view past artlogs)</button>
         </div>
         <div class="artlog-cap-info">
-          art hours can be up to 30% of total project hours. you can log up to <strong>{remainingArtHours}</strong> more art hours.
+          art hours (approved + pending) can be up to 30% of your total project hours.
+          you can log up to <strong>{remainingArtHours}</strong> more art hours.
         </div>
       </div>
     {/if}
@@ -1107,7 +1127,11 @@ async function changeLayer(delta) {
         <div class="confirmation-content">
           <div class="confirmation-title">project shipped!</div>
           <div class="confirmation-details">
-            you shipped your project at {projInfo.hoursShipped || ((projInfo.hackatimeHours || 0) + (projInfo.artHours || 0)) || 0}h logged.
+            you shipped your project at
+            {projInfo.hoursShipped ||
+              ((projInfo.hackatimeHours || 0) + (projInfo.approvedArtHours || 0)) ||
+              0}h
+            (code + approved art) logged.
             <br>
             {#if yswsSubmissionData}
               <!-- Show review results if available -->
@@ -1178,7 +1202,8 @@ async function changeLayer(delta) {
                   }
                 }
                 
-                const currentHours = (projInfo.hackatimeHours || 0) + (projInfo.artHours || 0);
+                const currentHours =
+                  (projInfo.hackatimeHours || 0) + (projInfo.approvedArtHours || 0);
                 if (currentHours < 5) {
                   return 'at least 5 hours';
                 } else {
@@ -1234,7 +1259,13 @@ async function changeLayer(delta) {
 {/if}
 
 <!-- Artlog Popup -->
-<ArtlogPopup bind:show={showArtlogPopup} projectId={projInfo.id} codeHours={projInfo.hackatimeHours || 0} artHours={projInfo.artHours || 0} onSuccess={handleArtlogSuccess} />
+<ArtlogPopup
+  bind:show={showArtlogPopup}
+  projectId={projInfo.id}
+  codeHours={projInfo.hackatimeHours || 0}
+  artHours={(projInfo.approvedArtHours || 0) + (projInfo.pendingArtHours || 0)}
+  onSuccess={handleArtlogSuccess}
+/>
 
 <!-- Artlog List Popup -->
 <ArtlogListPopup bind:show={showArtlogListPopup} projectId={projInfo.id} />

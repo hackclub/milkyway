@@ -254,7 +254,9 @@
           </div>
           <div class="proof-hint">
             Misrepresenting the hours spent on assets may result in a reduction of coins, removal of prizes, or even a ban from Milkyway.
-
+          </div>
+          <div class="review-hint">
+            Artlogs will be reviewed by the Milkyway team before your art hours are attributed.
           </div>
         </div>
       </div>
@@ -359,6 +361,12 @@
   font-size: 0.75em;
   color: #666;
   font-style: italic;
+}
+
+.review-hint {
+  margin-top: 8px;
+  font-size: 0.75em;
+  color: #555;
 }
 
 .error-message {

@@ -50,11 +50,15 @@
 	let flyingStellarShips = $state([]);
 
 	// Calculate total hours and project count
+	// Total hours = code hours + approved art hours + pending art hours
 	let totalHours = $derived(
 		Number(
 			projectList.reduce(
 				(/** @type {number} */ sum, /** @type {any} */ project) =>
-					sum + ((project.hackatimeHours || 0) + (project.artHours || 0)),
+					sum +
+					((project.hackatimeHours || 0) +
+						(project.approvedArtHours || 0) +
+						(project.pendingArtHours || 0)),
 				0
 			)
 		)

@@ -78,9 +78,14 @@ export async function POST({ request, cookies }) {
 
 		// Calculate actual claimable paint chips server-side
 		// Total chips = total hours * 5 (for all shipped projects)
-		const hackatimeHours = typeof projectData.hackatimeHours === 'number' ? projectData.hackatimeHours : 0;
-		const artHours = typeof projectData.artHours === 'number' ? projectData.artHours : 0;
-		const currentTotal = hackatimeHours + artHours;
+		// For paint chips, \"total hours\" = code hours + approved art hours + pending art hours
+		const hackatimeHours =
+			typeof projectData.hackatimeHours === 'number' ? projectData.hackatimeHours : 0;
+		const approvedArtHours =
+			typeof projectData.approvedArtHours === 'number' ? projectData.approvedArtHours : 0;
+		const pendingArtHours =
+			typeof projectData.pendingArtHours === 'number' ? projectData.pendingArtHours : 0;
+		const currentTotal = hackatimeHours + approvedArtHours + pendingArtHours;
 		const paintChipsClaimed = typeof projectData.paintChipsClaimed === 'number' ? projectData.paintChipsClaimed : 0;
 
 		// Calculate total earned (5 per hour worked)

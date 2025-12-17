@@ -57,6 +57,8 @@ export async function getUserInfoBySessionId(sessionid) {
 		maxDevlogStreak: fields.maxDevlogStreak || 0,
 		wallVariant: fields.wallVariant || 'default',
 		lastDevlogDate: fields.lastDevlogDate || null,
+		// Permissions / roles
+		permissions: fields.permissions || [],
 		// Hack Club Auth fields
 		hackclub_id: fields.hackclub_id || null,
 		hackclub_name: fields.hackclub_name || null,
