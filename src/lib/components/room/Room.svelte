@@ -1033,20 +1033,18 @@
 			</div>
 		{/if}
 	{/if}
-
-	{#if !hideControls}
-		{#if devlogs}
-			<div class="devlogs">
-				<Devlogs {devlogs} username={user?.username} {currentUser} />
-			</div>
-		{/if}
-		{#if notifications && notifications.length > 0}
-			<div class="notifications">
-				<Notifications {notifications} />
-			</div>
-		{/if}
-	{/if}
 </div>
+
+{#if devlogs}
+<div class="devlogs">
+	<Devlogs {devlogs} username={user?.username} {currentUser} />
+</div>
+{/if}
+{#if notifications && notifications.length > 0}
+<div class="notifications">
+	<Notifications {notifications} />
+</div>
+{/if}
 
 <style>
 	.zlayer {
@@ -1213,7 +1211,7 @@
 		position: absolute;
 		bottom: calc(50vh - 150px);
 		right: calc(50vw - 630px);
-		z-index: 100;
+		z-index: 1;
 	}
 
 	@media (max-width: 1400px) {
