@@ -103,6 +103,13 @@ export const FURNITURE_TYPES = [
 	{ type: 'desk_glitched_blue', name: 'desk glitched blue', cost: 20, purchasable: true },
 	{ type: 'desk_glitched_green', name: 'desk glitched green', cost: 20, purchasable: true },
 	{ type: 'desk_glitched_red', name: 'desk glitched red', cost: 20, purchasable: true }
+	{ type: 'christmas_tree', name: 'christmas tree', cost: 0, purchasable: false },
+	{
+		type: 'christmas_fireplace',
+		name: 'fireplace (christmas edition)',
+		cost: 0,
+		purchasable: false
+	}
 ];
 
 /** @type {Record<string, FurnitureType>} */
