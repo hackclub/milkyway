@@ -22,9 +22,9 @@
 			<img src="/mimiphone.png" alt="Devlogs" />
 			<span>devlogs</span>
 		</a>
-		<a href="/leaderboard" class="bottom-button">
+		<a href="/stats" class="bottom-button">
 			<img src="/leaderboard.png" alt="Shop" />
-			<span class="leaderboard">leaderboard</span>
+			<span class="leaderboard">stats</span>
 		</a>
 
 		<a href="/shop" class="bottom-button">
@@ -204,10 +204,6 @@
 	.bottom-button:hover {
 		background-color: white;
 		color: black;
-	}
-
-	.leaderboard {
-		font-size: 0.8em;
 	}
 
 	.faq-button {

@@ -134,7 +134,7 @@ function updateChart() {
                                 weekday: 'long',
                                 month: 'short',
                                 day: 'numeric'
-                            }).toLowerCase();
+                            });
                         },
                         label: function(context) {
                             const index = context.dataIndex;
@@ -298,7 +298,7 @@ function viewUserProfile(username) {
         <img class="axolotl-top" src="/prompts/axolotl.png" alt="axolotl up top"/>
         <a class="back-button" href="/home">← back</a>
         <div class="title-container">
-            <h1>stats!</h1>
+            <h1>statistics!</h1>
             
         </div>
         

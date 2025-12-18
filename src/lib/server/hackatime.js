@@ -41,9 +41,10 @@ export async function fetchProjects(email, date, startDate = null, endDate = nul
 				errorDetails = 'Could not read error response';
 			}
 
-			console.error('HackaTime API error:', {
+			console.error('[hackatime] Lookup API error:', {
 				status: response.status,
-				statusText: response.statusText
+				statusText: response.statusText,
+				errorDetails
 			});
 
 			throw new Error(`HTTP error! status: ${response.status} - ${errorDetails}`);
@@ -68,6 +69,16 @@ export async function fetchProjects(email, date, startDate = null, endDate = nul
 				method: 'GET',
 				headers
 			});
+			
+			if (!projectData.ok) {
+				const errorText = await projectData.text();
+				console.error('[hackatime] Stats API error:', {
+					status: projectData.status,
+					statusText: projectData.statusText,
+					errorBody: errorText
+				});
+				throw new Error(`Stats API error! status: ${projectData.status} - ${errorText}`);
+			}
 
 			const projdata = await projectData.json();
 			return projdata;
@@ -79,6 +90,85 @@ export async function fetchProjects(email, date, startDate = null, endDate = nul
 		console.error('Error fetching projects from HackaTime:', error);
 		throw error;
 	}
+}
+
+/**
+ * Get Hackatime user ID from email (cached lookup)
+ * @param {string} email - User's email address
+ * @returns {Promise<string>} - Hackatime user ID
+ */
+export async function getHackatimeUserId(email) {
+	const headers = {
+		'Rack-Attack-Bypass': process.env.HACKATIME_RATE_LIMIT_BYPASS || '',
+		Authorization: 'Bearer ' + (process.env.STATS_API_KEY || '')
+	};
+
+	const response = await fetch(
+		`https://hackatime.hackclub.com/api/v1/users/lookup_email/${encodeURIComponent(email)}`,
+		{
+			method: 'GET',
+			headers
+		}
+	);
+
+	if (!response.ok) {
+		let errorDetails = '';
+		try {
+			const errorBody = await response.text();
+			errorDetails = errorBody;
+		} catch (e) {
+			errorDetails = 'Could not read error response';
+		}
+
+		console.error('[hackatime] Lookup API error:', {
+			status: response.status,
+			statusText: response.statusText,
+			errorDetails
+		});
+
+		throw new Error(`HTTP error! status: ${response.status} - ${errorDetails}`);
+	}
+	
+	const data = await response.json();
+	return data.user_id;
+}
+
+/**
+ * Fetch stats for a specific Hackatime user ID with date range
+ * @param {string} hackatimeId - Hackatime user ID
+ * @param {string} startDate - Start date in YYYY-MM-DD format
+ * @param {string} endDate - End date in YYYY-MM-DD format
+ * @returns {Promise<Object>} - API response data
+ */
+export async function fetchStatsByUserId(hackatimeId, startDate, endDate) {
+	const headers = {
+		'Rack-Attack-Bypass': process.env.HACKATIME_RATE_LIMIT_BYPASS || ''
+	};
+
+	let apiUrl = `https://hackatime.hackclub.com/api/v1/users/${hackatimeId}/stats?features=projects`;
+	if (startDate) {
+		apiUrl += `&start_date=${startDate}`;
+	}
+	if (endDate) {
+		apiUrl += `&end_date=${endDate}`;
+	}
+
+	const projectData = await fetch(apiUrl, {
+		method: 'GET',
+		headers
+	});
+	
+	if (!projectData.ok) {
+		const errorText = await projectData.text();
+		console.error('[hackatime] Stats API error:', {
+			status: projectData.status,
+			statusText: projectData.statusText,
+			errorBody: errorText
+		});
+		throw new Error(`Stats API error! status: ${projectData.status} - ${errorText}`);
+	}
+
+	return await projectData.json();
 }
 
 /**
