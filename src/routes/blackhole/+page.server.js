@@ -2,7 +2,7 @@ import { redirect, error } from '@sveltejs/kit';
 import { env as PUBLIC_ENV } from '$env/dynamic/public';
 import { getUserCoinsAndStellarships, sanitizeUserForFrontend } from '$lib/server/auth';
 import { getUserProjectsByEmail } from '$lib/server/projects';
-import { getMyBlackholeSubmissions } from '$lib/server/blackhole.js';
+import { getMyBlackholeSubmissions, getAllApprovedStellarShips } from '$lib/server/blackhole.js';
 
 
 export async function load({ locals }) {
@@ -20,10 +20,11 @@ export async function load({ locals }) {
     throw error(400, 'User profile incomplete');
   }
 
-  const [projects, wallet, submissions] = await Promise.all([
+  const [projects, wallet, submissions, approvedStellarShips] = await Promise.all([
     getUserProjectsByEmail(email),
     getUserCoinsAndStellarships(recId),
-    getMyBlackholeSubmissions(username)
+    getMyBlackholeSubmissions(username),
+    getAllApprovedStellarShips()
   ]);
 
   return {
@@ -31,7 +32,8 @@ export async function load({ locals }) {
     coins: wallet.coins ?? 0,
     stellarships: wallet.stellarships ?? 0,
     projects,
-    submissions
+    submissions,
+    approvedStellarShips
   };
 }
 

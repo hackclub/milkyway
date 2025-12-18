@@ -488,3 +488,61 @@ export async function getProjectsWithStellarShips(projectIds) {
     return new Set();
   }
 }
+
+/**
+ * Get all approved stellar ships with project and user info
+ * Only returns public data: projectName, username, and shipURL
+ * @returns {Promise<Array<{projectName: string, username: string, shipURL: string}>>}
+ */
+export async function getAllApprovedStellarShips() {
+  try {
+    const records = await base(BLACKHOLE_TABLE)
+      .select({
+        filterByFormula: `{Status} = "approved"`
+      })
+      .all();
+    
+    const stellarShips = await Promise.all(
+      records.map(async (record) => {
+        // Only extract username from submission record (public data)
+        const username = String(record.fields.Username || '').trim();
+        if (!username) return null;
+        
+        const projectId = Array.isArray(record.fields.Project) 
+          ? record.fields.Project[0] 
+          : null;
+        
+        if (!projectId) return null;
+        
+        try {
+          const projectRecord = await base(PROJECTS_TABLE).find(projectId);
+          
+          // Only extract public fields: projectName and shipURL
+          const projectName = String(projectRecord.fields.projectname || projectRecord.fields.Name || 'Unknown Project').trim();
+          const shipURL = String(projectRecord.fields.shipURL || '').trim();
+          
+          // Only return if it has a shipURL (required for display)
+          if (!shipURL) {
+            return null;
+          }
+          
+          // Explicitly return only these three public fields
+          return {
+            projectName,
+            username,
+            shipURL
+          };
+        } catch (e) {
+          console.error('Error fetching project for stellar ship:', e);
+          return null;
+        }
+      })
+    );
+    
+    // Filter out any null values and return only valid entries
+    return stellarShips.filter((ship) => ship !== null && ship !== undefined);
+  } catch (e) {
+    console.error('Error fetching all approved stellar ships:', e);
+    return [];
+  }
+}
