@@ -24,7 +24,8 @@
 		onSelectProject = null,
 		hideControls = false,
 		showFurnitureSidebar = $bindable(false),
-		variant
+		variant,
+		stellarShipProjectIds = new Set()
 	} = $props();
 
 	let isEditingRoom = $state(false);
@@ -417,8 +418,8 @@
 						body: JSON.stringify({
 							projectId: project.id,
 							updates: {
-								// Airtable stores position as a string "x,y"
-								position: `${Math.round(project.x)},${Math.round(project.y)}`
+								// Airtable stores position as a string "x,y,layer"
+								position: `${Math.round(project.x)},${Math.round(project.y)},${project.layer || 0}`
 							}
 						})
 					}).then((response) => {
@@ -437,8 +438,8 @@
 						body: JSON.stringify({
 							furnitureId: furniture.id,
 							updates: {
-								// Airtable stores position as a string "x,y,flipped"
-								position: `${Math.round(furniture.x)},${Math.round(furniture.y)},${furniture.flipped ? '1' : '0'}`
+								// Airtable stores position as a string "x,y,flipped,layer"
+								position: `${Math.round(furniture.x)},${Math.round(furniture.y)},${furniture.flipped ? '1' : '0'},${furniture.layer || 0}`
 							}
 						})
 					}).then((response) => {
@@ -472,16 +473,16 @@
 			// Wait for all updates to complete
 			await Promise.all(updatePromises);
 
-			// Update the position string in projectList to match the saved x,y values
+			// Update the position string in projectList to match the saved x,y,layer values
 			projectList = projectList.map((project) => ({
 				...project,
-				position: `${Math.round(project.x)},${Math.round(project.y)}`
+				position: `${Math.round(project.x)},${Math.round(project.y)},${project.layer || 0}`
 			}));
 
-			// Update the position string in furnitureList to match the saved x,y,flipped values
+			// Update the position string in furnitureList to match the saved x,y,flipped,layer values
 			furnitureList = furnitureList.map((furniture) => ({
 				...furniture,
-				position: `${Math.round(furniture.x)},${Math.round(furniture.y)},${furniture.flipped ? '1' : '0'}`
+				position: `${Math.round(furniture.x)},${Math.round(furniture.y)},${furniture.flipped ? '1' : '0'},${furniture.layer || 0}`
 			}));
 
 			console.log(

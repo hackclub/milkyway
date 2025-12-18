@@ -7,6 +7,24 @@
   import { getCreatureShapeFromCreature } from '$lib/data/prompt-data.js';
 
   let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, onPaintChipsClaimed = null, user, isRoomEditing = false, readOnly = false} = $props();
+
+  // Show stellar ship only if the project field stellarShipResult indicates true
+  let displayHasStellarShip = $derived(
+    (projInfo?.stellarShipResult === 1) ||
+    (projInfo?.stellarShipResult === '1') ||
+    (projInfo?.stellarShipResult === true) ||
+    (projInfo?.stellarShipResult === 'true')
+  );
+
+  // Debug logging to trace stellar ship flag state
+  $effect(() => {
+    console.log('stellarShipResult', {
+      id: projInfo?.id,
+      name: projInfo?.name,
+      stellarShipResult: projInfo?.stellarShipResult,
+      displayHasStellarShip
+    });
+  });
   
   // Flying chips animation state
   /** @type {Array<{id: number, x: number, y: number}>} */
@@ -61,11 +79,14 @@
   // Shipping confirmation state - check if project status is "submitted"
   let isProjectShipped = $derived(projInfo.status === 'submitted');
   
-  // Calculate total hours (code + art)
+  // Calculate total project hours for display / paint chips:
+  // total = code hours + approved art hours + pending art hours
   let totalDisplayHours = $derived(() => {
     const codeHours = projInfo.hackatimeHours || 0;
-    const artHours = projInfo.artHours || 0;
-    return Math.round((codeHours + artHours) * 100) / 100;
+    const approvedArt = projInfo.approvedArtHours || 0;
+    const pendingArt = projInfo.pendingArtHours || 0;
+    const totalArt = approvedArt + pendingArt;
+    return Math.round((codeHours + totalArt) * 100) / 100;
   });
   
   // Extract specific values to avoid unnecessary effect re-runs
@@ -324,8 +345,8 @@
     artlogSuccessMessage = `artlog for ${hours} hour${hours !== 1 ? 's' : ''} successfully created!\nyou'll get coins for these artlogs once you ship your project :)`;
     showArtlogSuccess = true;
     
-    // Update local artHours state
-    projInfo.artHours = (projInfo.artHours || 0) + hours;
+    // Update local pending art hours state for immediate feedback
+    projInfo.pendingArtHours = (projInfo.pendingArtHours || 0) + hours;
     
     // Hide the message after 5 seconds
     setTimeout(() => {
@@ -398,7 +419,7 @@
     }
     
     // Separate hours validation from other requirements
-    const hasHoursIssue = (() => {
+      const hasHoursIssue = (() => {
       // Handle shippedHours - it might be an array/object from Airtable
       // Take the highest value since people can ship multiple times
       let shippedHours = 0;
@@ -414,14 +435,17 @@
         }
       }
       
-      const currentHours = (projInfo.hackatimeHours || 0) + (projInfo.artHours || 0);
+      // For submission, only count code hours + approved art hours
+      const currentHours =
+        (projInfo.hackatimeHours || 0) + (projInfo.approvedArtHours || 0);
       
-      console.log('Frontend hours validation:', { 
-        shippedHours, 
-        currentHours, 
+      console.log('Frontend hours validation (submission hours):', { 
+        shippedHours,
+        currentHours,
         hoursShippedRaw: projInfo.hoursShipped || 0,
         hackatimeHours: projInfo.hackatimeHours,
-        artHours: projInfo.artHours,
+        approvedArtHours: projInfo.approvedArtHours,
+        pendingArtHours: projInfo.pendingArtHours,
         projInfo 
       });
       
@@ -737,6 +761,13 @@
       
       const response = await fetch(`/api/get-ysws-submission-by-project/${projInfo.id}`);
       
+      // 404 is a valid response - it just means no submission found yet
+      if (response.status === 404) {
+        yswsSubmissionData = null;
+        isLoadingSubmission = false;
+        return;
+      }
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -783,10 +814,41 @@
     }
   });
 
+
+/**
+ * Change project layer by delta (+1 or -1)
+ * @param {number} delta
+ */
+async function changeLayer(delta) {
+  const newLayer = (projInfo.layer || 0) + delta;
+  const oldLayer = projInfo.layer;
+  projInfo.layer = newLayer;
+
+  try {
+    const response = await fetch('/api/projects', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: projInfo.id,
+        updates: { position: `${Math.round(x)},${Math.round(y)},${newLayer}` }
+      })
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      console.error('Failed to update project layer:', result.error);
+      projInfo.layer = oldLayer;
+    }
+  } catch (err) {
+    console.error('Error updating project layer:', err);
+    projInfo.layer = oldLayer;
+  }
+}
+
 </script>
 
 
-<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''} {projInfo.status === 'submitted' ? 'hatched' : ''}" style:--x={x} style:--y={y} style:--z={Math.round(y)} onclick={(e) => e.stopPropagation()}>
+<div class="project-egg {selected ? 'selected' : ''} {isIncompleteRoulette() ? 'incomplete-roulette-egg' : ''} {isRoomEditing ? 'editing-mode' : ''} {projInfo.status === 'submitted' ? 'hatched' : ''}" style:--x={x} style:--y={y} style:--z={5000 + (projInfo.layer || 0) * 100 + Math.round(y)} onclick={(e) => e.stopPropagation()}>
 <img class="egg-img" src={projInfo.egg} alt="Project egg" />
 
 <button 
@@ -797,6 +859,14 @@
 >
   <img src={projInfo.status === 'submitted' ? getCreatureShapeFromCreature(projInfo.egg) : "/projects/egg_shape.svg"} alt="Project shape" />
 </button>
+
+{#if selected && isRoomEditing && !readOnly}
+  <div class="egg-controls">
+    <button class="layer-btn layer-up-btn" onclick={() => changeLayer(1)} title="Move forward" aria-label="Move project forward">⬆️</button>
+    <button class="layer-btn layer-down-btn" onclick={() => changeLayer(-1)} title="Move backward" aria-label="Move project backward">⬇️</button>
+    <span class="layer-display" aria-live="polite">Layer: {projInfo.layer ?? 0}</span>
+  </div>
+{/if}
 
 {#if isIncompleteRoulette()}
   <div class="incomplete-badge">!</div>
@@ -846,18 +916,30 @@
   <div class="project-header">
     <div class="project-main-info">
       <div class="project-meta">
-        <span class="hours-info" title="{projInfo.hackatimeHours || 0} code hours, {projInfo.artHours || 0} art hours">{totalDisplayHours()} total hours</span>
+        <span
+          class="hours-info"
+          title={`${projInfo.hackatimeHours || 0} code hours, ${projInfo.approvedArtHours || 0} approved art, ${projInfo.pendingArtHours || 0} pending art`}
+        >
+          {totalDisplayHours()} total hours
+        </span>
         <span class="separator">·</span>
         <button class="prompt-info-link" onclick={() => onShowPromptPopup(projInfo.promptinfo, rouletteProgress())}>{projInfo.promptinfo}</button>
       </div>
       {#if isEditing}
         <input class="project-name" bind:value={projInfo.name} placeholder="your game name..." />
       {:else}
-        {#if projInfo.status === 'submitted'}
-          <a target="_blank" href={projInfo.shipURL} class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
-        {:else}
-          <a class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
-        {/if}
+        <div class="project-name-row">
+          {#if projInfo.status === 'submitted'}
+            <a target="_blank" href={projInfo.shipURL} class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
+          {:else}
+            <a class="project-name-display">{projInfo.name || 'Untitled Project'}</a>
+          {/if}
+          {#if displayHasStellarShip}
+            <Tooltip text="this is a stellar ship!" position="top">
+              <img src="/stellarship.png" alt="Stellar Ship" class="stellar-ship-badge" />
+            </Tooltip>
+          {/if}
+        </div>
       {/if}
     </div>
     {#if isEditing}
@@ -1004,16 +1086,25 @@
 
     <!-- Artlog Hours Section (always visible when selected) -->
     {#if !readOnly}
-      {@const maxArtHours = Math.floor(((projInfo.hackatimeHours || 0) * 0.3 / 0.7) * 100) / 100}
-      {@const currentArtHours = projInfo.artHours || 0}
-      {@const remainingArtHours = Math.max(0, Math.floor((maxArtHours - currentArtHours) * 100) / 100)}
+      {@const codeHours = projInfo.hackatimeHours || 0}
+      {@const approvedArtHours = projInfo.approvedArtHours || 0}
+      {@const pendingArtHours = projInfo.pendingArtHours || 0}
+      {@const totalArtHours = Math.round((approvedArtHours + pendingArtHours) * 100) / 100}
+      {@const maxArtHours = Math.floor(((codeHours * 0.3 / 0.7)) * 100) / 100}
+      {@const remainingArtHours = Math.max(0, Math.floor((maxArtHours - totalArtHours) * 100) / 100)}
       <div class="artlog-section">
         <div class="artlog-header">
-          <h4 class="artlog-title">🎨 {currentArtHours} art hours</h4>
+          <h4 class="artlog-title">
+            🎨 {totalArtHours} art hours
+            <span class="artlog-breakdown">
+              ({approvedArtHours} approved, {pendingArtHours} pending)
+            </span>
+          </h4>
           <button class="view-artlogs-btn" onclick={viewPastArtlogs}>(view past artlogs)</button>
         </div>
         <div class="artlog-cap-info">
-          art hours can be up to 30% of total project hours. you can log up to <strong>{remainingArtHours}</strong> more art hours.
+          art hours (approved + pending) can be up to 30% of your total project hours.
+          you can log up to <strong>{remainingArtHours}</strong> more art hours.
         </div>
       </div>
     {/if}
@@ -1036,7 +1127,11 @@
         <div class="confirmation-content">
           <div class="confirmation-title">project shipped!</div>
           <div class="confirmation-details">
-            you shipped your project at {projInfo.hoursShipped || ((projInfo.hackatimeHours || 0) + (projInfo.artHours || 0)) || 0}h logged.
+            you shipped your project at
+            {projInfo.hoursShipped ||
+              ((projInfo.hackatimeHours || 0) + (projInfo.approvedArtHours || 0)) ||
+              0}h
+            (code + approved art) logged.
             <br>
             {#if yswsSubmissionData}
               <!-- Show review results if available -->
@@ -1107,7 +1202,8 @@
                   }
                 }
                 
-                const currentHours = (projInfo.hackatimeHours || 0) + (projInfo.artHours || 0);
+                const currentHours =
+                  (projInfo.hackatimeHours || 0) + (projInfo.approvedArtHours || 0);
                 if (currentHours < 5) {
                   return 'at least 5 hours';
                 } else {
@@ -1163,7 +1259,13 @@
 {/if}
 
 <!-- Artlog Popup -->
-<ArtlogPopup bind:show={showArtlogPopup} projectId={projInfo.id} codeHours={projInfo.hackatimeHours || 0} artHours={projInfo.artHours || 0} onSuccess={handleArtlogSuccess} />
+<ArtlogPopup
+  bind:show={showArtlogPopup}
+  projectId={projInfo.id}
+  codeHours={projInfo.hackatimeHours || 0}
+  artHours={(projInfo.approvedArtHours || 0) + (projInfo.pendingArtHours || 0)}
+  onSuccess={handleArtlogSuccess}
+/>
 
 <!-- Artlog List Popup -->
 <ArtlogListPopup bind:show={showArtlogListPopup} projectId={projInfo.id} />
@@ -1173,7 +1275,7 @@
 .project-egg {
   height: 8%;
   position: absolute;
-  z-index: calc(500 + var(--z));
+  z-index: calc(100 + var(--z));
 
   display: flex;
   justify-content: center;
@@ -1183,7 +1285,7 @@
 }
 
 .project-egg.selected {
-  z-index: calc(1500 + var(--z));
+  z-index: calc(1000 + var(--z));
 }
 
 .project-egg.editing-mode {
@@ -1231,6 +1333,54 @@
 .project-egg:has(.egg-svg:hover) .egg-img, .project-egg.selected .egg-img {
   filter: drop-shadow(-1.5px -1.5px 0 var(--orange)) drop-shadow(1.5px -1.5px 0 var(--orange)) drop-shadow(-1.5px 1.5px 0 var(--orange)) drop-shadow(1.5px 1.5px 0 var(--orange));
 }
+
+.egg-controls {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 2000;
+}
+
+.egg-controls .layer-display {
+  padding: 4px 8px;
+  background: rgba(0,0,0,0.05);
+  border-radius: 12px;
+  font-size: 0.9em;
+  color: var(--orange);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.egg-controls {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 2000;
+  align-items: center;
+}
+
+.layer-btn {
+  padding: 6px 10px;
+  border: 2px solid var(--orange);
+  border-radius: 50px;
+  background: var(--yellow);
+  color: var(--orange);
+  font-family: inherit;
+  font-size: 1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.12s;
+  line-height: 1;
+}
+
+.layer-up-btn:hover { background: #4CAF50; border-color: #4CAF50; color: white; }
+.layer-down-btn:hover { background: #2196F3; border-color: #2196F3; color: white; }
 
 /* Hatched creature styling - subtle glow to show it's special */
 .project-egg.hatched .egg-img {
@@ -2168,4 +2318,24 @@ input:hover, textarea:hover {
 /* .artlog-cap-info strong {
   color: var(--orange);
 } */
+
+/* Stellar Ship Badge */
+.project-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stellar-ship-badge {
+  width: 20px;
+  height: auto;
+  cursor: help;
+  filter:
+    drop-shadow(-1.5px -1.5px 0 white)
+    drop-shadow(1.5px -1.5px 0 white)
+    drop-shadow(-1.5px 1.5px 0 white)
+    drop-shadow(1.5px 1.5px 0 white)
+    drop-shadow(0 0 3px white);
+}
+
 </style>

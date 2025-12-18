@@ -57,12 +57,15 @@ export async function getUserInfoBySessionId(sessionid) {
 		maxDevlogStreak: fields.maxDevlogStreak || 0,
 		wallVariant: fields.wallVariant || 'default',
 		lastDevlogDate: fields.lastDevlogDate || null,
+		// Permissions / roles
+		permissions: fields.permissions || [],
 		// Hack Club Auth fields
 		hackclub_id: fields.hackclub_id || null,
 		hackclub_name: fields.hackclub_name || null,
 		hackclub_slack_id: fields.hackclub_slack_id || null,
 		hackclub_email: fields.hackclub_email || null,
 		hackclub_address: fields.hackclub_address || null, // SERVER SIDE ONLY - never expose to frontend
+		hackclub_birthday: fields.hackclub_birthday || null, // SERVER SIDE ONLY - never expose to frontend
 		hackclub_verification_status: fields.hackclub_verification_status || null,
 		__serverOnly: true // Flag to indicate this should not be sent to frontend
 	};
@@ -96,7 +99,7 @@ export function sanitizeUserForFrontend(serverUser) {
 		hackclub_id: serverUser.hackclub_id || null,
 		hackclub_name: serverUser.hackclub_name || null,
 		hackclub_slack_id: serverUser.hackclub_slack_id || null
-		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, hackclub_address, __serverOnly, or other internal fields
+		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, hackclub_address, hackclub_birthday, __serverOnly, or other internal fields
 	};
 }
 
@@ -189,7 +192,8 @@ export async function createOTPRecord(email, referrer = null, ipAddress = null, 
 		user: [userRecordId],
 		otp: parseInt(otp),
 		token: token,
-		expiry: expiry
+		expiry: expiry,
+		ipAddress: ipAddress
 	});
 
 	return { otp, token, expiry };

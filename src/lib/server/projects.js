@@ -19,6 +19,7 @@ export async function getUserProjectsByEmail(userEmail) {
       const positionParts = positionStr.split(',');
       const x = parseFloat(positionParts[0]) || 0;
       const y = parseFloat(positionParts[1]) || 0;
+      const layer = parseInt(positionParts[2]) || 0;
       
       // Handle image attachment - get URL from first attachment if available
       const imageAttachment = getFirstAttachment(record.fields.image);
@@ -34,16 +35,21 @@ export async function getUserProjectsByEmail(userEmail) {
         githubURL: record.fields.githubURL || '',
         projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
         image: imageUrl, // Store the attachment URL
+      stellarShipResult: record.fields.stellarShipResult ?? 0,
         addn: record.fields.addn || '',
         event: 'new', // Default since you don't have this field
         egg: record.fields.egg || 'projects/sparkle_egg1.png',
-        position: record.fields.position || '0,0',
+        position: record.fields.position || '0,0,0',
         x: x,
         y: y,
+        layer: layer,
         status: record.fields.status || 'active',
         hours: record.fields.hours || 0,
         hackatimeHours: record.fields.hackatimeHours || 0,
         artHours: record.fields.artHours || 0,
+        // Art hours breakdown (Airtable formulas)
+        approvedArtHours: record.fields.approvedArtHours || 0,
+        pendingArtHours: record.fields.pendingArtHours || 0,
         hackatimeProjects: record.fields.hackatimeProjects || [],
         created: record.fields.countingFrom,
         // Form fields for shipping
@@ -75,7 +81,7 @@ export async function createProject(userId, projectData) {
     // Generate random position for the egg
     const randomX = Math.random() * (120 - (-120)) + (-120); // Range: -120 to 120
     const randomY = Math.random() * (220 - 80) + 80; // Range: 80 to 220
-    const position = `${randomX},${randomY}`;
+    const position = `${randomX},${randomY},0`;
     
     /** @type {any} */
     const fieldsToCreate = {
@@ -99,6 +105,7 @@ export async function createProject(userId, projectData) {
     const positionParts = positionStr.split(',');
     const x = parseFloat(positionParts[0]) || 0;
     const y = parseFloat(positionParts[1]) || 0;
+    const layer = parseInt(positionParts[2]) || 0;
 
     // Handle image attachment - get URL from first attachment if available
     const imageAttachment = getFirstAttachment(record.fields.image);
@@ -112,12 +119,14 @@ export async function createProject(userId, projectData) {
       promptinfo: record.fields.promptinfo,
       projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
       image: imageUrl, // Store the attachment URL
+      stellarShipResult: record.fields.stellarShipResult ?? 0,
       addn: record.fields.addn || '',
       event: 'new', // Default since you don't have this field
       egg: record.fields.egg,
       position: record.fields.position,
       x: x,
       y: y,
+      layer: layer,
       status: 'active', // Default since you don't have this field
       hoursShipped: record.fields.hoursShipped || 0,
       created: record.fields.Created,
@@ -140,10 +149,11 @@ export async function updateProject(projectId, updates) {
     const record = await base('Projects').update(projectId, updates);
 
     // Parse position data
-    const positionStr = typeof record.fields.position === 'string' ? record.fields.position : '0,0';
+    const positionStr = typeof record.fields.position === 'string' ? record.fields.position : '0,0,0';
     const positionParts = positionStr.split(',');
     const x = parseFloat(positionParts[0]) || 0;
     const y = parseFloat(positionParts[1]) || 0;
+    const layer = parseInt(positionParts[2]) || 0;
 
     // Handle image attachment - get URL from first attachment if available
     const imageAttachment = getFirstAttachment(record.fields.image);
@@ -159,12 +169,14 @@ export async function updateProject(projectId, updates) {
       projectImage: record.fields.projectImage || imageUrl, // Use attachment URL as fallback
       image: imageUrl, // Store the attachment URL
       promptinfo: record.fields.promptinfo,
+      stellarShipResult: record.fields.stellarShipResult ?? 0,
       addn: record.fields.addn || '',
       event: 'new', // Default since you don't have this field
       egg: record.fields.egg,
-      position: record.fields.position || '0,0',
+      position: record.fields.position || '0,0,0',
       x: x,
       y: y,
+      layer: layer,
       status: 'active', // Default since you don't have this field
       hoursShipped: record.fields.hoursShipped || 0,
       created: record.fields.countingFrom,

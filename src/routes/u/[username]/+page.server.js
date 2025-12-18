@@ -3,6 +3,7 @@ import { base } from '$lib/server/db.js';
 import { getUserFurnitureByEmail } from '$lib/server/furniture.js';
 import { getUserProjectsByEmail } from '$lib/server/projects.js';
 import { notifyUser } from '$lib/server/notifications.js';
+import { getProjectsWithStellarShips } from '$lib/server/blackhole.js';
 
 export async function load({ params, locals, url }) {
 	try {
@@ -43,6 +44,11 @@ export async function load({ params, locals, url }) {
 		console.log('Fetching projects and furniture for user:', userEmail);
 		const projects = await getUserProjectsByEmail(userEmail);
 		const furniture = await getUserFurnitureByEmail(userEmail);
+		
+		// Get which projects have stellar ships
+		const projectIds = projects.map((/** @type {any} */ p) => p.id);
+		const stellarShipSet = await getProjectsWithStellarShips(projectIds);
+		const stellarShipProjectIds = Array.from(stellarShipSet);
 
 		// SECURITY: Sanitize user data for public viewing (removes email, address, idv, coins, birthday, etc.)
 		const publicUserInfo = sanitizeUserForPublic(userInfo);
@@ -93,7 +99,8 @@ export async function load({ params, locals, url }) {
 			},
 			projects,
 			furniture,
-			isFollowing
+			isFollowing,
+			stellarShipProjectIds
 		};
 	} catch (error) {
 		console.error('Error loading user profile:', error);

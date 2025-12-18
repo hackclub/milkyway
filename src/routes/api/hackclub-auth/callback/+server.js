@@ -107,6 +107,9 @@ export async function GET({ url, cookies }) {
       hasEmail: !!userInfo.email,
       hasSlackId: !!userInfo.slack_id,
       hasAddress: !!userInfo.address,
+      hasBirthdate: !!userInfo.birthdate,
+      birthdateType: typeof userInfo.birthdate,
+      birthdateValue: userInfo.birthdate ? String(userInfo.birthdate).substring(0, 10) : null, // Log first 10 chars for debugging
       verification_status: userInfo.verification_status
     });
 
@@ -117,6 +120,7 @@ export async function GET({ url, cookies }) {
     }
 
     // Update user record in Airtable with Hack Club data
+    /** @type {Record<string, any>} */
     const updateData = {
       hackclub_id: userInfo.sub,
       hackclub_name: userInfo.name || null,
@@ -128,6 +132,18 @@ export async function GET({ url, cookies }) {
     // Only store address if it exists
     if (addressJson) {
       updateData.hackclub_address = addressJson;
+    }
+
+    // Only store birthdate if it exists
+    if (userInfo.birthdate) {
+      // Convert birthdate to string if it's not already
+      const birthdateValue = String(userInfo.birthdate).trim();
+      if (birthdateValue) {
+        updateData.hackclub_birthday = birthdateValue;
+        console.log('Storing birthdate:', birthdateValue.substring(0, 10)); // Log first 10 chars
+      }
+    } else {
+      console.log('No birthdate found in Hack Club user info');
     }
 
     await base('User').update(user.recId, updateData);

@@ -41,6 +41,7 @@
 	"dependencies": {
 		"airtable": "^0.12.2",
 		"canvas-confetti": "^1.9.3",
+		"chart.js": "^4.5.1",
 		"dompurify": "^3.3.0",
 		"dotenv": "^17.2.2",
 		"isomorphic-dompurify": "^2.33.0",
