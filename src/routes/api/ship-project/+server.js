@@ -214,9 +214,107 @@ export async function POST({ request, cookies }) {
 
 			await projectsTable.update(projectRecord.id, updateData);
 
+			// Get user record for updating coins
+			const usersTable = base('User');
+			let userRecord = null;
+			try {
+				userRecord = await usersTable.find(userInfo.recId);
+			} catch (findError) {
+				// Fallback: try finding by email
+				try {
+					const fallbackRecords = await usersTable
+						.select({
+							filterByFormula: `{email} = "${escapeAirtableFormula(userInfo.email)}"`
+						})
+						.all();
+					if (fallbackRecords.length > 0) {
+						userRecord = fallbackRecords[0];
+					}
+				} catch (fallbackError) {
+					console.error('Failed to fetch user by email fallback:', fallbackError);
+				}
+			}
+
+			// Check for attached bet coins (only unrewarded bets)
+			// Query for both "claimed" and "won" status bets that are attached to this project
+			let betCoinsEarned = 0;
+			try {
+				// Use projectid if available, otherwise fall back to record ID
+				// When using ARRAYJOIN in Airtable formulas, linked records resolve to their primary identifier (projectid)
+				const projectPrimaryId = projectData.projectid;
+				if (!projectPrimaryId) {
+					console.warn(`[ship-project] Project ${projectRecord.id} missing projectid field, cannot query bet rewards`);
+				} else {
+					const escapedProjectPrimaryId = escapeAirtableFormula(String(projectPrimaryId));
+					const escapedProjectRecordId = escapeAirtableFormula(projectRecord.id);
+					const betsTable = base('Bets');
+					// Query using projectid (primary identifier) - ARRAYJOIN resolves linked records to primary identifiers
+					// Also check record ID as fallback, and include both "claimed" and "won" status
+					const betRecords = await betsTable
+						.select({
+							filterByFormula: `AND(
+								OR(
+									FIND("|${escapedProjectPrimaryId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0,
+									FIND("|${escapedProjectRecordId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0
+								),
+								OR(
+									{status} = "claimed",
+									{status} = "won"
+								),
+								OR(
+									BLANK({rewarded}),
+									NOT({rewarded}),
+									{rewarded} = FALSE()
+								)
+							)`
+						})
+						.all();
+					
+					for (const betRecord of betRecords) {
+						// SECURITY: Verify bet belongs to the user who owns the project
+						const betUserField = betRecord.fields.user;
+						const betUserIds = Array.isArray(betUserField) ? betUserField : betUserField ? [String(betUserField)] : [];
+						if (!betUserIds.includes(userInfo.recId)) {
+							// Skip bets that don't belong to this user
+							continue;
+						}
+						
+						// Double-check bet is not already rewarded (race condition protection)
+						if (betRecord.fields.rewarded === true) {
+							continue;
+						}
+						
+						const betAmount = typeof betRecord.fields.betAmount === 'number' ? betRecord.fields.betAmount : 0;
+						const multiplier = typeof betRecord.fields.multiplier === 'number' ? betRecord.fields.multiplier : 1;
+						const betCoins = typeof betRecord.fields.coinsEarned === 'number' 
+							? betRecord.fields.coinsEarned 
+							: Math.round(betAmount * multiplier);
+						betCoinsEarned += betCoins;
+						
+						// Mark bet as rewarded
+						await betsTable.update(betRecord.id, {
+							rewarded: true
+						});
+					}
+				}
+
+				// Update user coins if bet coins were earned
+				if (betCoinsEarned > 0 && userRecord) {
+					const currentCoins =
+						typeof userRecord.fields.coins === 'number' ? userRecord.fields.coins : 0;
+					await usersTable.update(userRecord.id, {
+						coins: currentCoins + betCoinsEarned
+					});
+				}
+			} catch (betError) {
+				console.error('Error processing bet coins:', betError);
+				// Continue even if bet processing fails
+			}
+
 			const responseData = {
 				success: true,
 				message: 'Project re-shipped successfully!',
+				betCoinsEarned: betCoinsEarned,
 				project: {
 					id: projectRecord.id,
 					name: projectData.projectname,
@@ -291,12 +389,6 @@ export async function POST({ request, cookies }) {
 				typeof projectData.hoursShipped === 'number' ? projectData.hoursShipped : 0;
 			const currentHours =
 				typeof projectData.hackatimeHours === 'number' ? projectData.hackatimeHours : 0;
-
-			console.log('Hours validation debug (shipProject only):', {
-				shippedHours,
-				currentHours,
-				projectData
-			});
 
 			if (currentHours < 5) {
 				// First time shipping - need at least 5 hours
@@ -453,11 +545,80 @@ export async function POST({ request, cookies }) {
 				}
 			}
 
+			// Check for attached bet coins (only unrewarded bets)
+			// Query for both "claimed" and "won" status bets that are attached to this project
+			// When querying linked fields in Airtable formulas, use the primary identifier (projectid), not record ID
+			let betCoinsEarned = 0;
+			try {
+				// Use projectid if available, otherwise fall back to record ID
+				// When using ARRAYJOIN in Airtable formulas, linked records resolve to their primary identifier (projectid)
+				const projectPrimaryId = projectData.projectid;
+				if (!projectPrimaryId) {
+					console.warn(`[ship-project] Project ${projectRecord.id} missing projectid field, cannot query bet rewards`);
+				} else {
+					const escapedProjectPrimaryId = escapeAirtableFormula(String(projectPrimaryId));
+					const escapedProjectRecordId = escapeAirtableFormula(projectRecord.id);
+					const betsTable = base('Bets');
+					// Query using projectid (primary identifier) - ARRAYJOIN resolves linked records to primary identifiers
+					// Also check record ID as fallback, and include both "claimed" and "won" status
+					const betRecords = await betsTable
+						.select({
+							filterByFormula: `AND(
+								OR(
+									FIND("|${escapedProjectPrimaryId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0,
+									FIND("|${escapedProjectRecordId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0
+								),
+								OR(
+									{status} = "claimed",
+									{status} = "won"
+								),
+								OR(
+									BLANK({rewarded}),
+									NOT({rewarded}),
+									{rewarded} = FALSE()
+								)
+							)`
+						})
+						.all();
+					
+					for (const betRecord of betRecords) {
+						// SECURITY: Verify bet belongs to the user who owns the project
+						const betUserField = betRecord.fields.user;
+						const betUserIds = Array.isArray(betUserField) ? betUserField : betUserField ? [String(betUserField)] : [];
+						if (!betUserIds.includes(userInfo.recId)) {
+							// Skip bets that don't belong to this user
+							continue;
+						}
+						
+						// Double-check bet is not already rewarded (race condition protection)
+						if (betRecord.fields.rewarded === true) {
+							continue;
+						}
+						
+						const betAmount = typeof betRecord.fields.betAmount === 'number' ? betRecord.fields.betAmount : 0;
+						const multiplier = typeof betRecord.fields.multiplier === 'number' ? betRecord.fields.multiplier : 1;
+						const betCoins = typeof betRecord.fields.coinsEarned === 'number' 
+							? betRecord.fields.coinsEarned 
+							: Math.round(betAmount * multiplier);
+						betCoinsEarned += betCoins;
+						
+						// Mark bet as rewarded
+						await betsTable.update(betRecord.id, {
+							rewarded: true
+						});
+					}
+				}
+			} catch (betError) {
+				console.error('Error processing bet coins:', betError);
+				// Continue even if bet processing fails
+			}
+
 			if (userRecord) {
 				const userUpdateFields = {};
 				const currentCoins =
 					typeof userRecord.fields.coins === 'number' ? userRecord.fields.coins : 0;
-				userUpdateFields.coins = currentCoins + coinsEarned;
+				
+				userUpdateFields.coins = currentCoins + coinsEarned + betCoinsEarned;
 
 				const approvedStreakUpdates = calculateApprovedStreakUpdates(userRecord, streakDevlogs);
 				if (approvedStreakUpdates) {
@@ -471,6 +632,7 @@ export async function POST({ request, cookies }) {
 				success: true,
 				message: 'Project shipped successfully!',
 				coinsEarned: coinsEarned,
+				betCoinsEarned: betCoinsEarned,
 				pendingHoursConverted: {
 					codeHours: totalPendingCodeHours,
 					artHours: totalPendingArtHours,

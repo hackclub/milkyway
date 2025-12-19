@@ -7,7 +7,7 @@
 
 	let isShipping = $state(false);
 	let shippingError = $state('');
-	let currentStep = $state(1); // 1 = confirmation, 2 = questions, 3 = hatching, 4 = re-ship success
+	let currentStep = $state(1); // 1 = confirmation, 2 = questions, 3 = hatching, 4 = re-ship success, 5 = bet reward
 	let showQuestions = $state(false);
 	let showInitialContent = $state(false);
 	let clickCount = $state(0);
@@ -18,6 +18,11 @@
 	let isHatching = $state(false);
 	let pendingHours = $state<any>(null);
 	let isLoadingPendingHours = $state(false);
+	
+	// Bet reward state
+	let betCoinsEarned = $state(0);
+	let flyingCoins = $state<Array<{id: number, x: number, y: number}>>([]);
+	let isClaimingBetCoins = $state(false);
 
 	// Check if this is a re-ship (project already submitted)
 	let isReShip = $derived(projectInfo?.status === 'submitted');
@@ -108,14 +113,20 @@
 
 			const result = await response.json();
 			if (result.success) {
-				// Show success message and close
-				currentStep = 4; // Re-ship success step
+				// Check if there are bet coins earned
+				if (result.betCoinsEarned && result.betCoinsEarned > 0) {
+					betCoinsEarned = result.betCoinsEarned;
+					currentStep = 5; // Show bet reward step
+				} else {
+					// Show success message and close
+					currentStep = 4; // Re-ship success step
 
-				// Wait 2 seconds then refresh the page
-				setTimeout(() => {
-					// Force page refresh to reload all data with new submission
-					window.location.reload();
-				}, 2000);
+					// Wait 2 seconds then refresh the page
+					setTimeout(() => {
+						// Force page refresh to reload all data with new submission
+						window.location.reload();
+					}, 2000);
+				}
 			} else {
 				shippingError = result.error?.message || 'Failed to re-ship project. Please try again.';
 				isShipping = false;
@@ -128,7 +139,7 @@
 	}
 
 	function handleClose() {
-		if (!isShipping && currentStep !== 3) {
+		if (!isShipping && currentStep !== 3 && currentStep !== 5) {
 			shippingError = '';
 			currentStep = 1;
 			showQuestions = false;
@@ -141,7 +152,53 @@
 			notMadeByYou = '';
 			howToPlay = '';
 			additionalComments = '';
+			betCoinsEarned = 0;
 			onClose();
+		}
+	}
+
+	// Create flying coins animation
+	function createFlyingCoins(count: number) {
+		const coinsToCreate = Math.min(count, 10); // Max 10 coins for performance
+		const newCoins: Array<{id: number, x: number, y: number}> = [];
+		for (let i = 0; i < coinsToCreate; i++) {
+			newCoins.push({
+				id: Date.now() + i,
+				x: Math.random() * 40 - 20, // Random offset
+				y: Math.random() * 20 - 10
+			});
+		}
+		flyingCoins = [...flyingCoins, ...newCoins];
+		
+		// Remove coins after animation completes
+		setTimeout(() => {
+			flyingCoins = flyingCoins.filter(c => !newCoins.find(nc => nc.id === c.id));
+		}, 1000);
+	}
+
+	// Claim bet coins
+	async function claimBetCoins() {
+		if (isClaimingBetCoins || betCoinsEarned === 0) return;
+		
+		try {
+			isClaimingBetCoins = true;
+			
+			// Create flying coins animation
+			createFlyingCoins(betCoinsEarned);
+			
+			// Dispatch event to update coins counter
+			window.dispatchEvent(new CustomEvent('coins-updated', { 
+				detail: { amount: betCoinsEarned } 
+			}));
+			
+			// Wait for animation, then refresh page
+			setTimeout(() => {
+				window.location.reload();
+			}, 1500);
+		} catch (error) {
+			console.error('Error claiming bet coins:', error);
+		} finally {
+			isClaimingBetCoins = false;
 		}
 	}
 
@@ -698,6 +755,29 @@
 					<h1 class="ship-title">project re-shipped!</h1>
 					<p class="reship-message">your project has been successfully re-submitted for review.</p>
 				</div>
+			{:else if currentStep === 5}
+				<!-- Step 5: Bet Reward -->
+				<div class="bet-reward-container" transition:fade={{ duration: 600 }}>
+					<img src="/bet/mimo.png" alt="Mimo" class="mimo-image-large" />
+					<h2 class="bet-reward-title">congrats, here are your coins!</h2>
+					<p class="bet-reward-amount">{betCoinsEarned} coins from mimo's bet</p>
+					<button 
+						class="claim-coins-btn" 
+						onclick={claimBetCoins}
+						disabled={isClaimingBetCoins}
+					>
+						{isClaimingBetCoins ? 'claiming...' : 'claim coins'}
+					</button>
+					<!-- Flying coins animation -->
+					{#each flyingCoins as coin (coin.id)}
+						<img 
+							src="/coin.png" 
+							alt="" 
+							class="flying-coin"
+							style="--offset-x: {coin.x}px; --offset-y: {coin.y}px;"
+						/>
+					{/each}
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -1203,7 +1283,80 @@
 		font-weight: 600;
 	}
 
-	/* Re-ship Success Styles */
+	/* Bet Reward Styles */
+.bet-reward-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 24px;
+	padding: 40px 20px;
+}
+
+.mimo-image-large {
+	width: 120px;
+	height: auto;
+	margin-bottom: 8px;
+}
+
+.bet-reward-title {
+	font-size: 2em;
+	margin: 0;
+	color: white;
+	font-weight: 600;
+}
+
+.bet-reward-amount {
+	font-size: 1.5em;
+	margin: 0;
+	color: #FDF0D0;
+	font-weight: 500;
+}
+
+.claim-coins-btn {
+	padding: 12px 32px;
+	background: #FDF0D0;
+	border: none;
+	border-radius: 8px;
+	color: #000;
+	font-size: 1.1em;
+	font-weight: bold;
+	font-family: inherit;
+	cursor: pointer;
+	margin-top: 8px;
+}
+
+.claim-coins-btn:hover:not(:disabled) {
+	background: #fff;
+}
+
+.claim-coins-btn:disabled {
+	opacity: 0.7;
+	cursor: not-allowed;
+}
+
+/* Flying coins animation */
+.flying-coin {
+	position: fixed;
+	width: 24px;
+	height: 24px;
+	pointer-events: none;
+	z-index: 999999;
+	animation: flyCoinsToTopLeft 1s ease-out forwards;
+	transform: translate(var(--offset-x), var(--offset-y));
+}
+
+@keyframes flyCoinsToTopLeft {
+	0% {
+		opacity: 1;
+		transform: translate(var(--offset-x), var(--offset-y)) scale(1);
+	}
+	100% {
+		opacity: 0;
+		transform: translate(calc(-80vw + var(--offset-x)), calc(-80vh + var(--offset-y))) scale(0.5);
+	}
+}
+
+/* Re-ship Success Styles */
 	.reship-success-container {
 		text-align: center;
 		color: white;

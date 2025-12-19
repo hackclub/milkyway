@@ -76,8 +76,36 @@
   let isClaimingPaintChips = $state(false);
   let paintChipsClaimSuccess = $state(false);
   
+  // Bet reward state
+  let unrewardedBetCoins = $state(0);
+  let isLoadingBetRewards = $state(false);
+  
   // Shipping confirmation state - check if project status is "submitted"
   let isProjectShipped = $derived(projInfo.status === 'submitted');
+
+  // Fetch unrewarded bet coins for this project
+  async function fetchBetRewards() {
+    if (!projInfo.id) return;
+    try {
+      isLoadingBetRewards = true;
+      const response = await fetch(`/api/bet/unrewarded?projectId=${projInfo.id}`);
+      const data = await response.json();
+      if (data.success) {
+        unrewardedBetCoins = data.totalCoins || 0;
+      }
+    } catch (error) {
+      console.error('[ProjectEgg] Error fetching bet rewards:', error);
+    } finally {
+      isLoadingBetRewards = false;
+    }
+  }
+
+  // Load bet rewards when project is selected
+  $effect(() => {
+    if (selected && projInfo.id) {
+      fetchBetRewards();
+    }
+  });
   
   // Calculate total project hours for display / paint chips:
   // total = code hours + approved art hours + pending art hours
@@ -1109,6 +1137,15 @@ async function changeLayer(delta) {
       </div>
     {/if}
 
+    <!-- Bet Reward Info Box -->
+    {#if !readOnly && unrewardedBetCoins > 0}
+      <div class="bet-reward-section">
+        <div class="bet-reward-info">
+          earn +{unrewardedBetCoins} coins on your next ship, from mimo's bet!
+        </div>
+      </div>
+    {/if}
+
     <!-- Shipping confirmation (always visible if shipped) -->
     {#if isProjectShipped}
       {@const hasMultipleShipments = (() => {
@@ -2040,6 +2077,28 @@ input:hover, textarea:hover {
 .progress-item.complete {
   color: #28a745;
   font-weight: bold;
+}
+
+/* Bet Reward Section */
+.bet-reward-section {
+  display: flex;
+  flex-flow: column;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 6px 8px;
+  background: rgba(255, 165, 0, 0.1);
+  border: 1px solid rgba(255, 165, 0, 0.3);
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+
+.bet-reward-info {
+  font-size: 1em;
+  color: #856404;
+  text-align: center;
+  line-height: 1.4;
+  margin: 0;
 }
 
 /* Artlog Section */
