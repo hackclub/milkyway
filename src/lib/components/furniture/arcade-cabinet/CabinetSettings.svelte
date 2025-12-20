@@ -2,6 +2,9 @@
 	import { onMount } from 'svelte';
 	import interfaceHtml from './interface.html?raw';
 
+	// Feature flag to enable the `setgame` command. Keep disabled by default for security.
+	const ENABLE_SETGAME = false;
+
 	const { terminalData, saveTerminal } = $props();
 
 	let terminal;
@@ -179,7 +182,9 @@
 		setgame: {
 			description: 'Set the game for the arcade cabinet',
 			execute: (args) => {
-				return 'setgame: command currently disabled for security reasons.';
+				if (!ENABLE_SETGAME) {
+					return 'setgame: command currently disabled for security reasons.';
+				}
 
 				if (!args[0]) return 'setgame: missing game url parameter';
 

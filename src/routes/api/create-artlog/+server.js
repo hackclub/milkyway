@@ -65,6 +65,23 @@ export async function POST({ request, cookies }) {
         error: 'Hours must be between 0 and 100'
       }, { status: 400 });
     }
+    
+    // Get project data to validate 30% art hours cap
+    const projectRecord = await base('Projects').find(projectId);
+    const currentCodeHours = typeof projectRecord.fields.hackatimeHours === 'number' ? projectRecord.fields.hackatimeHours : 0;
+    const currentArtHours = typeof projectRecord.fields.artHours === 'number' ? projectRecord.fields.artHours : 0;
+    
+    // Calculate max art hours allowed (30% of total)
+    // artMax / (code + artMax) = 0.30 => artMax = (0.30 / 0.70) * code
+    const maxArtHours = (currentCodeHours * 0.3) / 0.7;
+    const remainingArtHours = Math.max(0, maxArtHours - currentArtHours);
+    
+    if (hoursNum > remainingArtHours + 0.01) { // Small epsilon for floating point comparison
+      return json({
+        success: false,
+        error: `Art hours exceed the 30% cap. You can log up to ${Math.floor(remainingArtHours * 100) / 100} more art hours.`
+      }, { status: 400 });
+    }
 
     // Validate description
     if (typeof description !== 'string' || description.trim().length === 0 || description.length > 2000) {

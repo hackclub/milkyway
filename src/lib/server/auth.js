@@ -55,7 +55,18 @@ export async function getUserInfoBySessionId(sessionid) {
 		idv: fields.idv,
 		devlogStreak: fields.devlogStreak || 0,
 		maxDevlogStreak: fields.maxDevlogStreak || 0,
+		wallVariant: fields.wallVariant || 'default',
 		lastDevlogDate: fields.lastDevlogDate || null,
+		// Permissions / roles
+		permissions: fields.permissions || [],
+		// Hack Club Auth fields
+		hackclub_id: fields.hackclub_id || null,
+		hackclub_name: fields.hackclub_name || null,
+		hackclub_slack_id: fields.hackclub_slack_id || null,
+		hackclub_email: fields.hackclub_email || null,
+		hackclub_address: fields.hackclub_address || null, // SERVER SIDE ONLY - never expose to frontend
+		hackclub_birthday: fields.hackclub_birthday || null, // SERVER SIDE ONLY - never expose to frontend
+		hackclub_verification_status: fields.hackclub_verification_status || null,
 		__serverOnly: true // Flag to indicate this should not be sent to frontend
 	};
 }
@@ -82,8 +93,13 @@ export function sanitizeUserForFrontend(serverUser) {
 		doingWell: serverUser.doingWell || '',
 		improve: serverUser.improve || '',
 		devlogStreak: serverUser.devlogStreak || 0,
-		maxDevlogStreak: serverUser.maxDevlogStreak || 0
-		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, __serverOnly, or other internal fields
+		maxDevlogStreak: serverUser.maxDevlogStreak || 0,
+		wallVariant: serverUser.wallVariant || 'default',
+		// Hack Club Auth - only include non-sensitive fields
+		hackclub_id: serverUser.hackclub_id || null,
+		hackclub_name: serverUser.hackclub_name || null,
+		hackclub_slack_id: serverUser.hackclub_slack_id || null
+		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, hackclub_address, hackclub_birthday, __serverOnly, or other internal fields
 	};
 }
 
@@ -96,11 +112,13 @@ export function sanitizeUserForPublic(serverUser) {
 	if (!serverUser) return null;
 
 	return {
+		recId: serverUser.recId,
 		username: serverUser.username,
 		githubUsername: serverUser.githubUsername || '',
 		devlogStreak: serverUser.devlogStreak || 0,
-		maxDevlogStreak: serverUser.maxDevlogStreak || 0
-		// DO NOT include: recId, email, address, idv, coins, stellarships, paintchips, birthday, or other personal/sensitive fields
+		maxDevlogStreak: serverUser.maxDevlogStreak || 0,
+		wallVariant: serverUser.wallVariant || 'default'
+		// DO NOT include: email, address, idv, coins, stellarships, paintchips, birthday, or other personal/sensitive fields
 	};
 }
 
@@ -174,7 +192,8 @@ export async function createOTPRecord(email, referrer = null, ipAddress = null, 
 		user: [userRecordId],
 		otp: parseInt(otp),
 		token: token,
-		expiry: expiry
+		expiry: expiry,
+		ipAddress: ipAddress
 	});
 
 	return { otp, token, expiry };
@@ -295,7 +314,8 @@ export async function getUserInfoByUsername(username) {
 		stellarships: fields.stellarships,
 		paintchips: fields.paintchips,
 		githubUsername: fields.githubUsername,
-		birthday: fields.birthday
+		birthday: fields.birthday,
+		wallVariant: fields.wallVariant || 'default'
 	};
 }
 

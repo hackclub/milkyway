@@ -26,7 +26,7 @@
 			return friend.furniture || [];
 		}
 		// Otherwise, hide owner-only furniture
-		return (friend.furniture || []).filter((furniture) => {
+		return (friend.furniture || []).filter((/** @type {any} */ furniture) => {
 			const furnitureType = FURNITURE_CATALOG[furniture.type];
 			return !furnitureType?.ownerOnly;
 		});
@@ -183,6 +183,7 @@
 						projectList={friend.projects}
 						furnitureList={getVisibleFurniture(friend)}
 						user={friend}
+						variant={friend.wallVariant || 'default'}
 						onShowPromptPopup={() => {}}
 						onOpenRouletteSpin={() => {}}
 						onDeleteProject={() => {}}

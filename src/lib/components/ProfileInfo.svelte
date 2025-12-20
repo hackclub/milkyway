@@ -42,6 +42,11 @@
 			missing.push('How can we improve?');
 		}
 
+		// Check Hack Club Auth - required for shipping projects
+		if (!user?.hackclub_id || !user.hackclub_id.trim()) {
+			missing.push('Hack Club verification');
+		}
+
 		return missing;
 	}
 
@@ -121,7 +126,7 @@
 				<p>·</p>
 				<p>{paintchips || 0}</p>
 				<Tooltip
-					text="earn paint chips when you submit a project that has art hours logged. use them to decorate your room!"
+					text="earn 5 paint chips per hour on shipped projects. use them to decorate your room!"
 				>
 					<img src="/paintchip.png" alt="Paint chips" />
 				</Tooltip>

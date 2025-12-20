@@ -11,7 +11,7 @@
 	let searchQuery = $state('');
 	let globalSearchLoading = $state(false);
 	let noResults = $state(false);
-	let debounceHandle;
+	let debounceHandle = $state(undefined);
 
 	// Filter friends based on search query
 	$effect(() => {
@@ -51,7 +51,9 @@
 	}
 
 	$effect(() => {
-		clearTimeout(debounceHandle);
+		if (debounceHandle) {
+			clearTimeout(debounceHandle);
+		}
 		const q = searchQuery.trim();
 		if (q === '') {
 			noResults = false;
@@ -110,6 +112,7 @@
 			projectList: data.projects,
 			furnitureList: data.furniture || [],
 			user: data.user,
+			variant: data.user?.wallVariant || 'default',
 			onShowPromptPopup: () => {},
 			onOpenRouletteSpin: () => {},
 			onDeleteProject: () => {}

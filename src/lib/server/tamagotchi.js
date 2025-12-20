@@ -16,7 +16,14 @@ export async function getUserTamagotchi(userId) {
 				maxRecords: 1
 			})
 			.firstPage();
-		return tamagotchi[0] || null;
+		return {
+			fields: {
+				id: tamagotchi[0]?.fields.id,
+				user: tamagotchi[0]?.fields.user,
+				name: tamagotchi[0]?.fields.name,
+				growthStage: tamagotchi[0]?.fields.growthStage
+			}
+		};
 	} catch (error) {
 		console.error('Failed to fetch tamagotchi:', error);
 	}
