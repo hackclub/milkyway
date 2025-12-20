@@ -89,43 +89,18 @@ export async function POST({ request, locals }) {
 		}
 
 		const userRecordId = userRecords[0].id;
-		const userRecord = userRecords[0];
 
 		// Handle different reward types
 		let rewardDetails = null;
 
 		if (item === 'coins10') {
-			// SECURITY: Validate current coins value to prevent overflow
-			const currentCoins = Number(userRecord.fields.coins) || 0;
-			if (!Number.isFinite(currentCoins) || currentCoins < 0) {
-				return json({ error: 'Invalid coin balance' }, { status: 500 });
-			}
-			
-			const newCoins = currentCoins + 10;
-			if (newCoins > Number.MAX_SAFE_INTEGER) {
-				return json({ error: 'Coin balance would overflow' }, { status: 400 });
-			}
-			
-			await base('User').update(userRecordId, {
-				coins: newCoins
-			});
-			rewardDetails = { coins: 10 };
+
+			// Coins will need to be manually distributed
+			rewardDetails = { coins: 10, note: 'Claim recorded - coins will be distributed manually' };
 		} else if (item === 'coins30') {
-			// SECURITY: Validate current coins value to prevent overflow
-			const currentCoins = Number(userRecord.fields.coins) || 0;
-			if (!Number.isFinite(currentCoins) || currentCoins < 0) {
-				return json({ error: 'Invalid coin balance' }, { status: 500 });
-			}
-			
-			const newCoins = currentCoins + 30;
-			if (newCoins > Number.MAX_SAFE_INTEGER) {
-				return json({ error: 'Coin balance would overflow' }, { status: 400 });
-			}
-			
-			await base('User').update(userRecordId, {
-				coins: newCoins
-			});
-			rewardDetails = { coins: 30 };
+
+			// Coins will need to be manually distributed
+			rewardDetails = { coins: 30, note: 'Claim recorded - coins will be distributed manually' };
 		} else if (item === 'furniture') {
 			// SECURITY: Use a hardcoded, validated list of furniture types for this reward
 			const FURNITURE_PACK_ITEMS = ['clock_brown', 'floor_lamp', 'teddybear', 'shelf', 'fireplace'];

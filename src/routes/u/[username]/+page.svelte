@@ -15,6 +15,7 @@
 	let loading = $state(false);
 	let userData = $state(data.user);
 	let showReportModal = $state(false);
+	let stellarShipProjectIds = $state(new Set(data.stellarShipProjectIds || []));
 
 	// Filter furniture to hide owner-only items when viewing another user's profile
 	let filteredFurnitureList = $derived(
@@ -53,7 +54,7 @@
 		Number(
 			projectList.reduce(
 				(/** @type {number} */ sum, /** @type {any} */ project) =>
-					sum + (project.totalHours || project.hours || 0),
+					sum + ((project.hackatimeHours || 0) + (project.artHours || 0)),
 				0
 			)
 		)
@@ -192,6 +193,8 @@
 				onShipProject={() => {}}
 				readOnly={true}
 				hideControls={false}
+				variant={userData.wallVariant}
+				{stellarShipProjectIds}
 			/>
 		</div>
 

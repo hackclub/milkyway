@@ -6,7 +6,7 @@ import { base } from '$lib/server/db.js';
 import { createOTPRecord } from '$lib/server/auth.js';
 import { isValidEmail, checkRateLimit, getClientIdentifier, getRealClientIP, sanitizeErrorMessage } from '$lib/server/security.js';
 
-export async function POST({ request, cookies }) {
+export async function POST({ request, cookies, getClientAddress }) {
 
   const { email, referrer, utm_source } = await request.json();
   
@@ -24,8 +24,16 @@ export async function POST({ request, cookies }) {
   }
 
   try {
-    // Get real client IP address (handles proxy headers)
-    const ipAddress = getRealClientIP(request);
+    // Get real client IP address (handles proxy headers, falls back to SvelteKit's getClientAddress)
+    let ipAddress = getRealClientIP(request);
+    if (ipAddress === 'unknown') {
+      try {
+        ipAddress = getClientAddress();
+        console.log('Using SvelteKit getClientAddress:', ipAddress);
+      } catch (e) {
+        console.log('getClientAddress not available:', e);
+      }
+    }
     console.log('Captured REAL client IP address:', ipAddress);
     await createOTPRecord(email, referrer, ipAddress, utm_source);
     return json({ success: true }); // success!!

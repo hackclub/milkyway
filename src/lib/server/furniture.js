@@ -19,19 +19,21 @@ export async function getUserFurnitureByEmail(userEmail) {
 			.all();
 
 		const furniture = records.map((record) => {
-			// Parse position data (format: "x,y,flipped" or "inventory" for unplaced items)
+			// Parse position data (format: "x,y,flipped,layer" or "inventory" for unplaced items)
 			const positionStr =
 				typeof record.fields.position === 'string' ? record.fields.position : 'inventory';
 			const isPlaced = positionStr !== 'inventory';
 
 			let x = 0,
 				y = 0,
-				flipped = false;
+				flipped = false,
+				layer = 0;
 			if (isPlaced) {
 				const positionParts = positionStr.split(',');
 				x = parseFloat(positionParts[0]) || 0;
 				y = parseFloat(positionParts[1]) || 0;
 				flipped = positionParts[2] === '1';
+				layer = parseInt(positionParts[3]) || 0;
 			}
 
 			return {
@@ -42,6 +44,7 @@ export async function getUserFurnitureByEmail(userEmail) {
 				y: y,
 				data: record.fields.data,
 				flipped: flipped,
+				layer: layer,
 				isPlaced: isPlaced,
 				created: record.fields.Created
 			};
@@ -142,6 +145,7 @@ export async function createFurniture(userId, furnitureData) {
 			x: 0,
 			y: 0,
 			flipped: false,
+			layer: 0,
 			isPlaced: false,
 			created: record.fields.Created
 		};
@@ -171,19 +175,21 @@ export async function updateFurniture(furnitureId, updates) {
 
 		const record = await base('Furniture').update(furnitureId, safeUpdates);
 
-		// Parse position data (format: "x,y,flipped" or "inventory" for unplaced items)
+		// Parse position data (format: "x,y,flipped,layer" or "inventory" for unplaced items)
 		const positionStr =
 			typeof record.fields.position === 'string' ? record.fields.position : 'inventory';
 		const isPlaced = positionStr !== 'inventory';
 
 		let x = 0,
 			y = 0,
-			flipped = false;
+			flipped = false,
+			layer = 0;
 		if (isPlaced) {
 			const positionParts = positionStr.split(',');
 			x = parseFloat(positionParts[0]) || 0;
 			y = parseFloat(positionParts[1]) || 0;
 			flipped = positionParts[2] === '1';
+			layer = parseInt(positionParts[3]) || 0;
 		}
 
 		return {
@@ -194,6 +200,7 @@ export async function updateFurniture(furnitureId, updates) {
 			y: y,
 			data: record.fields.data,
 			flipped: flipped,
+			layer: layer,
 			isPlaced: isPlaced,
 			created: record.fields.Created
 		};

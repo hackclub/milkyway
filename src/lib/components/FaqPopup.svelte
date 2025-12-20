@@ -60,15 +60,15 @@ If you're found to be committing fraud, you will be banned from Milkyway. Depend
     },
     {
       question: "How many coins do I earn from submitting a project?",
-      answer: `You can earn **4-10 coins per code hour** that you work on your project. However, it is very highly dependent on the quality of your project. As long as your projects function well, you can expect to earn 8-10 coins per hour on average.
+      answer: `You can earn **4-10 coins per hour** (both code and art hours) that you work on your project. However, it is very highly dependent on the quality of your project. As long as your projects function well, you can expect to earn 8-10 coins per hour on average.
       
   Once you submit, you will also receive feedback that you can then improve upon to earn more coins.`
     },
     {
       question: "Do art hours count for coins?",
-      answer: `No, art hours do not count for coins. You can only earn coins by submitting Hackatime-tracked coding hours — do not use Hackatime to track any asset-creation hours!
+      answer: `Yes! Art hours now count towards coins just like code hours. Art hours can be up to 30% of your total project hours.
 
-Art hours do count for paint chips, however, and you can convert some paint chips into coins :)`
+After your first ship, any additional hours (code or art) you work on the project will earn you 5 paint chips per hour!`
     },
     
     {
@@ -77,7 +77,7 @@ Art hours do count for paint chips, however, and you can convert some paint chip
     },
     {
       question: "What are paint chips? How do I get them?",
-      answer: `You can earn 10 paint chips for each art hour logged in a project that you have shipped.
+      answer: `Once you ship a project, you earn **5 paint chips per hour** worked on that project! Click on a shipped project to claim your paint chips.
 
 You can also buy coins with paint chips — be careful, though, as the price increases after you buy too many 😵‍💫`
     },

@@ -76,21 +76,13 @@ export async function GET({ params, cookies, request }) {
     }
 
     // Return the submission data (user can only access their own data due to ownership verification above)
+    // SECURITY: Only return non-sensitive fields needed for UI display
+    // DO NOT return: firstName, lastName, address fields, submit_token, or other PII
     return json({
       success: true,
       data: {
         id: submissionRecord.id,
         hoursLogged: submissionRecord.fields.hoursLogged || 0,
-        submitToken: submissionRecord.fields.submit_token,
-        firstName: submissionRecord.fields['First Name'] || '',
-        lastName: submissionRecord.fields['Last Name'] || '',
-        birthday: submissionRecord.fields['Birthday'] || '',
-        addressLine1: submissionRecord.fields['Address (Line 1)'] || '',
-        addressLine2: submissionRecord.fields['Address (Line 2)'] || '',
-        city: submissionRecord.fields['City'] || '',
-        state: submissionRecord.fields['State / Province'] || '',
-        country: submissionRecord.fields['Country'] || '',
-        zipCode: submissionRecord.fields['ZIP / Postal Code'] || '',
         notesToUser: submissionRecord.fields.notesToUser || '',
         coinsAwarded: submissionRecord.fields.coinsAwarded || 0
       }

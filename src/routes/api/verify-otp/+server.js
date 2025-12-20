@@ -35,8 +35,8 @@ export async function POST({ request, cookies }) {
 
     cookies.set('sessionid', sessionid, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax', // 'lax' is needed for OAuth redirects to work
       path: '/',
       maxAge: 60 * 60 * 24 * 30 // 30 days
     });

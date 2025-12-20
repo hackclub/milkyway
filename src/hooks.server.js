@@ -29,12 +29,12 @@ export async function handle({ event, resolve }) {
 	// Note: Adjust as needed for your specific use case
 	const csp = [
 		"default-src 'self'",
-		"script-src 'self' 'unsafe-inline'", // Svelte needs inline scripts
+		"script-src 'self' 'unsafe-inline' https://plausible.io", // Svelte needs inline scripts, Plausible analytics
 		"style-src 'self' 'unsafe-inline'", // Svelte needs inline styles
 		"img-src 'self' data: https:", // Allow data URLs and HTTPS for uploaded images
-		"font-src 'self' data:",
-		"connect-src 'self'",
-		"media-src 'self' data: https:", // Allow data URLs and HTTPS (e.g. airtableusercontent)
+		"font-src 'self' data: https://db.onlinewebfonts.com", // Allow custom fonts
+		"connect-src 'self' https://plausible.io", // Allow Plausible analytics connections
+		"media-src 'self' data: https: https://*.airtableusercontent.com", // Allow data URLs and HTTPS (e.g. airtableusercontent)
 		"object-src 'none'",
 		"base-uri 'self'",
 		"form-action 'self'",
