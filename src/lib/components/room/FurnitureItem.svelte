@@ -101,7 +101,7 @@
 	 * @param {number} delta - Change in layer (+1 or -1)
 	 */
 	async function changeLayer(delta) {
-		const newLayer = (furnitureInfo.layer || 0) + delta;
+		const newLayer = Math.max( (furnitureInfo.layer || 0) + delta, 0);
 		const oldLayer = furnitureInfo.layer;
 		furnitureInfo.layer = newLayer;
 
@@ -210,7 +210,7 @@
 		: ''}"
 	style:--x={x}
 	style:--y={y}
-	style:--z={5000 + (furnitureInfo.layer || 0) * 1000 + Math.round(y)}
+	style:--z={400+(furnitureInfo.layer || 0) * 700 + Math.round(y)}
 	onclick={(e) => {
 		e.stopPropagation();
 		if (isRoomEditing && onSelect) onSelect();
@@ -261,6 +261,7 @@
 				onclick={() => changeLayer(-1)}
 				aria-label="Move furniture backward (down layer)"
 				title="Move backward"
+				disabled={furnitureInfo.layer <= 0}
 			>
 				⬇️
 			</button>
