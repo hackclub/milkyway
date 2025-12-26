@@ -90,7 +90,7 @@ export const FURNITURE_TYPES = [
 	{ type: 'wall_lamp', name: 'wall lamp', cost: 20, purchasable: true, wallOnly: true },
 	{ type: 'galaxy_bed', name: 'galaxy bed', cost: 0, purchasable: false },
 	{ type: 'galaxy_fishbowl', name: 'galaxy fishbowl', cost: 0, purchasable: false },
-	{ type: 'galaxy_window', name: 'galaxy', cost: 0, purchasable: false },
+	{ type: 'galaxy_window', name: 'galaxy', cost: 0, purchasable: false, wallOnly: true },
 	{ type: 'chair_glitched', name: 'glitched chair', cost: 10, purchasable: true },
 	{ type: 'chair_glitched_blue', name: 'glitched chair blue', cost: 10, purchasable: true },
 	{ type: 'chair_glitched_green', name: 'glitched chair green', cost: 10, purchasable: true },
