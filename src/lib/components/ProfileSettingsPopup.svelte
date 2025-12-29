@@ -197,8 +197,27 @@
 			sessionError = '';
 			// Fetch Hack Club auth status
 			hackclubAuthStatus = null;
-			hackclubAuthError = '';
-			fetchHackclubAuthStatus();
+			
+			// Check for hackclub_auth_error in URL parameters FIRST (before fetchHackclubAuthStatus clears it)
+			let hasUrlError = false;
+			if (typeof window !== 'undefined') {
+				const urlParams = new URLSearchParams(window.location.search);
+				const authError = urlParams.get('hackclub_auth_error');
+				if (authError) {
+					hackclubAuthError = decodeURIComponent(authError);
+					hasUrlError = true;
+					// Clear the error parameter from URL
+					urlParams.delete('hackclub_auth_error');
+					const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+					window.history.replaceState({}, '', newUrl);
+				}
+			}
+			
+			// Only reset error and fetch status if there's no error from URL
+			if (!hasUrlError) {
+				hackclubAuthError = '';
+				fetchHackclubAuthStatus();
+			}
 		}
 	});
 </script>
@@ -345,6 +364,12 @@
 					{#if hackclubAuthError}
 						<div class="hackclub-error">
 							<span>{hackclubAuthError}</span>
+							{#if hackclubAuthError.includes('get verified') || hackclubAuthError.includes('verified')}
+								<br />
+								<a href="https://auth.hackclub.com/" target="_blank" rel="noopener noreferrer" class="hackclub-error-link">
+									Go to Hack Club Auth →
+								</a>
+							{/if}
 						</div>
 					{/if}
 				</div>
@@ -903,5 +928,18 @@
 		border-radius: 6px;
 		color: #dc2626;
 		font-size: 0.85em;
+		line-height: 1.5;
+	}
+
+	.hackclub-error-link {
+		color: #dc2626;
+		text-decoration: underline;
+		font-weight: 600;
+		margin-top: 8px;
+		display: inline-block;
+	}
+
+	.hackclub-error-link:hover {
+		color: #991b1b;
 	}
 </style>

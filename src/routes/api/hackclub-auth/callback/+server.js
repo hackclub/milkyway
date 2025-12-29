@@ -113,6 +113,52 @@ export async function GET({ url, cookies }) {
       verification_status: userInfo.verification_status
     });
 
+    // Check if user is verified - required for linking
+    if (!userInfo.verification_status || userInfo.verification_status !== 'verified') {
+      // User linked but is not verified - remove auth and tell them to get verified
+      console.log('User linked Hack Club auth but verification_status is not verified:', userInfo.verification_status);
+      
+      // Clear all Hack Club auth fields
+      /** @type {Record<string, any>} */
+      const clearData = {
+        hackclub_id: null,
+        hackclub_name: null,
+        hackclub_slack_id: null,
+        hackclub_email: null,
+        hackclub_address: null,
+        hackclub_birthday: null,
+        hackclub_verification_status: null
+      };
+      
+      await base('User').update(user.recId, clearData);
+      
+      // Redirect with error message telling user to get verified
+      throw redirect(302, '/home?hackclub_auth_error=' + encodeURIComponent('Please get verified and add an address in your Hack Club profile before linking again'));
+    }
+
+    // Check if user has an address - required for linking
+    if (!userInfo.address || (typeof userInfo.address === 'object' && Object.keys(userInfo.address).length === 0)) {
+      // User linked but has no address - remove auth and tell them to get verified + add address
+      console.log('User linked Hack Club auth but has no address - removing auth');
+      
+      // Clear all Hack Club auth fields
+      /** @type {Record<string, any>} */
+      const clearData = {
+        hackclub_id: null,
+        hackclub_name: null,
+        hackclub_slack_id: null,
+        hackclub_email: null,
+        hackclub_address: null,
+        hackclub_birthday: null,
+        hackclub_verification_status: null
+      };
+      
+      await base('User').update(user.recId, clearData);
+      
+      // Redirect with error message telling user to get verified and add address
+      throw redirect(302, '/home?hackclub_auth_error=' + encodeURIComponent('Please get verified and add an address in your Hack Club profile before linking again'));
+    }
+
     // Format address as JSON string if it exists
     let addressJson = null;
     if (userInfo.address) {
@@ -155,7 +201,7 @@ export async function GET({ url, cookies }) {
 
   } catch (err) {
     // If it's a redirect, re-throw it
-    if (err.status === 302) {
+    if (err && typeof err === 'object' && 'status' in err && err.status === 302) {
       throw err;
     }
 

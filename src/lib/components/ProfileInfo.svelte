@@ -19,6 +19,18 @@
 	let showSettingsButton = $state(false);
 	let showSettingsPopup = $state(false);
 
+	// Check for hackclub_auth_error in URL and auto-open settings popup
+	$effect(() => {
+		if (typeof window !== 'undefined' && user) {
+			const urlParams = new URLSearchParams(window.location.search);
+			const authError = urlParams.get('hackclub_auth_error');
+			if (authError && !showSettingsPopup) {
+				// Auto-open settings popup to show the error
+				showSettingsPopup = true;
+			}
+		}
+	});
+
 	// Function to get missing profile information
 	function getMissingProfileInfo(user: any) {
 		if (!user) return [];
