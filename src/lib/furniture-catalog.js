@@ -9,10 +9,10 @@
  * @property {string} name - Display name
  * @property {number} cost - Cost in paintchips
  * @property {boolean} purchasable - Whether item can be purchased (false = reward-only)
- * @property {boolean} isInteractable - Whether item has interactive functionality
- * @property {boolean} wallOnly - Whether item can only be placed on walls
- * @property {boolean} ownerOnly - Whether item is only visible to the owner (default: false)
- * @property {import('svelte').SvelteComponent} component - Optional Svelte component for interactive furniture
+ * @property {boolean} [isInteractable] - Whether item has interactive functionality
+ * @property {boolean} [wallOnly] - Whether item can only be placed on walls
+ * @property {boolean} [ownerOnly] - Whether item is only visible to the owner (default: false)
+ * @property {any} [component] - Optional Svelte component for interactive furniture
  */
 
 import ArtEasel from '$lib/components/furniture/ArtEasel.svelte';
@@ -102,7 +102,14 @@ export const FURNITURE_TYPES = [
 	{ type: 'desk_glitched', name: 'desk glitched', cost: 20, purchasable: true },
 	{ type: 'desk_glitched_blue', name: 'desk glitched blue', cost: 20, purchasable: true },
 	{ type: 'desk_glitched_green', name: 'desk glitched green', cost: 20, purchasable: true },
-	{ type: 'desk_glitched_red', name: 'desk glitched red', cost: 20, purchasable: true }
+	{ type: 'desk_glitched_red', name: 'desk glitched red', cost: 20, purchasable: true },
+	{ type: 'christmas_tree', name: 'christmas tree', cost: 0, purchasable: false },
+	{
+		type: 'christmas_fireplace',
+		name: 'fireplace (christmas edition)',
+		cost: 0,
+		purchasable: false
+	}
 ];
 
 /** @type {Record<string, FurnitureType>} */
