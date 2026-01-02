@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
-import { escapeAirtableFormula } from '$lib/server/security.js';
 
 export async function POST({ request, cookies }) {
   try {
@@ -24,34 +23,42 @@ export async function POST({ request, cookies }) {
       }, { status: 404 });
     }
 
-    const { projectEggId, submitToken, identityData } = await request.json();
+    const body = await request.json();
+    let projectEggId = body.projectEggId;
     
-    // Removed debug logging of sensitive data
-    
-    if (!projectEggId || !submitToken) {
+    if (!projectEggId) {
       return json({
         success: false,
-        error: 'Project ID and submit token are required'
+        error: 'Project ID is required'
       }, { status: 400 });
     }
 
+    // Handle if projectEggId is an array (take first element)
+    if (Array.isArray(projectEggId)) {
+      projectEggId = projectEggId[0];
+    }
+    
+    // Convert to string and clean up
+    projectEggId = String(projectEggId).trim();
+
     // Validate projectEggId format (should be Airtable record ID)
-    if (typeof projectEggId !== 'string' || !projectEggId.startsWith('rec')) {
+    if (!projectEggId.startsWith('rec')) {
       return json({
         success: false,
         error: 'Invalid project ID format'
       }, { status: 400 });
     }
 
-    // Validate submitToken format (should be UUID-like)
-    if (typeof submitToken !== 'string' || submitToken.length < 10) {
+    // SECURITY: Verify user has authenticated with Hack Club
+    const hackclubId = String(userInfo.hackclub_id || '');
+    if (!hackclubId || hackclubId.trim() === '') {
       return json({
         success: false,
-        error: 'Invalid submit token format'
-      }, { status: 400 });
+        error: 'You must authenticate with Hack Club before shipping projects. Go to Profile Settings to verify your identity.'
+      }, { status: 403 });
     }
 
-    // Extract and sanitize user details from the passed identity data
+    // Extract user details from Hack Club Auth stored in user profile
     let firstName = '';
     let lastName = '';
     let addressLine1 = '';
@@ -60,29 +67,39 @@ export async function POST({ request, cookies }) {
     let state = '';
     let country = '';
     let zipCode = '';
-    let birthday = '';
     
-    if (identityData && identityData.identity_response) {
-      // Extract and sanitize names (limit length to prevent abuse)
-      firstName = String(identityData.identity_response.first_name || '').substring(0, 100);
-      lastName = String(identityData.identity_response.last_name || '').substring(0, 100);
-      
-      // Extract and validate birthday format (YYYY-MM-DD)
-      const birthdayStr = String(identityData.identity_response.birthday || '');
-      if (birthdayStr && /^\d{4}-\d{2}-\d{2}$/.test(birthdayStr)) {
-        birthday = birthdayStr;
-      }
-      
-      // Extract and sanitize address data
-      if (identityData.identity_response.addresses && Array.isArray(identityData.identity_response.addresses) && identityData.identity_response.addresses.length > 0) {
-        const address = identityData.identity_response.addresses[0]; // Use first address
-        addressLine1 = String(address.line_1 || '').substring(0, 200);
-        addressLine2 = String(address.line_2 || '').substring(0, 200);
-        city = String(address.city || '').substring(0, 100);
-        state = String(address.state || '').substring(0, 100);
+    // Parse name into first/last name
+    const hackclubName = String(userInfo.hackclub_name || '');
+    if (hackclubName) {
+      const nameParts = hackclubName.trim().split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
+    
+    // Parse address if available (stored as JSON string)
+    const hackclubAddress = String(userInfo.hackclub_address || '');
+    if (hackclubAddress) {
+      try {
+        const address = JSON.parse(hackclubAddress);
+        // OIDC address format: street_address, locality (city), region (state), postal_code, country
+        addressLine1 = String(address.street_address || '').substring(0, 200);
+        city = String(address.locality || '').substring(0, 100);
+        state = String(address.region || '').substring(0, 100);
         country = String(address.country || '').substring(0, 100);
         zipCode = String(address.postal_code || '').substring(0, 20);
+      } catch (e) {
+        console.error('Failed to parse hackclub_address:', e);
       }
+    }
+    
+    // Extract birthday if available
+    const hackclubBirthday = userInfo.hackclub_birthday ? String(userInfo.hackclub_birthday).trim() : '';
+    
+    // Debug logging (remove sensitive data in production)
+    if (!hackclubBirthday) {
+      console.log('No hackclub_birthday found in userInfo for submission');
+    } else {
+      console.log('Found hackclub_birthday for submission:', hackclubBirthday.substring(0, 10)); // Log first 10 chars
     }
 
     // Get the project's hours logged for the submission and verify ownership
@@ -102,9 +119,10 @@ export async function POST({ request, cookies }) {
         }, { status: 403 });
       }
       
-      if (projectRecord && projectRecord.fields.totalHours) {
-        hoursLogged = typeof projectRecord.fields.totalHours === 'number' ? 
-                     projectRecord.fields.totalHours : 0;
+      if (projectRecord) {
+        const hackatimeHours = typeof projectRecord.fields.hackatimeHours === 'number' ? projectRecord.fields.hackatimeHours : 0;
+        const artHours = typeof projectRecord.fields.artHours === 'number' ? projectRecord.fields.artHours : 0;
+        hoursLogged = hackatimeHours + artHours;
       }
     } catch (error) {
       console.error('Failed to fetch project hours:', error);
@@ -117,31 +135,27 @@ export async function POST({ request, cookies }) {
     // Create entry in YSWS Project Submission table
     const submissionData = {
       'projectEgg': [projectEggId], // Link to Projects entry
-      'submit_token': submitToken,   // auth_id from identity verification
+      'submit_token': hackclubId, // Use Hack Club ID as the submit token
       'hoursLogged': hoursLogged,    // Hours logged from the project
-      'First Name': firstName,       // First name from identity verification
-      'Last Name': lastName,         // Last name from identity verification
-      'Address (Line 1)': addressLine1,     // Address line 1
-      'Address (Line 2)': addressLine2,     // Address line 2
-      'City': city,                  // City
-      'State / Province': state,     // State/Province
-      'Country': country,            // Country
-      'ZIP / Postal Code': zipCode   // ZIP/Postal Code
+      'First Name': firstName,       // First name from Hack Club Auth
+      'Last Name': lastName,         // Last name from Hack Club Auth
+      'Address (Line 1)': addressLine1,
+      'Address (Line 2)': addressLine2,
+      'City': city,
+      'State / Province': state,
+      'Country': country,
+      'ZIP / Postal Code': zipCode,
+      'Birthday': hackclubBirthday || ''
     };
-
-    // Only include birthday if it has a valid value (to avoid Airtable date parsing errors)
-    if (birthday && birthday.trim() !== '') {
-      submissionData['Birthday'] = birthday;
-    }
 
     const result = await base('YSWS Project Submission').create(submissionData);
 
     return json({
       success: true,
+      submissionId: result.id,
       submission: {
         id: result.id,
-        projectEgg: result.fields.projectEgg,
-        submitToken: result.fields.submit_token
+        projectEgg: result.fields.projectEgg
       }
     });
 

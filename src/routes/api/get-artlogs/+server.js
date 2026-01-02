@@ -72,21 +72,46 @@ export async function POST({ request, cookies }) {
       })
       .all();
 
-    const artlogs = records.map(record => {
+    const artlogs = records.map((record) => {
+      const f = record.fields;
+
       // Get image URL from attachments
       let imageUrl = '';
-      const imageField = record.fields.image;
+      const imageField = f.image;
       if (imageField && Array.isArray(imageField) && imageField.length > 0) {
+        // @ts-ignore Airtable attachment typing
         imageUrl = String(imageField[0].url || '');
       }
-      
+
+      const hours = typeof f.hours === 'number' ? f.hours : 0;
+      const approvedHours =
+        typeof f.approvedHours === 'number' ? f.approvedHours : null;
+
+      /** @type {"pending" | "approved" | "rejected" | "decreased"} */
+      const status = (() => {
+        if (typeof approvedHours === 'number') {
+          if (approvedHours === 0) return 'rejected';
+          if (approvedHours < hours) return 'decreased';
+          if (approvedHours === hours) return 'approved';
+        }
+        return 'pending';
+      })();
+
+      const rereviewRequest = typeof f.rereviewRequest === 'string' ? f.rereviewRequest : '';
+
       return {
         id: record.id,
-        hours: typeof record.fields.hours === 'number' ? record.fields.hours : 0,
-        description: String(record.fields.description || ''),
-        proof: String(record.fields.proof || ''),
+        hours,
+        description: String(f.description || ''),
+        proof: String(f.proof || ''),
         image: imageUrl,
-        created: String(record.fields.Created || '')
+        created: String(f.Created || ''),
+        approvedHours,
+        reviewNote: String(f.reviewNote || ''),
+        reviewedAt: String(f.reviewedAt || ''),
+        status,
+        rereviewRequest,
+        isRereviewRequested: rereviewRequest.trim().length > 0
       };
     });
 

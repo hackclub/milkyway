@@ -21,6 +21,15 @@
 	let sessionError = $state('');
 	let copySuccess = $state(false);
 
+	// Hack Club Auth state
+	let hackclubAuthStatus = $state<{
+		isAuthenticated: boolean;
+		hackclubName: string | null;
+		hackclubSlackId: string | null;
+	} | null>(null);
+	let isLoadingHackclubAuth = $state(false);
+	let hackclubAuthError = $state('');
+
 	async function fetchSessionId() {
 		sessionLoading = true;
 		sessionError = '';
@@ -33,8 +42,8 @@
 			const data = await res.json();
 			sessionId = data?.sessionId || '';
 			sessionMasked = data?.masked || '';
-		} catch (err) {
-			sessionError = err.message;
+		} catch (err: unknown) {
+			sessionError = err instanceof Error ? err.message : 'Unknown error';
 			sessionId = '';
 			sessionMasked = '';
 		} finally {
@@ -67,6 +76,43 @@
 		} catch {
 			sessionError = 'Failed to copy to clipboard';
 		}
+	}
+
+	// Hack Club Auth functions
+	async function fetchHackclubAuthStatus() {
+		isLoadingHackclubAuth = true;
+		hackclubAuthError = '';
+		
+		try {
+			const response = await fetch('/api/hackclub-auth/status', {
+				credentials: 'include'
+			});
+			
+			if (!response.ok) {
+				throw new Error('Failed to fetch Hack Club auth status');
+			}
+			
+			const data = await response.json();
+			
+			if (data.success) {
+				hackclubAuthStatus = {
+					isAuthenticated: data.isAuthenticated,
+					hackclubName: data.hackclubName,
+					hackclubSlackId: data.hackclubSlackId
+				};
+			} else {
+				hackclubAuthError = data.error || 'Failed to check authentication status';
+			}
+		} catch (err: unknown) {
+			hackclubAuthError = err instanceof Error ? err.message : 'An error occurred';
+		} finally {
+			isLoadingHackclubAuth = false;
+		}
+	}
+
+	function initiateHackclubAuth() {
+		// Redirect to the auth endpoint which will handle the OIDC flow
+		window.location.href = '/api/hackclub-auth/authorize';
 	}
 
 	// Handle profile form submission
@@ -115,7 +161,7 @@
 	}
 
 	// Handle escape key
-	function handleKeydown(event) {
+	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
 			onClose();
 		}
@@ -149,6 +195,29 @@
 			sessionId = '';
 			sessionMasked = '';
 			sessionError = '';
+			// Fetch Hack Club auth status
+			hackclubAuthStatus = null;
+			
+			// Check for hackclub_auth_error in URL parameters FIRST (before fetchHackclubAuthStatus clears it)
+			let hasUrlError = false;
+			if (typeof window !== 'undefined') {
+				const urlParams = new URLSearchParams(window.location.search);
+				const authError = urlParams.get('hackclub_auth_error');
+				if (authError) {
+					hackclubAuthError = decodeURIComponent(authError);
+					hasUrlError = true;
+					// Clear the error parameter from URL
+					urlParams.delete('hackclub_auth_error');
+					const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+					window.history.replaceState({}, '', newUrl);
+				}
+			}
+			
+			// Only reset error and fetch status if there's no error from URL
+			if (!hasUrlError) {
+				hackclubAuthError = '';
+				fetchHackclubAuthStatus();
+			}
 		}
 	});
 </script>
@@ -253,6 +322,56 @@
 							{isSubmitting ? 'Saving...' : 'Save profile info'}
 						</button>
 					</div>
+				</div>
+
+				<!-- Hack Club Identity Verification Section -->
+				<div class="section">
+					<h4>Identity Verification</h4>
+					<p class="section-description">
+						Verify your identity with Hack Club to ship projects. This is required before you can submit any projects.
+					</p>
+
+					{#if isLoadingHackclubAuth}
+						<div class="hackclub-loading">
+							<span class="loading-spinner"></span>
+							<span>Checking verification status...</span>
+						</div>
+					{:else if hackclubAuthStatus?.isAuthenticated}
+						<div class="hackclub-authenticated">
+							<div class="auth-success-icon">✓</div>
+							<div class="auth-info">
+								<p class="auth-status">Verified with Hack Club Auth</p>
+								{#if hackclubAuthStatus.hackclubName}
+									<p class="auth-detail">Name: {hackclubAuthStatus.hackclubName}</p>
+								{/if}
+								{#if hackclubAuthStatus.hackclubSlackId}
+									<p class="auth-detail">Slack ID: {hackclubAuthStatus.hackclubSlackId}</p>
+								{/if}
+							</div>
+						</div>
+					{:else}
+						<div class="hackclub-unauthenticated">
+							<p class="auth-prompt">
+								You haven't verified your identity yet!
+							</p>
+							<button class="hackclub-auth-btn" onclick={initiateHackclubAuth}>
+								<img src="/hackclub-flag.svg" alt="Hack Club" class="hackclub-icon" onerror={(e) => { if (e.currentTarget instanceof HTMLElement) e.currentTarget.style.display='none'; }} />
+								Verify with Hack Club Auth
+							</button>
+						</div>
+					{/if}
+
+					{#if hackclubAuthError}
+						<div class="hackclub-error">
+							<span>{hackclubAuthError}</span>
+							{#if hackclubAuthError.includes('get verified') || hackclubAuthError.includes('verified')}
+								<br />
+								<a href="https://auth.hackclub.com/" target="_blank" rel="noopener noreferrer" class="hackclub-error-link">
+									Go to Hack Club Auth →
+								</a>
+							{/if}
+						</div>
+					{/if}
 				</div>
 
 				<div class="section">
@@ -680,5 +799,147 @@
 		background: #f0f9f7;
 		border-radius: 4px;
 		border-left: 3px solid #28a745;
+	}
+
+	/* Hack Club Auth Styles */
+	.section-description {
+		font-size: 0.85em;
+		color: #666;
+		margin: 0 0 16px 0;
+		line-height: 1.4;
+	}
+
+	.hackclub-loading {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 16px;
+		background: rgba(247, 200, 129, 0.1);
+		border: 1px solid rgba(247, 200, 129, 0.3);
+		border-radius: 8px;
+		color: #666;
+		font-size: 0.9em;
+	}
+
+	.loading-spinner {
+		width: 20px;
+		height: 20px;
+		border: 2px solid rgba(247, 200, 129, 0.3);
+		border-top-color: var(--orange);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.hackclub-authenticated {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		padding: 16px;
+		background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.05));
+		border: 2px solid rgba(34, 197, 94, 0.4);
+		border-radius: 8px;
+	}
+
+	.auth-success-icon {
+		width: 32px;
+		height: 32px;
+		background: #22c55e;
+		color: white;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.2em;
+		font-weight: bold;
+		flex-shrink: 0;
+	}
+
+	.auth-info {
+		flex: 1;
+	}
+
+	.auth-status {
+		/* font-weight: 600; */
+		color: #15803d;
+		margin: 0 0 4px 0;
+		font-size: 1em;
+	}
+
+	.auth-detail {
+		font-size: 0.85em;
+		color: #166534;
+		margin: 2px 0;
+	}
+
+	.hackclub-unauthenticated {
+		padding: 16px;
+		background: rgba(247, 200, 129, 0.1);
+		border: 2px solid rgba(247, 200, 129, 0.4);
+		border-radius: 8px;
+		text-align: center;
+	}
+
+	.auth-prompt {
+		font-size: 0.9em;
+		color: #666;
+		margin: 0 0 16px 0;
+		line-height: 1.4;
+	}
+
+	.hackclub-auth-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 12px 24px;
+		background: #ec3750;
+		color: white;
+		border: none;
+		border-radius: 8px;
+		font-family: inherit;
+		font-size: 1em;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.hackclub-auth-btn:hover {
+		background: #d42d44;
+	}
+
+	.hackclub-auth-btn:active {
+		transform: translateY(0);
+	}
+
+	.hackclub-icon {
+		height: 20px;
+		width: auto;
+	}
+
+	.hackclub-error {
+		margin-top: 12px;
+		padding: 10px;
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		border-radius: 6px;
+		color: #dc2626;
+		font-size: 0.85em;
+		line-height: 1.5;
+	}
+
+	.hackclub-error-link {
+		color: #dc2626;
+		text-decoration: underline;
+		font-weight: 600;
+		margin-top: 8px;
+		display: inline-block;
+	}
+
+	.hackclub-error-link:hover {
+		color: #991b1b;
 	}
 </style>

@@ -19,6 +19,18 @@
 	let showSettingsButton = $state(false);
 	let showSettingsPopup = $state(false);
 
+	// Check for hackclub_auth_error in URL and auto-open settings popup
+	$effect(() => {
+		if (typeof window !== 'undefined' && user) {
+			const urlParams = new URLSearchParams(window.location.search);
+			const authError = urlParams.get('hackclub_auth_error');
+			if (authError && !showSettingsPopup) {
+				// Auto-open settings popup to show the error
+				showSettingsPopup = true;
+			}
+		}
+	});
+
 	// Function to get missing profile information
 	function getMissingProfileInfo(user: any) {
 		if (!user) return [];
@@ -40,6 +52,11 @@
 
 		if (!user?.improve || !user.improve.trim()) {
 			missing.push('How can we improve?');
+		}
+
+		// Check Hack Club Auth - required for shipping projects
+		if (!user?.hackclub_id || !user.hackclub_id.trim()) {
+			missing.push('Hack Club verification');
 		}
 
 		return missing;
@@ -121,7 +138,7 @@
 				<p>·</p>
 				<p>{paintchips || 0}</p>
 				<Tooltip
-					text="earn paint chips when you submit a project that has art hours logged. use them to decorate your room!"
+					text="earn 5 paint chips per hour on shipped projects. use them to decorate your room!"
 				>
 					<img src="/paintchip.png" alt="Paint chips" />
 				</Tooltip>

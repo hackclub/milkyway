@@ -167,7 +167,7 @@
 
 	.quest-list {
 		flex: 1;
-		overflow-y: auto;
+		overflow-y: scroll;
 		display: flex;
 		flex-direction: column;
 		gap: 0;

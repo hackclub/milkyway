@@ -9,19 +9,22 @@
 			<img src="/explore.png" alt="Explore" />
 			<span>explore</span>
 		</a>
-		<a class="bottom-button disabled">
-			<img src="/friends.png" alt="Crew" />
-			<span>crew</span>
-		</a>
+		<div class="crew-container">
+			<a class="bottom-button crew-button disabled">
+				<img src="/friends.png" alt="Crew" />
+				<span>crew</span>
+			</a>
+			<div class="crew-popup">coming soon!</div>
+		</div>
 	</div>
 	<div class="bottom-right-buttons">
 		<a href="/devlogs" class="bottom-button">
 			<img src="/mimiphone.png" alt="Devlogs" />
 			<span>devlogs</span>
 		</a>
-		<a href="/leaderboard" class="bottom-button">
+		<a href="/stats" class="bottom-button">
 			<img src="/leaderboard.png" alt="Shop" />
-			<span class="leaderboard">leaderboard</span>
+			<span class="leaderboard">stats</span>
 		</a>
 
 		<a href="/shop" class="bottom-button">
@@ -40,7 +43,13 @@
 
 <!-- Tutorials button -->
 <div class="zlayer tutorials-button">
-	<a href="https://hcmilkyway.notion.site" target="_blank" rel="noopener noreferrer" class="tutorials-icon" aria-label="Open Tutorials">
+	<a
+		href="https://hcmilkyway.notion.site"
+		target="_blank"
+		rel="noopener noreferrer"
+		class="tutorials-icon"
+		aria-label="Open Tutorials"
+	>
 		<img src="/mimi_tutorials.png" alt="Tutorials" />
 	</a>
 </div>
@@ -115,6 +124,73 @@
 		gap: 20px;
 	}
 
+	.crew-container {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.crew-popup {
+		position: absolute;
+		bottom: 110%;
+		left: 50%;
+		transform: translateX(-50%);
+		background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+		color: white;
+		padding: 12px 20px;
+		border-radius: 20px;
+		font-size: 0.9em;
+		font-weight: 600;
+		white-space: nowrap;
+		box-shadow:
+			0 8px 25px rgba(0, 0, 0, 0.3),
+			inset 0 1px 0 rgba(255, 255, 255, 0.2);
+		pointer-events: none;
+		letter-spacing: 0.5px;
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		animation: floatPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+	}
+
+	.crew-popup::after {
+		content: '';
+		position: absolute;
+		bottom: -8px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 0;
+		height: 0;
+		border-left: 8px solid transparent;
+		border-right: 8px solid transparent;
+		border-top: 8px solid #c44569;
+	}
+
+	.crew-button:hover .crew-popup {
+		animation: float 2s ease-in-out infinite;
+	}
+
+	@keyframes floatPop {
+		0% {
+			opacity: 0;
+			transform: translateX(-50%) translateY(20px) scale(0.8);
+		}
+		100% {
+			opacity: 1;
+			transform: translateX(-50%) translateY(0) scale(1);
+		}
+	}
+
+	@keyframes float {
+		0%,
+		100% {
+			transform: translateX(-50%) translateY(0px);
+		}
+		50% {
+			transform: translateX(-50%) translateY(-8px);
+		}
+	}
+
 	.bottom-button img {
 		height: 80%;
 	}
@@ -128,10 +204,6 @@
 	.bottom-button:hover {
 		background-color: white;
 		color: black;
-	}
-
-	.leaderboard {
-		font-size: 0.8em;
 	}
 
 	.faq-button {

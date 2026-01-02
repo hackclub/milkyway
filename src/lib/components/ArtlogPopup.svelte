@@ -1,5 +1,5 @@
 <script>
-  let { show = $bindable(false), projectId, onSuccess = null } = $props();
+  let { show = $bindable(false), projectId, onSuccess = null, codeHours = 0, artHours = 0 } = $props();
 
   let hours = $state('');
   let description = $state('');
@@ -9,9 +9,24 @@
   let isUploadingImage = $state(false);
   let error = $state('');
 
-  // Check if all fields are filled
+  // Calculate max art hours allowed (30% of total project hours)
+  // If art can be max 30% of total, and code is fixed, then:
+  // artMax / (code + artMax) = 0.30
+  // artMax = 0.30 * code + 0.30 * artMax
+  // 0.70 * artMax = 0.30 * code
+  // artMax = (0.30 / 0.70) * code
+  let maxArtHours = $derived(() => {
+    return Math.floor((codeHours * 0.3 / 0.7) * 100) / 100;
+  });
+  
+  let remainingArtHours = $derived(() => {
+    return Math.max(0, Math.floor((maxArtHours() - artHours) * 100) / 100);
+  });
+
+  // Check if all fields are filled and hours is within cap
   let isFormValid = $derived(
     hours !== '' && parseFloat(hours) > 0 &&
+    parseFloat(hours) <= remainingArtHours() &&
     description.trim() !== '' && 
     proof.trim() !== '' && 
     imageData !== ''
@@ -88,6 +103,12 @@
     const hoursNum = parseFloat(hours);
     if (isNaN(hoursNum) || hoursNum <= 0) {
       error = 'Hours must be a positive number';
+      return;
+    }
+    
+    // Check 30% cap
+    if (hoursNum > remainingArtHours()) {
+      error = `You can only log up to ${remainingArtHours()} more art hours (30% cap)`;
       return;
     }
 
@@ -175,9 +196,15 @@
               bind:value={hours}
               step="0.1"
               min="0.1"
+              max={remainingArtHours()}
               placeholder="1.5"
               disabled={isSubmitting}
             />
+            <div class="hours-cap-info">
+              Art hours can be up to 30% of total project hours.
+              <br>
+              You can log up to <strong>{remainingArtHours()}</strong> more art hours.
+            </div>
           </div>
 
           <div class="form-group">
@@ -225,6 +252,12 @@
               </div>
             {/if}
           </div>
+          <div class="proof-hint">
+            Misrepresenting the hours spent on assets may result in a reduction of coins, removal of prizes, or even a ban from Milkyway.
+          </div>
+          <div class="review-hint">
+            Artlogs will be reviewed by the Milkyway team before your art hours are attributed.
+          </div>
         </div>
       </div>
 
@@ -263,11 +296,10 @@
 .artlog-popup {
   background: var(--yellow);
   border: 4px solid var(--orange);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 24px;
   max-width: 800px;
   width: 90%;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 .artlog-popup h2 {
@@ -329,6 +361,12 @@
   font-size: 0.75em;
   color: #666;
   font-style: italic;
+}
+
+.review-hint {
+  margin-top: 8px;
+  font-size: 0.75em;
+  color: #555;
 }
 
 .error-message {
@@ -428,5 +466,16 @@
   height: 30vh;
   object-fit: contain;
   display: block;
+}
+
+.hours-cap-info {
+  margin-top: 6px;
+  font-size: 0.75em;
+  color: #666;
+  line-height: 1.4;
+}
+
+.hours-cap-info strong {
+  color: var(--orange);
 }
 </style>

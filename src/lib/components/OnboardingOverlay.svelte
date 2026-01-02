@@ -23,11 +23,12 @@
     user?.username ? "i'm mimi — it seems like you've been here before!" : "i'm mimi, a local resident here. what's your name?",
     "milkyway is your little digital home for gamedev projects and challenges.",
     "you can make games to earn COINS, which you can then use to buy items from the shop, like gift cards!",
-    "look, this is your room! when you submit art hours in your game, you earn PAINT CHIPS to buy furniture to level-up your room. pretty cool, right?",
+    "look, this is your room! after you ship a project, any extra hours you work on it will earn PAINT CHIPS to buy furniture to level-up your room. pretty cool, right?",
     "after you've made a game, you can polish it even more to earn stellar ships, which are useful for buying special items in the shop...",
     "like the ticket to OVERGLADE, our singapore game jam hackathon in january!",
     "the shop is down at the right. go check it out when you have time.",
-    "i'll let you look around for now. if you ever need me, i'll be just here at the bottom left — and definitely head to <a href='https://hackclub.slack.com/archives/C09EZSEMB16' target='_blank'>#milkyway on slack</a> for more questions!"
+    "i'll let you look around for now. if you ever need me, i'll be just here at the bottom left — and definitely head to <a href='https://hackclub.slack.com/archives/C09EZSEMB16' target='_blank'>#milkyway on slack</a> for more questions!",
+    "btw — check out the <a href='https://hcmilkyway.notion.site' target='_blank'>tutorials</a> too if you don't know where to start. see ya!"
   ];
 
   function typeWriter(text, speed = 20) {

@@ -60,6 +60,7 @@ export async function GET({ url, locals, request, cookies }) {
 								username: username,
 								projects: projects,
 								furniture: furniture,
+								wallVariant: followedUser.fields.wallVariant || 'default',
 								isFollowing: true
 							});
 						}
@@ -100,6 +101,7 @@ export async function GET({ url, locals, request, cookies }) {
 						username: String(userRecord.fields.username || ''),
 						projects: projects,
 						furniture: furniture,
+						wallVariant: userRecord.fields.wallVariant || 'default',
 						isFollowing: false
 					});
 				}

@@ -126,11 +126,20 @@ export async function deductCurrency(userId, costs) {
       try {
         const userRecord = await base('User').find(userId);
         const currentCoins = Number(userRecord.fields.coins || 0);
+        // NOTE: `stellarships` is now a computed field in Airtable.
+        // We can READ it to know how many are available, but we must not WRITE to it.
         const currentStellarships = Number(userRecord.fields.stellarships || 0);
+        // Track how many stellarships have been spent via purchases.
+        const currentStellarshipSpent = Number(userRecord.fields.stellarships_spent || 0);
         const currentPaintchips = Number(userRecord.fields.paintchips || 0);
         
         // SECURITY: Double-check currency values are valid
-        if (isNaN(currentCoins) || isNaN(currentStellarships) || isNaN(currentPaintchips)) {
+        if (
+          isNaN(currentCoins) ||
+          isNaN(currentStellarships) ||
+          isNaN(currentPaintchips) ||
+          isNaN(currentStellarshipSpent)
+        ) {
           throw new Error('Invalid currency values in database');
         }
         
@@ -138,6 +147,7 @@ export async function deductCurrency(userId, costs) {
         const newCoins = currentCoins - coinsCost;
         const newStellarships = currentStellarships - stellarshipsCost;
         const newPaintchips = currentPaintchips - paintchipsCost;
+        const newStellarshipSpent = currentStellarshipSpent + stellarshipsCost;
         
         // SECURITY: Verify user has sufficient currency
         if (newCoins < 0 || newStellarships < 0 || newPaintchips < 0) {
@@ -145,15 +155,22 @@ export async function deductCurrency(userId, costs) {
         }
         
         // SECURITY: Validate new values are reasonable (prevent negative overflow)
-        if (newCoins > 999999 || newStellarships > 999999 || newPaintchips > 999999) {
+        if (
+          newCoins > 999999 ||
+          newStellarships > 999999 ||
+          newPaintchips > 999999 ||
+          newStellarshipSpent > 999999
+        ) {
           throw new Error('Currency values too large');
         }
         
         // Update user's currency
+        // IMPORTANT: `stellarships` is computed, so we only update `stellarship_spent`,
+        // which Airtable uses to derive the live `stellarships` value.
         await base('User').update(userId, {
           coins: newCoins,
-          stellarships: newStellarships,
-          paintchips: newPaintchips
+          paintchips: newPaintchips,
+          stellarships_spent: newStellarshipSpent
         });
         
         return {
@@ -190,19 +207,32 @@ export async function rollbackCurrency(userId, costs) {
     // Get current user currency
     const userRecord = await base('User').find(userId);
     const currentCoins = Number(userRecord.fields.coins || 0);
+    // `stellarships` is computed; safe to read but not write.
     const currentStellarships = Number(userRecord.fields.stellarships || 0);
+    const currentStellarshipSpent = Number(userRecord.fields.stellarships_spent || 0);
     const currentPaintchips = Number(userRecord.fields.paintchips || 0);
+    
+    if (
+      isNaN(currentCoins) ||
+      isNaN(currentStellarships) ||
+      isNaN(currentPaintchips) ||
+      isNaN(currentStellarshipSpent)
+    ) {
+      throw new Error('Invalid currency values in database');
+    }
     
     // Add back the costs (restore currency)
     const restoredCoins = currentCoins + coinsCost;
     const restoredStellarships = currentStellarships + stellarshipsCost;
     const restoredPaintchips = currentPaintchips + paintchipsCost;
+    const restoredStellarshipSpent = currentStellarshipSpent - stellarshipsCost;
     
     // Update user's currency (restore it)
     await base('User').update(userId, {
       coins: restoredCoins,
-      stellarships: restoredStellarships,
-      paintchips: restoredPaintchips
+      paintchips: restoredPaintchips,
+      // Never write to computed `stellarships`; instead, roll back what we added to `stellarship_spent`.
+      stellarships_spent: restoredStellarshipSpent < 0 ? 0 : restoredStellarshipSpent
     });
     
     return {

@@ -1,10 +1,216 @@
 <script>
 import { onMount } from 'svelte';
+import { Chart, CategoryScale, LinearScale, BarElement, BarController, Title, Tooltip, Legend } from 'chart.js';
+
+// Register Chart.js components
+Chart.register(CategoryScale, LinearScale, BarElement, BarController, Title, Tooltip, Legend);
 
 let users = $state(/** @type {any[]} */ ([]));
 let isLoading = $state(true);
 let currentPage = $state(1);
 let sortBy = $state('coins'); // 'coins', 'hours', or 'referrals'
+
+// Weekly stats for bento box
+let weeklyStats = $state(/** @type {Array<{date: string, codeHours: number, artHours: number, totalHours: number, codeProjectBreakdown?: Array<{name: string, hours: number}>, artProjectBreakdown?: Array<{name: string, hours: number}>}> | null} */ (null));
+let isLoadingStats = $state(true);
+let chartInstance = $state(/** @type {Chart | null} */ (null));
+let chartCanvas = $state(/** @type {HTMLCanvasElement | null} */ (null));
+
+async function loadWeeklyStats() {
+    try {
+        isLoadingStats = true;
+        // Get user's timezone
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const response = await fetch('/api/get-weekly-stats', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ timezone })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result && result.success && result.dailyStats) {
+                weeklyStats = result.dailyStats;
+            } else {
+                // User not logged in or no stats available
+                weeklyStats = null;
+            }
+        } else if (response.status === 401) {
+            // User not logged in - don't show chart
+            weeklyStats = null;
+        } else {
+            console.error('Failed to load weekly stats:', response.status);
+            weeklyStats = null;
+        }
+    } catch (error) {
+        console.error('Error loading weekly stats:', error);
+        weeklyStats = null;
+    } finally {
+        isLoadingStats = false;
+    }
+}
+
+function updateChart() {
+    if (!chartCanvas || !weeklyStats || weeklyStats.length === 0) {
+        // Try again after a short delay if canvas isn't ready
+        if (weeklyStats && weeklyStats.length > 0 && !isLoadingStats) {
+            setTimeout(updateChart, 100);
+        }
+        return;
+    }
+    
+    // Destroy existing chart if it exists
+    if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+    }
+    
+    // Prepare data
+    const labels = weeklyStats.map(day => {
+        const date = new Date(day.date);
+        return date.toLocaleDateString('en-US', { weekday: 'short' });
+    });
+    
+    const codeHoursData = weeklyStats.map(day => day.codeHours);
+    const artHoursData = weeklyStats.map(day => day.artHours);
+    
+    // Create chart
+    chartInstance = new Chart(chartCanvas, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'code hours',
+                    data: codeHoursData,
+                    backgroundColor: '#5A9BD4',
+                    borderColor: '#5A9BD4',
+                    borderWidth: 0
+                },
+                {
+                    label: 'art hours',
+                    data: artHoursData,
+                    backgroundColor: '#E6819F',
+                    borderColor: '#E6819F',
+                    borderWidth: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            family: 'Futura, sans-serif',
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: {
+                        family: 'Futura, sans-serif',
+                        size: 13,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        family: 'Futura, sans-serif',
+                        size: 12
+                    },
+                    callbacks: {
+                        title: function(context) {
+                            const index = context[0].dataIndex;
+                            const date = new Date(weeklyStats[index].date);
+                            return date.toLocaleDateString('en-US', { 
+                                weekday: 'long',
+                                month: 'short',
+                                day: 'numeric'
+                            }).toLowerCase();
+                        },
+                        label: function(context) {
+                            const index = context.dataIndex;
+                            const day = weeklyStats[index];
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            
+                            // Get project breakdown based on dataset
+                            let breakdown = [];
+                            if (label === 'code hours' && day.codeProjectBreakdown) {
+                                breakdown = day.codeProjectBreakdown;
+                            } else if (label === 'art hours' && day.artProjectBreakdown) {
+                                breakdown = day.artProjectBreakdown;
+                            }
+                            
+                            // If there's a breakdown, show it
+                            if (breakdown.length > 0) {
+                                if (breakdown.length === 1) {
+                                    // Single project: show inline
+                                    return `${label}: ${value.toFixed(2)}h (${breakdown[0].name})`;
+                                } else {
+                                    // Multiple projects: show list
+                                    const lines = [`${label}: ${value.toFixed(2)}h`];
+                                    breakdown.forEach(project => {
+                                        lines.push(`${project.name}: ${project.hours.toFixed(2)}h`);
+                                    });
+                                    return lines;
+                                }
+                            } else {
+                                return `${label}: ${value.toFixed(2)}h`;
+                            }
+                        },
+                        afterBody: function(context) {
+                            const index = context[0].dataIndex;
+                            const day = weeklyStats[index];
+                            return `total: ${day.totalHours.toFixed(2)}h`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            family: 'Futura, sans-serif',
+                            size: 11,
+                            weight: '600'
+                        },
+                        color: '#333'
+                    }
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(129, 160, 247, 0.3)'
+                    },
+                    ticks: {
+                        font: {
+                            family: 'Futura, sans-serif',
+                            size: 10
+                        },
+                        color: '#333',
+                        callback: function(value) {
+                            return value + 'h';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
 
 async function loadLeaderboardData() {
     try {
@@ -27,7 +233,25 @@ async function loadLeaderboardData() {
     }
 }
 
-onMount(loadLeaderboardData);
+onMount(() => {
+    loadLeaderboardData();
+    loadWeeklyStats();
+    
+    // Cleanup chart on unmount
+    return () => {
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+    };
+});
+
+// Update chart when data changes
+$effect(() => {
+    if (!isLoadingStats && weeklyStats && weeklyStats.length > 0) {
+        // Small delay to ensure canvas is rendered
+        setTimeout(updateChart, 50);
+    }
+});
 
 function nextPage() {
     currentPage = currentPage + 1;
@@ -74,36 +298,55 @@ function viewUserProfile(username) {
         <img class="axolotl-top" src="/prompts/axolotl.png" alt="axolotl up top"/>
         <a class="back-button" href="/home">← back</a>
         <div class="title-container">
-            <h1>leaderboard!</h1>
+            <h1>stats!</h1>
             
         </div>
+        
+        <!-- Bento Box: Weekly Stats Chart -->
+        {#if isLoadingStats || (weeklyStats && weeklyStats.length > 0)}
+            <div class="bento-container">
+                <div class="bento-box">
+                    <h2>your past week</h2>
+                    {#if isLoadingStats}
+                        <div class="chart-placeholder">
+                            <div class="placeholder-text">loading your coding stats...</div>
+                        </div>
+                    {:else if weeklyStats && weeklyStats.length > 0}
+                        <div class="chart-container">
+                            <canvas bind:this={chartCanvas}></canvas>
+                        </div>
+                    {/if}
+                </div>
+            </div>
+        {/if}
+        
         <div class="main-container">
             <div class="leaderboard-header">
                 <div class="col-rank">#</div>
-                <div class="col-name">Name</div>
+                <div class="col-name">name</div>
                                 <div class="col-hours" role="button" tabindex="0" onclick={() => setSort('hours')}>
 									<div class="hours-button">
-                                    	<span>Hours</span>
+                                    	<span>hours</span>
                                     	<span class="sort-arrow">{sortBy === 'hours' ? '▾' : ' '}</span>
 									</div>
                                 </div>
                                 <div class="col-coins" role="button" tabindex="0" onclick={() => setSort('coins')}>
 									<div class="coins-button">
-                                    <span>Coins</span>
+                                    <span>coins</span>
                                     <span class="sort-arrow">{sortBy === 'coins' ? '▾' : ' '}</span>
 									</div>
                                 </div>
                                 <div class="col-referrals" role="button" tabindex="0" onclick={() => setSort('referrals')}>
 									<div class="referrals-button">
-                                    <span>Referrals</span>
+                                    <span>referrals</span>
                                     <span class="sort-arrow">{sortBy === 'referrals' ? '▾' : ' '}</span>
 									</div>
                                 </div>
             </div>
             {#if isLoading}
-                <div class="loading">Loading...</div>
+                <div class="loading">loading...</div>
             {:else if users.length === 0}
-                <div class="user">No users found</div>
+                <div class="user">no users found</div>
             {:else}
                 <div class="user-container">
                 {#each users as u, i}
@@ -243,6 +486,56 @@ function viewUserProfile(username) {
         width: 80%;
         text-align: center;
     }
+    
+    .bento-container {
+        width: 80%;
+        margin-top: 20px;
+    }
+    
+    .bento-box {
+        background-color: #bfd7fb;
+        border: 4px solid #81a0f7;
+        border-radius: 8px;
+        padding: 20px;
+        font-family: "Futura", sans-serif;
+    }
+    
+    .bento-box h2 {
+        margin: 0 0 16px 0;
+        font-size: 1.5em;
+        color: #333;
+        text-align: center;
+    }
+    
+    .chart-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .chart-container canvas {
+        max-height: 300px;
+    }
+    
+    .chart-placeholder {
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #d5e2f6;
+        border: 2px dashed #81a0f7;
+        border-radius: 8px;
+    }
+    
+    .placeholder-text {
+        color: #666;
+        font-size: 1em;
+    }
+    
     .axolotl-top {
         margin: 0;
         padding: 0;

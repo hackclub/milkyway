@@ -1,41 +1,69 @@
 <script lang="ts">
-  export let data: any = {};
+  import { onMount } from 'svelte';
+
+  let { data } = $props<{ data: any }>();
 
   const homeHref = '/home';
 
   let user = data.user ?? {};
-  let coins: number = data.coins ?? 0;
+  let coins: number = $state(data.coins ?? 0);
   let stellarships: number = data.stellarships ?? 0;
   let projects = Array.isArray(data.projects) ? data.projects : [];
-  let submissions = Array.isArray(data.submissions) ? data.submissions : [];
+  let submissions = $state(Array.isArray(data.submissions) ? data.submissions : []);
+  let approvedStellarShips = Array.isArray(data.approvedStellarShips) ? data.approvedStellarShips : [];
   // step 0: "what's a stellar ship?" | step 1: criteria intro | step 2: choose project | step 3: success
-  let step = 0;
-  let submittedProjectName = '';
+  let step = $state(0);
+  let submittedProjectName = $state('');
+
+  // Star positions for the night sky
+  type StarPosition = { x: number; y: number; id: number };
+  let starPositions: StarPosition[] = $state([]);
+  let hoveredStarId: number | null = $state(null);
+
+  // Generate random star positions in the top portion of the page
+  function generateStarPositions() {
+    const stars: StarPosition[] = [];
+    approvedStellarShips.forEach((ship: any, index: number) => {
+      // Random position in top portion of viewport (0-35% height for higher placement)
+      // Leave some margin on sides (5% to 95% width)
+      const x = Math.random() * 90 + 5; // 5% to 95%
+      const y = Math.random() * 20 + 20; // 0% to 35% (top portion, higher up)
+      stars.push({ x, y, id: index });
+    });
+    starPositions = stars;
+  }
+
+  onMount(() => {
+    generateStarPositions();
+  });
 
   // Only show projects that have been shipped (have a shipURL)
-  $: shippedProjects = projects.filter((p: any) => p.shipURL && p.shipURL.trim() !== '');
+  let shippedProjects = $derived(projects.filter((p: any) => p.shipURL && p.shipURL.trim() !== ''));
 
   // Get project IDs that have NOT been submitted yet
-  $: availableProjects = shippedProjects.filter((p: any) => 
+  let availableProjects = $derived(shippedProjects.filter((p: any) => 
     !submissions.some((s: any) => s.projectId === p.id)
-  );
+  ));
 
-  let selectedProjectId: string = '';
+  let selectedProjectId: string = $state('');
   
   // Initialize selectedProjectId - prefer non-submitted projects first
-  $: if (!selectedProjectId || !shippedProjects.some((p: any) => p.id === selectedProjectId)) {
-    if (availableProjects.length > 0) {
-      selectedProjectId = availableProjects[0]?.id ?? '';
-    } else if (shippedProjects.length > 0) {
-      selectedProjectId = shippedProjects[0]?.id ?? '';
+  $effect(() => {
+    if (!selectedProjectId || !shippedProjects.some((p: any) => p.id === selectedProjectId)) {
+      if (availableProjects.length > 0) {
+        selectedProjectId = availableProjects[0]?.id ?? '';
+      } else if (shippedProjects.length > 0) {
+        selectedProjectId = shippedProjects[0]?.id ?? '';
+      }
     }
-  }
-  let justification = '';
-  let uploadedImages: { data: string; name: string }[] = [];
+  });
+
+  let justification = $state('');
+  let uploadedImages: { data: string; name: string }[] = $state([]);
   let fileInput: HTMLInputElement;
 
-  let loading = false;
-  let message = '';
+  let loading = $state(false);
+  let message = $state('');
 
   function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -70,19 +98,19 @@
   }
 
   // Filter pending submissions
-  $: pendingSubmissions = submissions.filter((s: any) => s.status === 'pending');
+  let pendingSubmissions = $derived(submissions.filter((s: any) => s.status === 'pending'));
 
   // Get ALL project IDs that have been submitted to the blackhole (any status)
-  $: submittedProjectIds = new Set(submissions.map((s: any) => s.projectId));
+  let submittedProjectIds = $derived(new Set(submissions.map((s: any) => s.projectId)));
 
   // Check if selected project has already been submitted
-  $: isSelectedProjectSubmitted = submittedProjectIds.has(selectedProjectId);
+  let isSelectedProjectSubmitted = $derived(submittedProjectIds.has(selectedProjectId));
 
   // Check if selected project is currently pending
-  $: isSelectedProjectPending = pendingSubmissions.some((s: any) => s.projectId === selectedProjectId);
+  let isSelectedProjectPending = $derived(pendingSubmissions.some((s: any) => s.projectId === selectedProjectId));
 
   // Get selected project name
-  $: selectedProjectName = projects.find((p: any) => p.id === selectedProjectId)?.name ?? 'a creature';
+  let selectedProjectName = $derived(projects.find((p: any) => p.id === selectedProjectId)?.name ?? 'a creature');
 
   // Get project info by projectId
   function getProjectForSubmission(submission: any) {
@@ -203,6 +231,32 @@
 <div class="blackhole-page">
   {#if step >= 2}
     <div class="bg-layer"></div>
+  {/if}
+
+  <!-- Night sky with stars - only show on step 0, outside content div -->
+  {#if step === 0}
+    <div class="night-sky">
+      {#each approvedStellarShips as ship, index}
+        {@const starPos = starPositions.find(p => p.id === index)}
+        {#if starPos}
+          <button
+            class="star-button"
+            style="left: {starPos.x}%; top: {starPos.y}%"
+            on:click={() => window.open(ship.shipURL, '_blank')}
+            on:mouseenter={() => hoveredStarId = index}
+            on:mouseleave={() => hoveredStarId = null}
+            aria-label="{ship.projectName} by {ship.username} is a stellar ship"
+          >
+            <span class="star">✦</span>
+            {#if hoveredStarId === index}
+              <div class="star-tooltip">
+                {ship.projectName} by {ship.username} is a stellar ship
+              </div>
+            {/if}
+          </button>
+        {/if}
+      {/each}
+    </div>
   {/if}
 
   {#key step}
@@ -439,7 +493,7 @@
     position: relative;
     max-width: 900px;
     width: 100%;
-    z-index: 1;
+    z-index: 2;
     text-align: center;
   }
 
@@ -793,6 +847,92 @@
     .project-card img {
       width: 110px;
     }
+  }
+
+  .night-sky {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 40vh;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+  }
+
+  .star-button {
+    position: absolute;
+    background: none;
+    border: none;
+    cursor: pointer;
+    pointer-events: auto;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translate(-50%, -50%);
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    z-index: 1;
+  }
+
+  .star-button:hover {
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+
+  .star {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+  }
+
+  .star-button:hover .star {
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+  }
+
+  .star-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.85);
+    color: #f5f5f5;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    animation: tooltipFadeIn 0.2s ease forwards;
+  }
+
+  .star-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.85);
+  }
+
+  @keyframes tooltipFadeIn {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  .poem-intro {
+    position: relative;
+    z-index: 1;
   }
 </style>
 
