@@ -109,23 +109,6 @@ function normalizeSubmission(record) {
   };
 }
 
-/**
- * Normalize submission with project info
- * @param {any} record
- * @param {any} projectRecord
- */
-function normalizeSubmissionWithProject(record, projectRecord) {
-  const submission = normalizeSubmission(record);
-  if (!submission) return null;
-  
-  const pf = projectRecord?.fields ?? {};
-  return {
-    ...submission,
-    projectName: pf.projectname ?? pf.Name ?? 'Unknown Project',
-    projectEgg: pf.egg ?? null
-  };
-}
-
 // core flow
 
 /**
@@ -197,15 +180,6 @@ export async function submitToBlackhole(rawInput) {
 
   // ASSERT DOMINANCE
   assertProjectOwnership(project, user);
-
-  //Checking if submitted
-  const alreadySubmitted = await hasActiveSubmission(user.id, project.id);
-  if (alreadySubmitted) {
-    throw new Error(
-      'This project already has a pending or approved black hole submission.'
-    );
-  }
-
 
   //Checking if submitted
   const alreadySubmitted = await hasActiveSubmission(user.id, project.id);
