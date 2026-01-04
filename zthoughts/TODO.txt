@@ -1,45 +1,30 @@
 TODO pageee (in list of importance):
 
-CONFICT ERRORS WITH PR #17
-    - Coolify server error(essentially sentry):
-        -      check error.txt
-    - (Zod) " it didn’t install zod in the requirements"
-    - Apparently bc subitting images?
-    - AUGHYAHUDD TONGUE ALREADY FIXED WHAT I WAS TRYING TO DO :sob:
-
-Blackhole page:
-    - Need to add "check submission page" so users can check their submissions
-    - Make sure ppl cant submit again
-        - check airtable fields
-    - Change current comments so it explains more
-    - Make justification box a bit lighter(text font)
-    - Check sentry[bot] errors
-        - apparently approve doesnt work?
-    - Add animations to:
-        - submitting creature
-        - switching pages from start to submit
-    - 
-
 Reviewer page:
     - Need to use "permissions" to let reviewers review 
+        - Rating/review system... TALK TO TONGYU ABOUT WHAT SHE WANTS
+        - Find how levels of review ms tongyu wants 
     - Get rid of/stop using REVIEWER_PASSWORD?
     - Similar to siege reviews...
         - Fraud review + Github repo + Itch game page + Slack User ID 
         - Attach to bot?
         - check siege bot + page(but it is rails...)
     - Fix the entire system sob
-    - Rating/review system... TALK TO TONGYU ABOUT WHAT SHE WANTS
     - Make it look good!!!
     - 
 
-ZOD
-    - Sentry had some probelms with it...
-    - Double check where it is + add to places its needed
-
 Notes on updating repo: 
+    Still confused on what version of svelete
+        check lockerfile 
     Use up-to-date versions of npm installs
     need to check the package-lock's so that the pnmp install, and make sure that vetsion conflicts dont exist
 
     __ does not exist on type 'Object'
     Parameter '__' implicitly has an 'any' type.
     gotta check other extensions/imports
+
+VSCODE tells me:
+    Do you want to install the recommended 'Container Tools' extension from Microsoft for the Docker language?
+    Double chekc this and 
+
+Need to double check airtable variable names 

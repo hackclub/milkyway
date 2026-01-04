@@ -202,8 +202,6 @@
     }
   }
 
-  let availableProjects = projects;
-
   $: {
     const blocked = new Set(
       submissions

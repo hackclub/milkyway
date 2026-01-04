@@ -7,7 +7,7 @@ import { escapeAirtableFormula } from '$lib/server/security.js';
 const USER_TABLE = 'User';
 const PROJECTS_TABLE = 'Projects';
 const USER_BLACKHOLE_VIEW = 'BlackholeSubmission';
-const BLACKHOLE_TABLE = 'BlackholeSubmissions'; // make sure this matches your Airtable table name
+const BLACKHOLE_TABLE = 'BlackholeSubmissions';
 
 // Tongyu change dis based on what you want
 const SUBMISSION_COST_COINS = 10;
@@ -169,7 +169,6 @@ async function hasActiveSubmission(userRecordId, projectRecordId) {
   return records.length > 0;
 }
 
-
 /**
  * submittin
  * @param {any} rawInput
@@ -238,8 +237,6 @@ export async function submitToBlackhole(rawInput) {
     CoinsAfter: coinsAfter,
     HackatimeHoursAtSubmission: hackatimeHours,
     StellarshipsAtSubmission: stellarships,
-    submissionNumber,
-    Justification: justification ?? ''
     submissionNumber,
     Justification: justification ?? ''
   });
