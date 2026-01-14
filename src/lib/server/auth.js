@@ -57,6 +57,7 @@ export async function getUserInfoBySessionId(sessionid) {
 		maxDevlogStreak: fields.maxDevlogStreak || 0,
 		wallVariant: fields.wallVariant || 'default',
 		lastDevlogDate: fields.lastDevlogDate || null,
+		overglade: fields['overglade?'] || null,
 		// Permissions / roles
 		permissions: fields.permissions || [],
 		// Hack Club Auth fields
@@ -95,6 +96,7 @@ export function sanitizeUserForFrontend(serverUser) {
 		devlogStreak: serverUser.devlogStreak || 0,
 		maxDevlogStreak: serverUser.maxDevlogStreak || 0,
 		wallVariant: serverUser.wallVariant || 'default',
+		overglade: serverUser.overglade || null,
 		// Hack Club Auth - only include non-sensitive fields
 		hackclub_id: serverUser.hackclub_id || null,
 		hackclub_name: serverUser.hackclub_name || null,
