@@ -2,7 +2,12 @@ Notes for da tongue:
 
 Imported ZOD 
 
-Added Airtable stuff:
+FOR REVIEWER SYSTEMS:
+
+Added airtable stuff :
+
+Projects
+
     User - added new view(BlackholeSubmission) 
     BlackholeSubmissions - new table with fields
         submission_number
@@ -10,17 +15,68 @@ Added Airtable stuff:
         username(from user table)
         Project(from projects table)
         Status (approved/rejected/pending)
-        CoinsSpent(10)
-        CoinsBefore
-        CoinsAfter
         HackatimeHoursAtSubmission
         StellarshipsAtSubmission
         Reviewer(uhh probably gonna link this to user so auth works)
         Reason 
 
+    
 Added env variables:
-    REVIEWER_PASSWORD
-        password for reviewer page
-        gonna change to use field "permissions" thats made
-    PUBLIC_SHOW_BLACKHOLE
-        true/false to let others see blackhole
+
+
+Alright changes from here:
+
+Note that soon once we get the basic net structure up we'll make 
+it so that a slack bot works so that if a project is accepted/rejected 
+reviewer feedback will go to the slack user of the project(a user's slack id is stored in airtable)
+
+And to be clear what fields Projects tab and grid view of each project 
+    user (link to user info view from user tab)
+    projectid
+    projectname(single line text)
+    description(single line text)
+    hackatimeprojects(single line text)
+    hoursShipped(Lookup and is a number)
+    status(single select)
+        submitted
+        wip
+        completed
+        second
+    shipURL(URL)
+    githubURL(URL)
+    image(attachement)
+    notMadeBy(single line text)
+    howToPlay(single line text)
+    addnComments(single line text)
+    waitingReview(Rollup)
+        rollup source = YSWS Project Submission
+        field - AwardingResults(single line text)
+    totalCoinsEarned(Rollup)
+        rollup source = YSWS Project Submission
+        field - coinsAwarded(number)
+
+
+Fields from User tab and User Info view
+    do later 
+
+Blackhole review 
+    Like the previous structure, get pending and see project info
+    Approve or reject 
+
+Basic review
+    for each project, reviewers can pick from
+    "this is a crazy good project, i really liked it!"
+    "this is a good project that seems to have spent the number of hours stated"
+    "i'm not too sure"
+    "this does not feel like they spent the number of hours stated"
+    and then if 2+ people vote 'crazy good', immediately issue 10 coins/hr(check hoursShippedx10 and add it to totalCoinsEarned(Rollup) then change status to finished)
+    if 2+ people vote 'good' or 'crazy good', immediately issue 9 or 9.5 coins/hr(check hoursShippedx10 and add it to totalCoinsEarned(Rollup) then change status to finished)
+    if any of the two bottom choices are chosen 2+ times, then it will be given second status and go to second review
+
+Second review
+    the second status projects will appear here 
+
+Admin review 
+    will do later 
+
+The main goal is to get blackhole and basic reviews done
