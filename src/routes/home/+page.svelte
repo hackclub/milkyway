@@ -7,6 +7,7 @@
 	import OnboardingOverlay from '$lib/components/OnboardingOverlay.svelte';
 	import FaqPopup from '$lib/components/FaqPopup.svelte';
 	import PromptPopup from '$lib/components/PromptPopup.svelte';
+	import OvergladePopup from '$lib/components/OvergladePopup.svelte';
 	import SpinWheel from '$lib/components/prompts/roulette/SpinWheel.svelte';
 	import CreateProject from '$lib/components/CreateProject.svelte';
 	import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
@@ -40,6 +41,7 @@
 	let showFurnitureSidebar = $state(false);
 	let showBetIntro = $state(false);
 	let currentBet = $state(data.currentBet || null);
+	let showOvergladePopup = $state(!data.user?.overglade);
 	
 	// Blackhole results state
 	let unclaimedBlackholeResults = $state(data.unclaimedBlackholeResults || []);
@@ -710,6 +712,12 @@
 	</div>
 
 	<Bet showPopup={showBetIntro} onClose={() => showBetIntro = false} />
+
+	<OvergladePopup 
+		showPopup={showOvergladePopup} 
+		onClose={() => showOvergladePopup = false}
+		{user}
+	/>
 </main>
 
 <style>
