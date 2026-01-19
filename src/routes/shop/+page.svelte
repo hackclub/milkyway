@@ -151,6 +151,12 @@ onMount(loadShopData);
                 </div>
             {/if}
         </div>
+
+        <!-- Shop Pause Notice -->
+        <div class="shop-pause-notice">
+            <h2>SHOP IS ON PAUSE!</h2>
+            <p><b>items not related to overglade</b> on the shop will have delayed fulfilment until overglade ends. expect a shop drop on 5 feb and fulfilment to resume then — this helps us significantly in our budget calculations. thank you for your patience!</p>
+        </div>
     
         <!-- Tab Navigation -->
         <div class="tab-navigation">
@@ -414,6 +420,33 @@ onMount(loadShopData);
 
     .login-message a:hover {
         text-decoration: underline;
+    }
+
+    .shop-pause-notice {
+        margin: 20px 0 0 0;
+        border: 4px solid #E6819F;
+        background-color: #EED4D4;
+        padding: 16px 24px;
+        border-radius: 8px;
+        width: 80%;
+        text-align: center;
+        font-family: "Futura", sans-serif;
+    }
+
+    .shop-pause-notice h2 {
+        margin: 0 0 8px 0;
+        color: #E6819F;
+        font-size: 1.4em;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .shop-pause-notice p {
+        margin: 0;
+        color: #333;
+        font-size: 0.95em;
+        line-height: 1.4;
     }
 
     .tab-navigation {
@@ -823,6 +856,19 @@ onMount(loadShopData);
         .shop-items-container {
             width: 95%;
             grid-template-columns: 1fr;
+        }
+
+        .shop-pause-notice {
+            width: 90%;
+            padding: 12px 16px;
+        }
+
+        .shop-pause-notice h2 {
+            font-size: 1.2em;
+        }
+
+        .shop-pause-notice p {
+            font-size: 0.85em;
         }
 
         .modal-content {
