@@ -68,27 +68,29 @@ export async function calculateHoursInRange(userEmail, startDate, endDate) {
 		let artHours = 0;
 		try {
 			if (projectIds.length > 0) {
-				const escapedProjectIds = projectIds.map(id => escapeAirtableFormula(String(id)));
-				const projectFilters = escapedProjectIds.map(
-					id => `FIND("|${id}|", "|" & ARRAYJOIN({Projects}, "|") & "|") > 0`
-				);
-				const projectFilterFormula = projectFilters.join(',');
-
 				// Format dates for Airtable query (ISO format)
 				const startISO = startDate.toISOString();
 				const endISO = endDate.toISOString();
 
+				// NOTE: We can't use ARRAYJOIN({Projects}) with record IDs because
+				// ARRAYJOIN on linked fields returns the PRIMARY FIELD (names), not record IDs.
+				// Instead, fetch all artlogs in date range and filter by project IDs in JavaScript.
 				const filterFormula = `AND(
-					OR(${projectFilterFormula}),
 					IS_AFTER({Created}, "${startISO}"),
 					IS_BEFORE({Created}, "${endISO}")
 				)`;
 
-				const artlogRecords = await base('Artlog')
+				const allArtlogRecords = await base('Artlog')
 					.select({
 						filterByFormula: filterFormula
 					})
 					.all();
+
+				// Filter to only artlogs linked to user's projects
+				const artlogRecords = allArtlogRecords.filter(record => {
+					const linkedProjectIds = record.fields.Projects || [];
+					return linkedProjectIds.some(pid => projectIds.includes(pid));
+				});
 
 				for (const record of artlogRecords) {
 					const hours = typeof record.fields.hours === 'number' ? record.fields.hours : 0;
