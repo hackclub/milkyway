@@ -1211,7 +1211,7 @@
 		position: absolute;
 		bottom: calc(50vh - 150px);
 		right: calc(50vw - 630px);
-		z-index: 1;
+		z-index: 0;
 	}
 
 	@media (max-width: 1400px) {
