@@ -28,6 +28,11 @@
 	let paintchips = $state(data.paintchips || 0);
 	let showOnboarding = $state(!data.hasOnboarded);
 	let user = $state(data.user); // Create separate state for user data
+	
+	// Debt state
+	let debt = $state(Number(data.user?.debt) || 0);
+	let debtNote = $state(data.user?.debtNote || '');
+	let isPayingDebt = $state(false);
 	let showFaqPopup = $state(false);
 	let showPromptPopup = $state(false);
 	let currentPromptInfo = $state('');
@@ -447,6 +452,36 @@
 		if (!egg) return '/projects/sparkle_egg1.png';
 		return egg.startsWith('/') ? egg : `/${egg}`;
 	}
+
+	// Pay debt function
+	async function payDebt() {
+		if (isPayingDebt || debt <= 0 || coins <= 0) return;
+		
+		isPayingDebt = true;
+		try {
+			const response = await fetch('/api/pay-debt', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' }
+			});
+			
+			const result = await response.json();
+			
+			if (result.success) {
+				// Update local state
+				coins = result.newCoins;
+				debt = result.newDebt;
+				if (result.fullyPaid) {
+					debtNote = '';
+				}
+			} else {
+				console.error('Failed to pay debt:', result.error);
+			}
+		} catch (error) {
+			console.error('Error paying debt:', error);
+		} finally {
+			isPayingDebt = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -490,6 +525,29 @@
 		onLogout={handleLogout}
 		onUserUpdate={handleUserUpdate}
 	/>
+
+	<!-- Debt Box -->
+	{#if debt > 0}
+		<div class="debt-box">
+			<div class="debt-content">
+				<p class="debt-title">you are in debt for {debt} coins for:</p>
+				<p class="debt-note">{debtNote || 'unknown reason'}</p>
+				<button 
+					class="pay-debt-button" 
+					onclick={payDebt}
+					disabled={isPayingDebt || coins <= 0}
+				>
+					{#if isPayingDebt}
+						paying...
+					{:else if coins <= 0}
+						no coins
+					{:else}
+						pay debt
+					{/if}
+				</button>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Navigation Buttons -->
 	<NavigationButtons
@@ -1122,5 +1180,57 @@
 		text-align: center;
 		padding: 8px 0;
 		line-height: 1.4;
+	}
+
+	/* Debt Box Styles */
+	.debt-box {
+		position: fixed;
+		top: 50px;
+		left: 370px;
+		z-index: 2;
+	}
+
+	.debt-content {
+		background-color: #fbf2bf;
+		border: 4px solid #f7c881;
+		padding: 12px 16px;
+		border-radius: 8px;
+		max-width: 200px;
+	}
+
+	.debt-title {
+		margin: 0 0 4px 0;
+		font-size: 0.9em;
+		color: #333;
+	}
+
+	.debt-note {
+		margin: 0 0 12px 0;
+		font-size: 0.85em;
+		color: #666;
+		font-style: italic;
+	}
+
+	.pay-debt-button {
+		font-family: inherit;
+		font-size: 14px;
+		width: 100%;
+		background-color: #f7c881;
+		border: none;
+		border-radius: 8px;
+		padding: 8px 16px;
+		color: #333;
+		cursor: pointer;
+		transition: background-color 0.2s, color 0.2s;
+	}
+
+	.pay-debt-button:hover:not(:disabled) {
+		background-color: white;
+		color: black;
+	}
+
+	.pay-debt-button:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 </style>
