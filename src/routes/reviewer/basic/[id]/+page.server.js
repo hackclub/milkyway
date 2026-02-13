@@ -1,0 +1,17 @@
+import { redirect, error } from '@sveltejs/kit';
+import { getReviewerPermissions, getProjectForReviewById } from '$lib/server/reviewer.js';
+
+export async function load({ locals, params }) {
+  if (!locals.user) throw redirect(302, '/');
+
+  const perms = Array.isArray(locals.user.permissions)
+    ? locals.user.permissions.map(String)
+    : await getReviewerPermissions(locals.user.recId);
+
+  if (!perms.includes('Basic')) throw redirect(302, '/reviewer');
+
+  const project = await getProjectForReviewById(params.id);
+  if (!project) throw error(404, 'Project not found');
+
+  return { perms, project };
+}

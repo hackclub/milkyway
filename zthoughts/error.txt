@@ -1,0 +1,26 @@
+specifiers in the lockfile don't match specifiers in package.json:
+1 dependencies were added: 
+    zod@^4.1.12
+        Essentailly zod wasnt added 
+
+6 dependencies are mismatched: 
+    @sveltejs/adapter-auto (lockfile: ^6.0.0, manifest: ^6.1.0)
+    @sveltejs/kit (lockfile: ^2.22.0, manifest: ^2.48.4)
+    @sveltejs/vite-plugin-svelte (lockfile: ^6.0.0, manifest: ^6.2.0)
+    @types/node (lockfile: ^22, manifest: ^22.18.6)
+    svelte (lockfile: ^5.0.0, manifest: ^5.39.2)
+    vite (lockfile: ^7.0.4, manifest: ^7.1.6)
+
+> [builder 5/7] RUN pnpm install --frozen-lockfile:
+    specifiers in the lockfile don't match specifiers in package.json:
+    1 dependencies were added: zod@^4.1.12
+    6 dependencies are mismatched(same as above)
+
+3 warnings found (use docker --debug to expand):
+    SecretsUsedInArgOrEnv: 
+    Do not use ARG or ENV instructions for sensitive data
+    (ARG "STATS_API_KEY") (line 2)
+    (ARG "IDV_KEY") (line 3)
+    (ARG "AIRTABLE_API_KEY") (line 6)
+
+FIND "frozen-lockfile"
