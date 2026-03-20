@@ -4,6 +4,88 @@ import { getUserInfoBySessionId } from '$lib/server/auth.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
 import { getCreatureImageFromEgg } from '$lib/data/prompt-data.js';
 
+/**
+ * Find unrewarded claimed/won bets for this user + project and return total bet coins.
+ * Also marks matched bets as rewarded to prevent duplicate payouts.
+ *
+ * @param {any} userInfo
+ * @param {string} projectRecordId
+ * @param {string | undefined} projectPrimaryId
+ * @returns {Promise<number>}
+ */
+async function processProjectBetRewards(userInfo, projectRecordId, projectPrimaryId) {
+	let betCoinsEarned = 0;
+	const betsTable = base('Bets');
+	const escapedUserEmail = escapeAirtableFormula(
+		typeof userInfo.email === 'string' ? userInfo.email : ''
+	);
+
+	// Keep Airtable filter broad/reliable, then do strict matching in JS.
+	const candidateBets = await betsTable
+		.select({
+			filterByFormula: `AND(
+				FIND("|${escapedUserEmail}|", "|" & ARRAYJOIN({user}, "|") & "|") > 0,
+				OR(
+					{status} = "claimed",
+					{status} = "won"
+				),
+				OR(
+					BLANK({rewarded}),
+					NOT({rewarded}),
+					{rewarded} = FALSE()
+				)
+			)`
+		})
+		.all();
+
+	for (const betRecord of candidateBets) {
+		const betUserField = betRecord.fields.user;
+		const betUserIds = Array.isArray(betUserField)
+			? betUserField
+			: betUserField
+				? [String(betUserField)]
+				: [];
+		if (!betUserIds.includes(userInfo.recId)) {
+			continue;
+		}
+
+		if (betRecord.fields.rewarded === true) {
+			continue;
+		}
+
+		const attachedProjects = Array.isArray(betRecord.fields.attachedProject)
+			? betRecord.fields.attachedProject.map((entry) => String(entry))
+			: betRecord.fields.attachedProject
+				? [String(betRecord.fields.attachedProject)]
+				: [];
+
+		const matchesProject =
+			attachedProjects.includes(projectRecordId) ||
+			(Boolean(projectPrimaryId) && attachedProjects.includes(String(projectPrimaryId)));
+
+		if (!matchesProject) {
+			continue;
+		}
+
+		const betAmount =
+			typeof betRecord.fields.betAmount === 'number' ? betRecord.fields.betAmount : 0;
+		const multiplier =
+			typeof betRecord.fields.multiplier === 'number' ? betRecord.fields.multiplier : 1;
+		const betCoins =
+			typeof betRecord.fields.coinsEarned === 'number'
+				? betRecord.fields.coinsEarned
+				: Math.round(betAmount * multiplier);
+
+		betCoinsEarned += betCoins;
+
+		await betsTable.update(betRecord.id, {
+			rewarded: true
+		});
+	}
+
+	return betCoinsEarned;
+}
+
 export async function POST({ request, cookies }) {
 	try {
 		// Get user info from session
@@ -187,9 +269,53 @@ export async function POST({ request, cookies }) {
 
 			await projectsTable.update(projectRecord.id, updateData);
 
+			// Process bet rewards on first-time ship as well.
+			// Previously only ship/re-ship paths processed bet payouts.
+			let betCoinsEarned = 0;
+			try {
+				const usersTable = base('User');
+				let userRecord = null;
+				try {
+					userRecord = await usersTable.find(userInfo.recId);
+				} catch (userLookupError) {
+					console.error('Failed to fetch user by record ID:', userLookupError);
+					try {
+						const fallbackRecords = await usersTable
+							.select({
+								filterByFormula: `{email} = "${escapeAirtableFormula(
+									typeof userInfo.email === 'string' ? userInfo.email : ''
+								)}"`
+							})
+							.firstPage();
+						if (fallbackRecords.length > 0) {
+							userRecord = fallbackRecords[0];
+						}
+					} catch (fallbackError) {
+						console.error('Failed to fetch user by email fallback:', fallbackError);
+					}
+				}
+
+				betCoinsEarned = await processProjectBetRewards(
+					userInfo,
+					projectRecord.id,
+					typeof projectData.projectid === 'string' ? projectData.projectid : undefined
+				);
+
+				if (betCoinsEarned > 0 && userRecord) {
+					const currentCoins =
+						typeof userRecord.fields.coins === 'number' ? userRecord.fields.coins : 0;
+					await usersTable.update(userRecord.id, {
+						coins: currentCoins + betCoinsEarned
+					});
+				}
+			} catch (betError) {
+				console.error('Error processing bet coins on hatch:', betError);
+			}
+
 			const responseData = {
 				success: true,
 				message: 'Egg hatched successfully!',
+				betCoinsEarned,
 				project: {
 					id: projectRecord.id, // Use the actual record ID
 					name: projectData.projectname,
@@ -224,7 +350,9 @@ export async function POST({ request, cookies }) {
 				try {
 					const fallbackRecords = await usersTable
 						.select({
-							filterByFormula: `{email} = "${escapeAirtableFormula(userInfo.email)}"`
+							filterByFormula: `{email} = "${escapeAirtableFormula(
+								typeof userInfo.email === 'string' ? userInfo.email : ''
+							)}"`
 						})
 						.all();
 					if (fallbackRecords.length > 0) {
@@ -235,68 +363,13 @@ export async function POST({ request, cookies }) {
 				}
 			}
 
-			// Check for attached bet coins (only unrewarded bets)
-			// Query for both "claimed" and "won" status bets that are attached to this project
 			let betCoinsEarned = 0;
 			try {
-				// Use projectid if available, otherwise fall back to record ID
-				// When using ARRAYJOIN in Airtable formulas, linked records resolve to their primary identifier (projectid)
-				const projectPrimaryId = projectData.projectid;
-				if (!projectPrimaryId) {
-					console.warn(`[ship-project] Project ${projectRecord.id} missing projectid field, cannot query bet rewards`);
-				} else {
-					const escapedProjectPrimaryId = escapeAirtableFormula(String(projectPrimaryId));
-					const escapedProjectRecordId = escapeAirtableFormula(projectRecord.id);
-					const betsTable = base('Bets');
-					// Query using projectid (primary identifier) - ARRAYJOIN resolves linked records to primary identifiers
-					// Also check record ID as fallback, and include both "claimed" and "won" status
-					const betRecords = await betsTable
-						.select({
-							filterByFormula: `AND(
-								OR(
-									FIND("|${escapedProjectPrimaryId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0,
-									FIND("|${escapedProjectRecordId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0
-								),
-								OR(
-									{status} = "claimed",
-									{status} = "won"
-								),
-								OR(
-									BLANK({rewarded}),
-									NOT({rewarded}),
-									{rewarded} = FALSE()
-								)
-							)`
-						})
-						.all();
-					
-					for (const betRecord of betRecords) {
-						// SECURITY: Verify bet belongs to the user who owns the project
-						const betUserField = betRecord.fields.user;
-						const betUserIds = Array.isArray(betUserField) ? betUserField : betUserField ? [String(betUserField)] : [];
-						if (!betUserIds.includes(userInfo.recId)) {
-							// Skip bets that don't belong to this user
-							continue;
-						}
-						
-						// Double-check bet is not already rewarded (race condition protection)
-						if (betRecord.fields.rewarded === true) {
-							continue;
-						}
-						
-						const betAmount = typeof betRecord.fields.betAmount === 'number' ? betRecord.fields.betAmount : 0;
-						const multiplier = typeof betRecord.fields.multiplier === 'number' ? betRecord.fields.multiplier : 1;
-						const betCoins = typeof betRecord.fields.coinsEarned === 'number' 
-							? betRecord.fields.coinsEarned 
-							: Math.round(betAmount * multiplier);
-						betCoinsEarned += betCoins;
-						
-						// Mark bet as rewarded
-						await betsTable.update(betRecord.id, {
-							rewarded: true
-						});
-					}
-				}
+				betCoinsEarned = await processProjectBetRewards(
+					userInfo,
+					projectRecord.id,
+					typeof projectData.projectid === 'string' ? projectData.projectid : undefined
+				);
 
 				// Update user coins if bet coins were earned
 				if (betCoinsEarned > 0 && userRecord) {
@@ -545,69 +618,13 @@ export async function POST({ request, cookies }) {
 				}
 			}
 
-			// Check for attached bet coins (only unrewarded bets)
-			// Query for both "claimed" and "won" status bets that are attached to this project
-			// When querying linked fields in Airtable formulas, use the primary identifier (projectid), not record ID
 			let betCoinsEarned = 0;
 			try {
-				// Use projectid if available, otherwise fall back to record ID
-				// When using ARRAYJOIN in Airtable formulas, linked records resolve to their primary identifier (projectid)
-				const projectPrimaryId = projectData.projectid;
-				if (!projectPrimaryId) {
-					console.warn(`[ship-project] Project ${projectRecord.id} missing projectid field, cannot query bet rewards`);
-				} else {
-					const escapedProjectPrimaryId = escapeAirtableFormula(String(projectPrimaryId));
-					const escapedProjectRecordId = escapeAirtableFormula(projectRecord.id);
-					const betsTable = base('Bets');
-					// Query using projectid (primary identifier) - ARRAYJOIN resolves linked records to primary identifiers
-					// Also check record ID as fallback, and include both "claimed" and "won" status
-					const betRecords = await betsTable
-						.select({
-							filterByFormula: `AND(
-								OR(
-									FIND("|${escapedProjectPrimaryId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0,
-									FIND("|${escapedProjectRecordId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0
-								),
-								OR(
-									{status} = "claimed",
-									{status} = "won"
-								),
-								OR(
-									BLANK({rewarded}),
-									NOT({rewarded}),
-									{rewarded} = FALSE()
-								)
-							)`
-						})
-						.all();
-					
-					for (const betRecord of betRecords) {
-						// SECURITY: Verify bet belongs to the user who owns the project
-						const betUserField = betRecord.fields.user;
-						const betUserIds = Array.isArray(betUserField) ? betUserField : betUserField ? [String(betUserField)] : [];
-						if (!betUserIds.includes(userInfo.recId)) {
-							// Skip bets that don't belong to this user
-							continue;
-						}
-						
-						// Double-check bet is not already rewarded (race condition protection)
-						if (betRecord.fields.rewarded === true) {
-							continue;
-						}
-						
-						const betAmount = typeof betRecord.fields.betAmount === 'number' ? betRecord.fields.betAmount : 0;
-						const multiplier = typeof betRecord.fields.multiplier === 'number' ? betRecord.fields.multiplier : 1;
-						const betCoins = typeof betRecord.fields.coinsEarned === 'number' 
-							? betRecord.fields.coinsEarned 
-							: Math.round(betAmount * multiplier);
-						betCoinsEarned += betCoins;
-						
-						// Mark bet as rewarded
-						await betsTable.update(betRecord.id, {
-							rewarded: true
-						});
-					}
-				}
+				betCoinsEarned = await processProjectBetRewards(
+					userInfo,
+					projectRecord.id,
+					typeof projectData.projectid === 'string' ? projectData.projectid : undefined
+				);
 			} catch (betError) {
 				console.error('Error processing bet coins:', betError);
 				// Continue even if bet processing fails

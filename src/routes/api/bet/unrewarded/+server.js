@@ -27,30 +27,20 @@ export async function GET({ url, cookies }) {
 			return json({ success: false, error: 'Project does not belong to user' }, { status: 403 });
 		}
 
-		// Get the project's primary identifier (projectid field)
-		// When querying linked fields in Airtable formulas, we must use the primary field value,
-		// not the record ID. The Projects linked field shows projectid values, not record IDs.
+		// Get the project's primary identifier (projectid field) for fallback matching.
 		const { base: projectsBase } = await import('$lib/server/db.js');
 		const projectRecord = await projectsBase('Projects').find(projectId);
 		const projectPrimaryId = projectRecord.fields.projectid;
-		const escapedProjectPrimaryId = escapeAirtableFormula(String(projectPrimaryId || projectId));
 
-		// Get unrewarded bets for this project
-		// attachedProject is a single select linked record field
+		// Get candidate unrewarded bets for this user, then strictly match attached project in JS.
 		const betsTable = base('Bets');
-		
-		// Query using the project's primary identifier (projectid), not record ID
-		// attachedProject is stored as an array of record IDs, but ARRAYJOIN resolves to primary identifiers
-		// NOTE: When using ARRAYJOIN in Airtable formulas, linked records resolve to their primary identifier (projectid)
-		// So we must use the projectid value, not the record ID, even though it's stored as record IDs
-		const escapedProjectRecordId = escapeAirtableFormula(projectId);
+		const escapedUserEmail = escapeAirtableFormula(
+			typeof userInfo.email === 'string' ? userInfo.email : ''
+		);
 		let betRecords = await betsTable
 			.select({
 				filterByFormula: `AND(
-					OR(
-						FIND("|${escapedProjectPrimaryId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0,
-						FIND("|${escapedProjectRecordId}|", "|" & ARRAYJOIN({attachedProject}, "|") & "|") > 0
-					),
+					FIND("|${escapedUserEmail}|", "|" & ARRAYJOIN({user}, "|") & "|") > 0,
 					OR(
 						{status} = "claimed",
 						{status} = "won"
@@ -63,8 +53,31 @@ export async function GET({ url, cookies }) {
 				)`
 			})
 			.all();
-		
-		const unrewardedBets = betRecords.map(bet => {
+
+		const unrewardedBets = betRecords
+			.filter((bet) => {
+				const betUserField = bet.fields.user;
+				const betUserIds = Array.isArray(betUserField)
+					? betUserField
+					: betUserField
+						? [String(betUserField)]
+						: [];
+				if (!betUserIds.includes(userInfo.recId)) {
+					return false;
+				}
+
+				const attachedProjects = Array.isArray(bet.fields.attachedProject)
+					? bet.fields.attachedProject.map((entry) => String(entry))
+					: bet.fields.attachedProject
+						? [String(bet.fields.attachedProject)]
+						: [];
+
+				return (
+					attachedProjects.includes(projectId) ||
+					(Boolean(projectPrimaryId) && attachedProjects.includes(String(projectPrimaryId)))
+				);
+			})
+			.map((bet) => {
 			const coinsEarned = typeof bet.fields.coinsEarned === 'number' 
 				? bet.fields.coinsEarned 
 				: Math.round((bet.fields.betAmount || 0) * (bet.fields.multiplier || 1));

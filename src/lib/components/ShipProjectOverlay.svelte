@@ -123,7 +123,6 @@
 
 					// Wait 2 seconds then refresh the page
 					setTimeout(() => {
-						// Force page refresh to reload all data with new submission
 						window.location.reload();
 					}, 2000);
 				}
@@ -383,7 +382,6 @@
 				}, 3000);
 
 				setTimeout(() => {
-					// Force page refresh to reload all data with new submission
 					window.location.reload();
 				}, 4000);
 			} else {
