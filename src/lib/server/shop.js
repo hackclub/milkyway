@@ -19,6 +19,7 @@ export async function getListOfShopItems() {
     image: record.fields.image,
     description: record.fields.description,
     type: record.fields.type,
+    category: record.fields.category,
     one_time: Boolean(record.fields['one-time'] || record.fields.one_time)
   }));
 }
@@ -73,6 +74,7 @@ export async function getShopItem(shopItemId) {
       image: record.fields.image,
       description: record.fields.description,
       type: record.fields.type,
+      category: record.fields.category,
       one_time: Boolean(record.fields['one-time'] || record.fields.one_time)
     };
   } catch (error) {

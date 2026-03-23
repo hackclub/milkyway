@@ -12,9 +12,46 @@ let purchaseConfirmation = $state(/** @type {{item: any, message: string, canAff
 // Check if user is logged in
 let isLoggedIn = $state(!!data.user);
 
-// Filter items by type
-const prizesItems = $derived(shopItems.filter(item => item.type === 'prizes'));
-const furnitureItems = $derived(shopItems.filter(item => item.type === 'furniture'));
+/** @type {'all' | 'event' | 'merch' | 'fun' | 'tools'} */
+let selectedCategory = $state('all');
+
+const SHOP_CATEGORY_TABS = /** @type {const} */ ([
+  { id: 'all', label: 'all' },
+  { id: 'event', label: 'event' },
+  { id: 'merch', label: 'merch' },
+  { id: 'fun', label: 'fun' },
+  { id: 'tools', label: 'tools' }
+]);
+
+/** @param {unknown} raw */
+function normalizedCategorySet(raw) {
+  if (raw == null || raw === '') return new Set();
+  const parts = Array.isArray(raw) ? raw : [raw];
+  /** @type {Set<string>} */
+  const set = new Set();
+  for (const p of parts) {
+    if (typeof p === 'string' && p.trim()) set.add(p.trim().toLowerCase());
+  }
+  return set;
+}
+
+/** @param {any} item @param {string} categoryId */
+function itemInCategory(item, categoryId) {
+  if (categoryId === 'all') return true;
+  return normalizedCategorySet(item.category).has(categoryId.toLowerCase());
+}
+
+/** @param {any} item */
+function isPrizeShopItem(item) {
+  return String(item?.type ?? '').toLowerCase() === 'prizes';
+}
+
+/** Same order as API (Airtable `sort`); only `type` prize, then category */
+const displayedShopItems = $derived(
+  shopItems.filter(
+    (item) => isPrizeShopItem(item) && itemInCategory(item, selectedCategory)
+  )
+);
 
 async function loadShopData() {
   try {
@@ -152,14 +189,20 @@ onMount(loadShopData);
             {/if}
         </div>
     
-        <!-- Tab Navigation -->
-        <div class="tab-navigation">
-            <a href="/shop" class="tab-button active">
-                prizes
-            </a>
-            <a href="/vote" class="tab-button">
-                vote
-            </a>
+        <!-- Category tabs (Airtable field `category`) -->
+        <div class="tab-navigation" role="tablist" aria-label="Shop categories">
+            {#each SHOP_CATEGORY_TABS as tab (tab.id)}
+                <button
+                    type="button"
+                    role="tab"
+                    class="tab-button"
+                    class:active={selectedCategory === tab.id}
+                    aria-selected={selectedCategory === tab.id}
+                    onclick={() => { selectedCategory = tab.id; }}
+                >
+                    {tab.label}
+                </button>
+            {/each}
         </div>
     
         <div class="shop-items-container">
@@ -167,8 +210,8 @@ onMount(loadShopData);
                 <div class="loading-message">
                     <p>Loading shop items...</p>
                 </div>
-            {:else if prizesItems.length > 0}
-                {#each prizesItems as item}
+            {:else if displayedShopItems.length > 0}
+                {#each displayedShopItems as item}
                     <div class="shop-item">
                         <div class="item-image">
                             {#if item.image && Array.isArray(item.image) && item.image.length > 0 && item.image[0] && typeof item.image[0] === 'object' && 'url' in item.image[0]}
@@ -445,6 +488,7 @@ onMount(loadShopData);
 
     .tab-navigation {
         display: flex;
+        flex-wrap: wrap;
         gap: 10px;
         margin: 20px 0;
         justify-content: center;
@@ -463,6 +507,10 @@ onMount(loadShopData);
         font-family: "Futura", sans-serif;
         text-decoration: none;
         display: inline-block;
+    }
+
+    button.tab-button {
+        font: inherit;
     }
 
     .tab-button:hover {
