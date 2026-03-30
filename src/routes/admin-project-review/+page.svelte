@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	let projects = $state<any[]>([]);
 	let loading = $state(true);
 	let error = $state('');
@@ -8,6 +9,12 @@
 		projectsWithOneReviewer: 0,
 		projectsWithTwoReviewers: 0
 	});
+	let expandedPrior = $state<Record<string, boolean>>({});
+	let leaderboardOpen = $state(false);
+	let leaderboardScope = $state<'all' | '7d' | '24h'>('all');
+	let leaderboardLoading = $state(false);
+	let leaderboardError = $state('');
+	let leaderboard = $state<Array<{ reviewerId: string; username: string; reviews: number }>>([]);
 
 	let formById = $state<Record<string, {
 		coinsAwarded: number;
@@ -24,6 +31,31 @@
 		if (!raw) return '';
 		if (/^https?:\/\//i.test(raw)) return raw;
 		return `https://${raw}`;
+	}
+
+	function togglePriorExpand(id: string) {
+		expandedPrior = { ...expandedPrior, [id]: !expandedPrior[id] };
+	}
+
+	async function loadLeaderboard() {
+		leaderboardLoading = true;
+		leaderboardError = '';
+		try {
+			const res = await fetch(`/api/reviewer/projects/leaderboard?scope=${leaderboardScope}`);
+			const data = await res.json();
+			if (!res.ok || !data.success) {
+				leaderboardError = data?.error || 'failed to load leaderboard';
+				leaderboard = [];
+				return;
+			}
+			leaderboard = Array.isArray(data.leaderboard) ? data.leaderboard : [];
+		} catch (e) {
+			console.error(e);
+			leaderboardError = 'failed to load leaderboard';
+			leaderboard = [];
+		} finally {
+			leaderboardLoading = false;
+		}
 	}
 
 	function initForm(projectId: string) {
@@ -116,7 +148,10 @@
 		await loadNext();
 	}
 
-	loadNext();
+	onMount(() => {
+		void loadNext();
+		void loadLeaderboard();
+	});
 </script>
 
 <svelte:head>
@@ -140,6 +175,47 @@
 			<div class="stat-label">proj w 2 reviewers</div>
 			<div class="stat-value">{stats.projectsWithTwoReviewers}</div>
 		</div>
+	</section>
+
+	<section class="card">
+		<button type="button" class="dropdown-toggle" onclick={() => (leaderboardOpen = !leaderboardOpen)}>
+			{leaderboardOpen ? '▼ reviewer leaderboard' : '▶ reviewer leaderboard'}
+		</button>
+		{#if leaderboardOpen}
+			<div class="leaderboard-panel">
+				<div class="leaderboard-controls">
+					<label for="admin-lb-scope">time range</label>
+					<select
+						id="admin-lb-scope"
+						bind:value={leaderboardScope}
+						onchange={() => {
+							void loadLeaderboard();
+						}}
+					>
+						<option value="all">all time</option>
+						<option value="7d">past 7 days</option>
+						<option value="24h">past 24h</option>
+					</select>
+				</div>
+				{#if leaderboardLoading}
+					<p class="muted">loading leaderboard...</p>
+				{:else if leaderboardError}
+					<p class="bad">{leaderboardError}</p>
+				{:else if leaderboard.length === 0}
+					<p class="muted">no reviews in this time range yet.</p>
+				{:else}
+					<div class="leaderboard-list">
+						{#each leaderboard as row, i (row.reviewerId)}
+							<div class="leaderboard-row">
+								<span class="rank">#{i + 1}</span>
+								<span class="name">{row.username}</span>
+								<span class="count">{row.reviews} reviews</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</section>
 
 	{#if loading}
@@ -224,6 +300,64 @@
 					<p><strong>suspicious:</strong> {project.reviews.review2.suspicious ? 'yes' : 'no'}</p>
 				</div>
 				<p><strong>flagged suspicious overall:</strong> {project.isSuspicious ? 'yes' : 'no'}</p>
+			</section>
+
+			<section class="card">
+				<h3>artlog overview (latest 5)</h3>
+				{#if !Array.isArray(project.artlogs) || project.artlogs.length === 0}
+					<p>no linked artlogs</p>
+				{:else}
+					{#each project.artlogs as a}
+						<div class="mini">
+							<div>{a.hours}h logged {#if a.approvedHours !== null}· {a.approvedHours}h approved{/if}</div>
+							<div>{a.description || 'no description'}</div>
+							<div class="links">
+								{#if a.proof}
+									<a href={normalizeUrl(a.proof)} target="_blank" rel="noopener noreferrer">proof</a>
+								{/if}
+								{#if a.image}
+									<a href={normalizeUrl(a.image)} target="_blank" rel="noopener noreferrer">image</a>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				{/if}
+			</section>
+
+			<section class="card">
+				<h3>prior submissions</h3>
+				{#if !Array.isArray(project.previousSubmissions) || project.previousSubmissions.length === 0}
+					<p class="muted">no prior submissions on file for this project yet.</p>
+				{:else}
+					{#each project.previousSubmissions as s (s.id)}
+						<div class="prior-block">
+							<button
+								type="button"
+								class="prior-summary"
+								onclick={() => togglePriorExpand(s.id)}
+								aria-expanded={!!expandedPrior[s.id]}
+							>
+								<div class="prior-top">
+									<span class="prior-chevron" aria-hidden="true">{expandedPrior[s.id] ? '▼' : '▶'}</span>
+									<div class="prior-stats">
+										<span class="prior-date">{s.created || s.id}</span>
+										<span><strong>{Number(s.hoursLogged ?? 0)}h</strong> at submit</span>
+										<span><strong>{Number(s.coinsAwarded ?? 0)}</strong> coins</span>
+									</div>
+								</div>
+							</button>
+							{#if expandedPrior[s.id]}
+								<div class="prior-details">
+									<p><strong>final feedback (notes to user)</strong></p>
+									<pre class="prior-pre">{s.notesToUser?.trim() || '—'}</pre>
+									<p><strong>since last / what changed</strong></p>
+									<pre class="prior-pre">{s.sinceLastSubmission || 'not provided on that submission row'}</pre>
+									<p class="prior-meta">awardingResults: {s.awardingResults || '—'} · id: {s.id}</p>
+								</div>
+							{/if}
+						</div>
+					{/each}
+				{/if}
 			</section>
 
 			<section class="card">
@@ -335,10 +469,85 @@
 	.submission-comments p {
 		margin: 6px 0;
 	}
+	.prior-block { border: 1px solid #e5e5e5; border-radius: 8px; margin: 10px 0; overflow: hidden; }
+	.prior-summary {
+		width: 100%;
+		text-align: left;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 10px 12px;
+		background: #fafafa;
+		border: none;
+		cursor: pointer;
+		font: inherit;
+		color: inherit;
+	}
+	.prior-summary:hover { background: #f0f0f0; }
+	.prior-top { display: flex; align-items: flex-start; gap: 8px; }
+	.prior-chevron { color: #888; font-size: 0.75rem; flex-shrink: 0; margin-top: 2px; }
+	.prior-stats {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 14px;
+		font-size: 0.9rem;
+	}
+	.prior-date { color: #666; font-size: 0.8rem; }
+	.prior-details {
+		padding: 0 12px 12px 12px;
+		border-top: 1px solid #eee;
+		background: #fff;
+		font-size: 0.88rem;
+	}
+	.prior-details p { margin: 10px 0 4px 0; }
+	.prior-pre {
+		margin: 0 0 8px 0;
+		white-space: pre-wrap;
+		font-family: inherit;
+		font-size: 0.88rem;
+		padding: 8px;
+		background: #f9f9f9;
+		border-radius: 6px;
+		border: 1px solid #eee;
+	}
+	.prior-meta { font-size: 0.78rem; color: #888; margin-top: 8px !important; }
 	.mini { padding: 8px; border: 1px solid #eee; border-radius: 6px; margin: 8px 0; }
 	textarea, input[type='number'] { width: 100%; box-sizing: border-box; margin-top: 6px; margin-bottom: 10px; }
 	.actions { display: flex; gap: 8px; flex-wrap: wrap; }
 	.check { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+	.dropdown-toggle {
+		border: 0;
+		padding: 0;
+		background: transparent;
+		cursor: pointer;
+		font: inherit;
+		font-size: 0.85rem;
+		color: #555;
+	}
+	.leaderboard-panel { margin-top: 10px; }
+	.leaderboard-controls {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 8px;
+	}
+	.leaderboard-list {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.leaderboard-row {
+		display: grid;
+		grid-template-columns: 56px 1fr auto;
+		gap: 8px;
+		padding: 6px 8px;
+		border: 1px solid #eee;
+		border-radius: 6px;
+		background: #fff;
+	}
+	.rank { color: #666; }
+	.name { font-weight: 600; }
+	.count { color: #333; }
 	.ok { color: #0a7; }
 	.bad { color: #a00; }
 	.hackatime-names { margin-top: 8px; font-size: 0.9rem; }

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
-import { checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
+import { checkRateLimit, escapeAirtableFormula, getClientIdentifier } from '$lib/server/security.js';
 import { fetchYswsSubmissionsForProject } from '$lib/server/ysws-submissions-for-project.js';
 
 function hasPerm(user, perm) {
@@ -90,9 +90,20 @@ async function buildAdminBundle(submission) {
 	const userId = Array.isArray(pf.user) && pf.user.length > 0 ? String(pf.user[0]) : '';
 	const userRec = userId ? await base('User').find(userId) : null;
 	const uf = userRec?.fields || {};
+	const projectPrimaryId = String(pf.projectid || projectId || '');
+	const escapedProjectPrimaryId = escapeAirtableFormula(projectPrimaryId);
 
 	const previousSubs = projectId
 		? await fetchYswsSubmissionsForProject(projectId, pf, { maxRecords: 50 })
+		: [];
+	const artlogs = projectId
+		? await base('Artlog')
+				.select({
+					filterByFormula: `FIND("|${escapedProjectPrimaryId}|", "|" & ARRAYJOIN({Projects}, "|") & "|") > 0`,
+					sort: [{ field: 'Created', direction: 'desc' }],
+					maxRecords: 5
+				})
+				.all()
 		: [];
 
 	const olderSubs = previousSubs.filter((s) => s.id !== submission.id);
@@ -172,12 +183,33 @@ async function buildAdminBundle(submission) {
 		},
 		isSuspicious:
 			!!submission.fields.projectReview1Suspicious || !!submission.fields.projectReview2Suspicious,
-		previousSubmissions: previousSubs.map((s) => ({
-			id: s.id,
-			created: getCreatedIso(s),
-			notesToUser: String(s.fields.notesToUser || ''),
-			coinsAwarded: Number(s.fields.coinsAwarded || 0)
-		}))
+		artlogs: artlogs.map((a) => ({
+			id: a.id,
+			created: getCreatedIso(a),
+			hours: Number(a.fields.hours || 0),
+			approvedHours:
+				typeof a.fields.approvedHours === 'number' ? Number(a.fields.approvedHours) : null,
+			description: String(a.fields.description || ''),
+			proof: String(a.fields.proof || ''),
+			image: Array.isArray(a.fields.image) && a.fields.image[0]?.url ? String(a.fields.image[0].url) : ''
+		})),
+		previousSubmissions: previousSubs
+			.filter((s) => s.id !== submission.id)
+			.map((s) => ({
+				id: s.id,
+				created: getCreatedIso(s),
+				hoursLogged: Number(s.fields.hoursLogged || 0),
+				notesToUser: String(s.fields.notesToUser || ''),
+				coinsAwarded: Number(s.fields.coinsAwarded || 0),
+				awardingResults: String(s.fields.awardingResults || ''),
+				sinceLastSubmission: String(
+					s.fields['addnComments archive'] ||
+						s.fields.sinceLastSubmission ||
+						s.fields['How much did you add since your last submission?'] ||
+						s.fields.addnComments ||
+						''
+				)
+			}))
 	};
 }
 

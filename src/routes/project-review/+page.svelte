@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	let project = $state<any>(null);
 
 	const priorSubmissionTotals = $derived.by(() => {
@@ -34,6 +35,11 @@
 	let submitting = $state(false);
 	/** which prior submission rows are expanded (details) */
 	let expandedPrior = $state<Record<string, boolean>>({});
+	let leaderboardOpen = $state(false);
+	let leaderboardScope = $state<'all' | '7d' | '24h'>('all');
+	let leaderboardLoading = $state(false);
+	let leaderboardError = $state('');
+	let leaderboard = $state<Array<{ reviewerId: string; username: string; reviews: number }>>([]);
 
 	function normalizeUrl(url: string) {
 		const raw = String(url || '').trim();
@@ -51,6 +57,27 @@
 
 	function togglePriorExpand(id: string) {
 		expandedPrior = { ...expandedPrior, [id]: !expandedPrior[id] };
+	}
+
+	async function loadLeaderboard() {
+		leaderboardLoading = true;
+		leaderboardError = '';
+		try {
+			const res = await fetch(`/api/reviewer/projects/leaderboard?scope=${leaderboardScope}`);
+			const data = await res.json();
+			if (!res.ok || !data.success) {
+				leaderboardError = data?.error || 'failed to load leaderboard';
+				leaderboard = [];
+				return;
+			}
+			leaderboard = Array.isArray(data.leaderboard) ? data.leaderboard : [];
+		} catch (e) {
+			console.error(e);
+			leaderboardError = 'failed to load leaderboard';
+			leaderboard = [];
+		} finally {
+			leaderboardLoading = false;
+		}
 	}
 
 	function coinsNeededForFullRate(p: any) {
@@ -147,7 +174,10 @@
 		}
 	}
 
-	loadNext();
+	onMount(() => {
+		void loadNext();
+		void loadLeaderboard();
+	});
 </script>
 
 <svelte:head>
@@ -175,6 +205,47 @@
 			<div class="stat-label">projects you reviewed</div>
 			<div class="stat-value">{stats.projectsYouReviewed}</div>
 		</div>
+	</section>
+
+	<section class="card">
+		<button type="button" class="dropdown-toggle" onclick={() => (leaderboardOpen = !leaderboardOpen)}>
+			{leaderboardOpen ? '▼ reviewer leaderboard' : '▶ reviewer leaderboard'}
+		</button>
+		{#if leaderboardOpen}
+			<div class="leaderboard-panel">
+				<div class="leaderboard-controls">
+					<label for="lb-scope">time range</label>
+					<select
+						id="lb-scope"
+						bind:value={leaderboardScope}
+						onchange={() => {
+							void loadLeaderboard();
+						}}
+					>
+						<option value="all">all time</option>
+						<option value="7d">past 7 days</option>
+						<option value="24h">past 24h</option>
+					</select>
+				</div>
+				{#if leaderboardLoading}
+					<p class="muted">loading leaderboard...</p>
+				{:else if leaderboardError}
+					<p class="bad">{leaderboardError}</p>
+				{:else if leaderboard.length === 0}
+					<p class="muted">no reviews in this time range yet.</p>
+				{:else}
+					<div class="leaderboard-list">
+						{#each leaderboard as row, i (row.reviewerId)}
+							<div class="leaderboard-row">
+								<span class="rank">#{i + 1}</span>
+								<span class="name">{row.username}</span>
+								<span class="count">{row.reviews} reviews</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</section>
 
 	{#if loading}
@@ -416,6 +487,39 @@
 		cursor: pointer;
 		font: inherit;
 	}
+	.dropdown-toggle {
+		border: 0;
+		padding: 0;
+		background: transparent;
+		cursor: pointer;
+		font: inherit;
+		font-size: 0.85rem;
+		color: #555;
+	}
+	.leaderboard-panel { margin-top: 10px; }
+	.leaderboard-controls {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 8px;
+	}
+	.leaderboard-list {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.leaderboard-row {
+		display: grid;
+		grid-template-columns: 56px 1fr auto;
+		gap: 8px;
+		padding: 6px 8px;
+		border: 1px solid #eee;
+		border-radius: 6px;
+		background: #fff;
+	}
+	.rank { color: #666; }
+	.name { font-weight: 600; }
+	.count { color: #333; }
 	.subtitle { color: #666; margin-top: -6px; }
 	.card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin: 12px 0; background: #fff; }
 	.error { color: #a00; }
