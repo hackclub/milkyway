@@ -17,7 +17,16 @@ function hasPerm(user, perm) {
 }
 
 function getCreatedIso(record) {
-	return String(record.fields.Created || record._rawJson?.createdTime || '');
+	// Prefer Airtable record createdTime from YSWS rows for stable queue ordering.
+	return String(record._rawJson?.createdTime || record.fields.Created || '');
+}
+
+/**
+ * @param {any} record
+ */
+function getCreatedMs(record) {
+	const t = new Date(getCreatedIso(record)).getTime();
+	return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
 }
 
 function isWaitingForReview(record) {
@@ -66,8 +75,8 @@ function pickLatestPerProject(records) {
 		const projectId = getProjectId(r);
 		if (!projectId) continue;
 		const curr = map.get(projectId);
-		const t = new Date(getCreatedIso(r)).getTime();
-		const c = curr ? new Date(getCreatedIso(curr)).getTime() : -1;
+		const t = getCreatedMs(r);
+		const c = curr ? getCreatedMs(curr) : -1;
 		if (!curr || t > c) map.set(projectId, r);
 	}
 	return Array.from(map.values());
@@ -301,6 +310,8 @@ export async function GET({ locals, request, cookies, url }) {
 			if (excludeIds.has(r.id)) return false;
 			return true;
 		});
+		// Queue order: oldest submission first
+		candidates.sort((a, b) => getCreatedMs(a) - getCreatedMs(b));
 
 		const stats = {
 			projectsLeft,
