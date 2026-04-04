@@ -3,6 +3,8 @@ import { base } from '$lib/server/db.js';
 import { fetchProjects } from '$lib/server/hackatime.js';
 import { sanitizeErrorMessage } from '$lib/server/security.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
+import { MilkywaySubmissionClosedError } from '$lib/server/milkyway-closure.js';
+import { assertMilkywayProjectMutationsAllowedForUser } from '$lib/server/projects.js';
 
 /**
  * Auto-update Hackatime hours for all user projects
@@ -12,6 +14,20 @@ export async function POST({ locals }) {
   try {
     if (!locals.user) {
       return json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+      await assertMilkywayProjectMutationsAllowedForUser(locals.user.recId);
+    } catch (e) {
+      if (e instanceof MilkywaySubmissionClosedError) {
+        return json({
+          success: true,
+          skipped: true,
+          message: e.message,
+          updatedCount: 0
+        });
+      }
+      throw e;
     }
 
     const userEmail = locals.user.email;

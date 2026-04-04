@@ -1,5 +1,6 @@
 <script>
 import { onMount } from 'svelte';
+import MilkywayClosureBanner from '$lib/components/MilkywayClosureBanner.svelte';
 
 let { data } = $props();
 
@@ -154,8 +155,12 @@ onMount(loadShopData);
 </svelte:head>
 
 <main class="shop-page">
-    
-
+    {#if data.user}
+        <MilkywayClosureBanner
+            milkywaySubmissionClosed={!!data.user.milkywaySubmissionClosed}
+            milkywayExtensionDeadline={data.user.milkywayExtensionDeadline ?? null}
+        />
+    {/if}
 
     <div class="axolotl-container">
         <img class="axolotl-top" src="/prompts/axolotl.png" alt="axolotl up top"/>

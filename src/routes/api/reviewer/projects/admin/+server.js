@@ -1,7 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
 import { checkRateLimit, escapeAirtableFormula, getClientIdentifier } from '$lib/server/security.js';
-import { fetchYswsSubmissionsForProject } from '$lib/server/ysws-submissions-for-project.js';
+import {
+	fetchYswsSubmissionsForProject,
+	getYswsSubmissionHoursLogged
+} from '$lib/server/ysws-submissions-for-project.js';
 
 function hasPerm(user, perm) {
 	const perms = user?.permissions;
@@ -13,7 +16,7 @@ function hasPerm(user, perm) {
 }
 
 function getCreatedIso(record) {
-	return String(record.fields.Created || record._rawJson?.createdTime || '');
+	return String(record._rawJson?.createdTime || record.fields.Created || '');
 }
 
 function getProjectId(record) {
@@ -93,9 +96,7 @@ async function buildAdminBundle(submission) {
 	const projectPrimaryId = String(pf.projectid || projectId || '');
 	const escapedProjectPrimaryId = escapeAirtableFormula(projectPrimaryId);
 
-	const previousSubs = projectId
-		? await fetchYswsSubmissionsForProject(projectId, pf, { maxRecords: 50 })
-		: [];
+	const previousSubs = projectId ? await fetchYswsSubmissionsForProject(projectId, pf) : [];
 	const artlogs = projectId
 		? await base('Artlog')
 				.select({
@@ -106,24 +107,27 @@ async function buildAdminBundle(submission) {
 				.all()
 		: [];
 
-	const olderSubs = previousSubs.filter((s) => s.id !== submission.id);
-	const lastApproved = olderSubs.find((s) => isApprovedSubmissionFields(s.fields));
-	const baselineHoursLogged = lastApproved ? Number(lastApproved.fields.hoursLogged || 0) : 0;
+	const sortedAsc = previousSubs
+		.slice()
+		.sort((a, b) => new Date(getCreatedIso(a)).getTime() - new Date(getCreatedIso(b)).getTime());
+	const idx = sortedAsc.findIndex((s) => s.id === submission.id);
+	const immediatePrior = idx > 0 ? sortedAsc[idx - 1] : null;
+	const baselineHoursLogged = immediatePrior ? getYswsSubmissionHoursLogged(immediatePrior) : 0;
 
 	const curHt = Number(pf.hackatimeHours || 0);
 	const curArt = Number(pf.artHours || 0);
 	const curTotal = curHt + curArt;
-	const hoursSinceLastApproved = Math.max(
+	const hoursSincePriorSubmission = Math.max(
 		0,
 		Math.round((curTotal - baselineHoursLogged) * 100) / 100
 	);
 	let newHackatimeHours = 0;
 	let newArtHours = 0;
-	if (hoursSinceLastApproved > 0 && curTotal > 0) {
-		newHackatimeHours = Math.round((hoursSinceLastApproved * (curHt / curTotal)) * 100) / 100;
-		newArtHours = Math.round((hoursSinceLastApproved - newHackatimeHours) * 100) / 100;
-	} else if (hoursSinceLastApproved > 0) {
-		newArtHours = hoursSinceLastApproved;
+	if (hoursSincePriorSubmission > 0 && curTotal > 0) {
+		newHackatimeHours = Math.round((hoursSincePriorSubmission * (curHt / curTotal)) * 100) / 100;
+		newArtHours = Math.round((hoursSincePriorSubmission - newHackatimeHours) * 100) / 100;
+	} else if (hoursSincePriorSubmission > 0) {
+		newArtHours = hoursSincePriorSubmission;
 	}
 
 	return {
@@ -141,7 +145,7 @@ async function buildAdminBundle(submission) {
 			totalHours: curTotal,
 			newHackatimeHoursSinceLastApproved: newHackatimeHours,
 			newArtHoursSinceLastApproved: newArtHours,
-			newTotalHoursSinceLastApproved: hoursSinceLastApproved,
+			newTotalHoursSinceLastApproved: hoursSincePriorSubmission,
 			hackatimeProjectNames: parseHackatimeProjectNames(pf.hackatimeProjects)
 		},
 		submission: {
@@ -198,7 +202,7 @@ async function buildAdminBundle(submission) {
 			.map((s) => ({
 				id: s.id,
 				created: getCreatedIso(s),
-				hoursLogged: Number(s.fields.hoursLogged || 0),
+				hoursLogged: getYswsSubmissionHoursLogged(s),
 				notesToUser: String(s.fields.notesToUser || ''),
 				coinsAwarded: Number(s.fields.coinsAwarded || 0),
 				awardingResults: String(s.fields.awardingResults || ''),

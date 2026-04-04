@@ -1,5 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
+import { MilkywaySubmissionClosedError } from '$lib/server/milkyway-closure.js';
+import { assertMilkywayProjectMutationsAllowedForUser } from '$lib/server/projects.js';
 
 export async function POST({ request, cookies }) {
   try {
@@ -21,6 +23,15 @@ export async function POST({ request, cookies }) {
         success: false,
         error: 'User not found'
       }, { status: 404 });
+    }
+
+    try {
+      await assertMilkywayProjectMutationsAllowedForUser(userInfo.recId);
+    } catch (e) {
+      if (e instanceof MilkywaySubmissionClosedError) {
+        return json({ success: false, error: e.message }, { status: 403 });
+      }
+      throw e;
     }
 
     const body = await request.json();

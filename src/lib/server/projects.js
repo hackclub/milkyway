@@ -1,6 +1,40 @@
 import { base } from '$lib/server/db.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
 import { getFirstAttachment, getAttachmentUrl } from './attachments.js';
+import { isMilkywaySubmissionOpen, MilkywaySubmissionClosedError } from '$lib/server/milkyway-closure.js';
+
+/**
+ * Server-only: re-read User from Airtable so mutations cannot rely on stale session.
+ * @param {string} userRecId
+ */
+async function assertUserCanMutateProjects(/** @type {string} */ userRecId) {
+	const record = await base('User').find(userRecId);
+	if (!isMilkywaySubmissionOpen({ extension: record.fields.extension ?? null })) {
+		throw new MilkywaySubmissionClosedError();
+	}
+}
+
+/** Fresh read from Airtable — use at API boundaries so clients cannot rely on stale `locals.user`. */
+export async function assertMilkywayProjectMutationsAllowedForUser(
+	/** @type {string} */ userRecId
+) {
+	await assertUserCanMutateProjects(userRecId);
+}
+
+/**
+ * @param {string} projectId
+ */
+async function assertProjectOwnerCanMutate(projectId) {
+	const record = await base('Projects').find(projectId);
+	const projectUserField = record.fields.user;
+	const ids = Array.isArray(projectUserField)
+		? projectUserField
+		: projectUserField
+			? [String(projectUserField)]
+			: [];
+	if (ids.length === 0) throw new Error('Invalid project');
+	await assertUserCanMutateProjects(ids[0]);
+}
 
 /**
  * Get all projects for a specific user
@@ -78,6 +112,8 @@ export async function getUserProjectsByEmail(userEmail) {
  */
 export async function createProject(userId, projectData) {
   try {
+    await assertUserCanMutateProjects(userId);
+
     // Generate random position for the egg
     const randomX = Math.random() * (120 - (-120)) + (-120); // Range: -120 to 120
     const randomY = Math.random() * (220 - 80) + 80; // Range: 80 to 220
@@ -133,6 +169,7 @@ export async function createProject(userId, projectData) {
       modified: record.fields.Modified
     };
   } catch (error) {
+    if (error instanceof MilkywaySubmissionClosedError) throw error;
     console.error('Error creating project:', error);
     throw new Error('Failed to create project');
   }
@@ -146,6 +183,8 @@ export async function createProject(userId, projectData) {
  */
 export async function updateProject(projectId, updates) {
   try {
+    await assertProjectOwnerCanMutate(projectId);
+
     const record = await base('Projects').update(projectId, updates);
 
     // Parse position data
@@ -183,6 +222,7 @@ export async function updateProject(projectId, updates) {
       modified: record.fields.Modified
     };
   } catch (error) {
+    if (error instanceof MilkywaySubmissionClosedError) throw error;
     console.error('Error updating project:', error);
     throw new Error('Failed to update project');
   }
@@ -195,9 +235,12 @@ export async function updateProject(projectId, updates) {
  */
 export async function deleteProject(projectId) {
   try {
+    await assertProjectOwnerCanMutate(projectId);
+
     await base('Projects').destroy(projectId);
     return true;
   } catch (error) {
+    if (error instanceof MilkywaySubmissionClosedError) throw error;
     console.error('Error deleting project:', error);
     throw new Error('Failed to delete project');
   }

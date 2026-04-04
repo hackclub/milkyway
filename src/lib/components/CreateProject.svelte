@@ -3,7 +3,7 @@
     import { promptData, getRandomEggImage } from '$lib/data/prompt-data.js';
 
 
-    let { onClose, projectList = $bindable() } = $props();
+    let { onClose, projectList = $bindable(), milkywaySubmissionClosed = false } = $props();
 
     let promise = $state(null);
 
@@ -21,6 +21,10 @@
 
     // what happens once you create a project with a certain promopt
     async function handleStartProject() {
+        if (milkywaySubmissionClosed) {
+            errorMessage = 'Milkyway project submissions have ended.';
+            return;
+        }
         if (selectedEvent === 'roulette') {
             // For roulette, create the egg and show success popup (don't auto-open spinner)
             isCreating = true;
@@ -149,17 +153,22 @@
 
 
 
+  {#if milkywaySubmissionClosed}
+    <p class="closure-hint">New projects cannot be created right now. The shop and review rewards stay open.</p>
+  {/if}
+
   <div class="events-row" style:--event-count=2>
 
     {#each Object.entries(eventNames) as [key, event], index}
     <div
       class="event-card"
       class:selected={selectedEvent === key}
+      class:disabled={milkywaySubmissionClosed}
       style:--event-index={index}
       style:--primary-color={event.primaryColor}
       style:--secondary-color={event.secondaryColor}
-      onclick={() => selectedEvent = key}
-      onkeydown={(e) => e.key === 'Enter' && (selectedEvent = key)}
+      onclick={() => !milkywaySubmissionClosed && (selectedEvent = key)}
+      onkeydown={(e) => e.key === 'Enter' && !milkywaySubmissionClosed && (selectedEvent = key)}
       role="button"
       tabindex="0"
       transition:fly|global={{ y: 40, duration: 80, delay: index * 80 }}
@@ -184,7 +193,7 @@
       <button
         class="start-button"
         onclick={handleStartProject}
-        disabled={isCreating}
+        disabled={isCreating || milkywaySubmissionClosed}
       >
         {#if isCreating}
           Creating...
@@ -282,6 +291,20 @@
 
 .event-card:hover:not(.selected) {
   transform: translateY(-8px);
+}
+
+.event-card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.closure-hint {
+  color: #ffe0e0;
+  text-align: center;
+  max-width: 28rem;
+  margin: 0 16px 8px;
+  line-height: 1.4;
 }
 
 .event-card p {

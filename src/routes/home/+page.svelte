@@ -12,6 +12,7 @@
 	import CreateProject from '$lib/components/CreateProject.svelte';
 	import ShipProjectOverlay from '$lib/components/ShipProjectOverlay.svelte';
 	import Announcements from '$lib/components/Announcements.svelte';
+	import MilkywayClosureBanner from '$lib/components/MilkywayClosureBanner.svelte';
 	import FurnitureSidebar from '$lib/components/room/FurnitureSidebar.svelte';
 	import Bet from '$lib/components/Bet.svelte';
 	import { env as PUBLIC_ENV } from '$env/dynamic/public';
@@ -137,6 +138,7 @@
 
 	// Function to handle ship project
 	function handleShipProject(projectInfo) {
+		if (user?.milkywaySubmissionClosed) return;
 		shipProjectInfo = projectInfo;
 		showShipOverlay = true;
 	}
@@ -311,7 +313,9 @@
 	onMount(() => {
 		// Wait a bit to let the page load first, then update in background
 		setTimeout(() => {
-			autoUpdateHackatimeHours();
+			if (!user?.milkywaySubmissionClosed) {
+				autoUpdateHackatimeHours();
+			}
 		}, 2000); // 2 second delay to not interfere with initial page load
 
 		// Listen for streak updates
@@ -513,6 +517,11 @@
 
 	<Announcements onRewardsClaimed={handleAnnouncementRewards} />
 
+	<MilkywayClosureBanner
+		milkywaySubmissionClosed={!!user?.milkywaySubmissionClosed}
+		milkywayExtensionDeadline={user?.milkywayExtensionDeadline ?? null}
+	/>
+
 	<!-- Profile Info -->
 	<ProfileInfo
 		{user}
@@ -667,6 +676,7 @@
 			onPaintChipsClaimed={(chips) => { paintchips += chips; }}
 			variant={user?.wallVariant}
 			{stellarShipProjectIds}
+			milkywaySubmissionClosed={!!user?.milkywaySubmissionClosed}
 		/>
 	</div>
 
@@ -687,6 +697,7 @@
 				isCreateOpen = false;
 			}}
 			bind:projectList
+			milkywaySubmissionClosed={!!user?.milkywaySubmissionClosed}
 		/>
 	{/if}
 

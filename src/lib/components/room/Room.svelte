@@ -25,7 +25,9 @@
 		hideControls = false,
 		showFurnitureSidebar = $bindable(false),
 		variant,
-		stellarShipProjectIds = new Set()
+		stellarShipProjectIds = new Set(),
+		/** When true, block creating projects, moving eggs, and saving egg positions (furniture still editable). */
+		milkywaySubmissionClosed = false
 	} = $props();
 
 	let isEditingRoom = $state(false);
@@ -209,6 +211,7 @@
 	 */
 	function selectEggForDrag(projectId, e) {
 		if (isEditingRoom) {
+			if (milkywaySubmissionClosed) return;
 			selectedEggForMove = projectId;
 			handleEggMouseDown(projectId, e);
 		}
@@ -384,10 +387,12 @@
 		try {
 			const variantChanged = variant !== selectedVariant;
 			// Only update projects that have actually changed position
-			const changedProjects = projectList.filter((project) => {
-				const original = originalPositions.find((p) => p.id === project.id);
-				return original && (original.x !== project.x || original.y !== project.y);
-			});
+			const changedProjects = milkywaySubmissionClosed
+				? []
+				: projectList.filter((project) => {
+						const original = originalPositions.find((p) => p.id === project.id);
+						return original && (original.x !== project.x || original.y !== project.y);
+					});
 
 			// Only update furniture that have actually changed position
 			const changedFurniture = furnitureList.filter((furniture) => {
@@ -619,6 +624,7 @@
 	 */
 	function handleEggMouseDown(projectId, e) {
 		if (!isEditingRoom) return;
+		if (milkywaySubmissionClosed) return;
 
 		e.preventDefault(); // Prevent text selection while dragging
 
@@ -877,13 +883,19 @@
 	<FloorTile></FloorTile>
 
 	{#if (!projectList || projectList.length === 0) && !readOnly}
-		<button
-			class="new-project"
-			onclick={(e) => {
-				e.stopPropagation();
-				isCreateOpen = !isCreateOpen;
-			}}>you don't have any projects yet. create something new?</button
-		>
+		{#if milkywaySubmissionClosed}
+			<p class="new-project muted">
+				Milkyway submissions have ended — the shop and your review rewards are still open.
+			</p>
+		{:else}
+			<button
+				class="new-project"
+				onclick={(e) => {
+					e.stopPropagation();
+					isCreateOpen = !isCreateOpen;
+				}}>you don't have any projects yet. create something new?</button
+			>
+		{/if}
 	{/if}
 
 	{#each projectList as project, index}
@@ -902,6 +914,7 @@
 			{user}
 			isRoomEditing={isEditingRoom}
 			{readOnly}
+			{milkywaySubmissionClosed}
 			bind:this={projectEggRefs[index]}
 		/>
 	{/each}
@@ -959,14 +972,16 @@
 				role="presentation"
 			>
 				{#if !readOnly}
-					<ExpandableButton
-						icon="+"
-						expandedText="create new project"
-						expandedWidth="165px"
-						onClick={() => {
-							isCreateOpen = !isCreateOpen;
-						}}
-					/>
+					{#if !milkywaySubmissionClosed}
+						<ExpandableButton
+							icon="+"
+							expandedText="create new project"
+							expandedWidth="165px"
+							onClick={() => {
+								isCreateOpen = !isCreateOpen;
+							}}
+						/>
+					{/if}
 
 					<ExpandableButton
 						icon="✎"
@@ -1116,6 +1131,16 @@
 
 	.room .new-project:hover {
 		background-color: white;
+	}
+
+	.room .new-project.muted {
+		cursor: default;
+		border-color: #ddd;
+		opacity: 0.95;
+	}
+
+	.room .new-project.muted:hover {
+		background-color: #ffffffaa;
 	}
 
 	.fab-container {

@@ -5,7 +5,10 @@ import {
 	escapeAirtableFormula,
 	getClientIdentifier
 } from '$lib/server/security.js';
-import { fetchYswsSubmissionsForProject } from '$lib/server/ysws-submissions-for-project.js';
+import {
+	fetchYswsSubmissionsForProject,
+	getYswsSubmissionHoursLogged
+} from '$lib/server/ysws-submissions-for-project.js';
 
 function hasPerm(user, perm) {
 	const perms = user?.permissions;
@@ -110,12 +113,15 @@ function computeReviewContext(subs, currentSubmissionId) {
 		totalCoinsPreviouslyAwarded += Number(s.fields.coinsAwarded || 0);
 	}
 
-	const lastApproved = sorted.find(
-		(s) => s.id !== currentSubmissionId && isApprovedSubmissionFields(s.fields)
-	);
-	const baselineHoursLogged = lastApproved ? Number(lastApproved.fields.hoursLogged || 0) : 0;
+	// "Last ship" baseline = YSWS `hoursLogged` on the row immediately before this one (by created time).
+	const sortedAsc = subs.slice().sort((a, b) => {
+		return new Date(getCreatedIso(a)).getTime() - new Date(getCreatedIso(b)).getTime();
+	});
+	const idx = sortedAsc.findIndex((s) => s.id === currentSubmissionId);
+	const immediatePrior = idx > 0 ? sortedAsc[idx - 1] : null;
+	const baselineHoursLogged = immediatePrior ? getYswsSubmissionHoursLogged(immediatePrior) : 0;
 
-	return { sorted, totalCoinsPreviouslyAwarded, baselineHoursLogged, lastApprovedId: lastApproved?.id || null };
+	return { sorted, totalCoinsPreviouslyAwarded, baselineHoursLogged, priorSubmissionId: immediatePrior?.id || null };
 }
 
 async function buildProjectBundle(submission) {
@@ -142,23 +148,23 @@ async function buildProjectBundle(submission) {
 				.all()
 		: [];
 
-	const previousSubs = projectId ? await fetchYswsSubmissionsForProject(projectId, pf, { maxRecords: 50 }) : [];
+	const previousSubs = projectId ? await fetchYswsSubmissionsForProject(projectId, pf) : [];
 
 	const reviewCtx = computeReviewContext(previousSubs, submission.id);
 	const curHt = Number(pf.hackatimeHours || 0);
 	const curArt = Number(pf.artHours || 0);
 	const curTotal = curHt + curArt;
-	const hoursSinceLastApproved = Math.max(
+	const hoursSincePriorSubmission = Math.max(
 		0,
 		Math.round((curTotal - reviewCtx.baselineHoursLogged) * 100) / 100
 	);
 	let newHackatimeHours = 0;
 	let newArtHours = 0;
-	if (hoursSinceLastApproved > 0 && curTotal > 0) {
-		newHackatimeHours = Math.round((hoursSinceLastApproved * (curHt / curTotal)) * 100) / 100;
-		newArtHours = Math.round((hoursSinceLastApproved - newHackatimeHours) * 100) / 100;
-	} else if (hoursSinceLastApproved > 0) {
-		newArtHours = hoursSinceLastApproved;
+	if (hoursSincePriorSubmission > 0 && curTotal > 0) {
+		newHackatimeHours = Math.round((hoursSincePriorSubmission * (curHt / curTotal)) * 100) / 100;
+		newArtHours = Math.round((hoursSincePriorSubmission - newHackatimeHours) * 100) / 100;
+	} else if (hoursSincePriorSubmission > 0) {
+		newArtHours = hoursSincePriorSubmission;
 	}
 
 	const otherProjects = userId
@@ -186,12 +192,12 @@ async function buildProjectBundle(submission) {
 			totalHours: curTotal,
 			newHackatimeHoursSinceLastApproved: newHackatimeHours,
 			newArtHoursSinceLastApproved: newArtHours,
-			newTotalHoursSinceLastApproved: hoursSinceLastApproved,
-			baselineHoursAtLastApprovedSubmission: reviewCtx.baselineHoursLogged,
+			newTotalHoursSinceLastApproved: hoursSincePriorSubmission,
+			baselineHoursAtPriorSubmission: reviewCtx.baselineHoursLogged,
 			totalCoinsPreviouslyAwarded: reviewCtx.totalCoinsPreviouslyAwarded
 		},
 		submission: {
-			hoursLogged: Number(submission.fields.hoursLogged || 0),
+			hoursLogged: getYswsSubmissionHoursLogged(submission),
 			additionalComments: {
 				notMadeBy: String(
 					pf.notMadeBy || submission.fields.notMadeBy || submission.fields['What parts were not made by you?'] || ''
@@ -233,7 +239,7 @@ async function buildProjectBundle(submission) {
 				return {
 					id: s.id,
 					created: getCreatedIso(s),
-					hoursLogged: Number(sf.hoursLogged || 0),
+					hoursLogged: getYswsSubmissionHoursLogged(s),
 					notesToUser: String(sf.notesToUser || ''),
 					coinsAwarded: Number(sf.coinsAwarded || 0),
 					awardingResults: String(sf.awardingResults || ''),

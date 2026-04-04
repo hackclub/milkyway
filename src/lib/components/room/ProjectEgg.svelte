@@ -6,7 +6,7 @@
   import ArtlogListPopup from '../ArtlogListPopup.svelte';
   import { getCreatureShapeFromCreature } from '$lib/data/prompt-data.js';
 
-  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, onPaintChipsClaimed = null, user, isRoomEditing = false, readOnly = false} = $props();
+  let { projInfo = $bindable(), x, y, selected = $bindable(false), onSelect, onMouseDown = null, onShowPromptPopup, onDelete, onOpenRouletteSpin = null, onShipProject, onPaintChipsClaimed = null, user, isRoomEditing = false, readOnly = false, milkywaySubmissionClosed = false} = $props();
 
   // Show stellar ship only if the project field stellarShipResult indicates true
   let displayHasStellarShip = $derived(
@@ -222,6 +222,7 @@
 
   // Start edit mode
   function startEdit() {
+    if (milkywaySubmissionClosed) return;
     originalValues = {
       name: projInfo.name,
       description: projInfo.description,
@@ -250,6 +251,7 @@
 
   // Save changes
   async function saveChanges() {
+    if (milkywaySubmissionClosed) return;
     if (!projInfo.id) return;
     
     // Convert selected projects to a comma-separated string
@@ -362,6 +364,7 @@
 
   // Add art hours function
   function addArtHours() {
+    if (milkywaySubmissionClosed) return;
     showArtlogPopup = true;
   }
 
@@ -493,6 +496,7 @@
   });
 
   function shipProject() {
+    if (milkywaySubmissionClosed) return;
     const validation = shipProjectValidation();
     if (validation.canShip && onShipProject) {
       onShipProject(projInfo);
@@ -520,6 +524,7 @@
 
   // Delete project function
   async function deleteProject() {
+    if (milkywaySubmissionClosed) return;
     if (!projInfo.id || !onDelete) return;
     
     try {
@@ -554,6 +559,7 @@
 
   // Show delete confirmation
   function confirmDelete() {
+    if (milkywaySubmissionClosed) return;
     showDeleteConfirm = true;
   }
 
@@ -701,6 +707,7 @@
   
   // Open roulette spin wheel to continue spinning
   function continueRouletteSpinning() {
+    if (milkywaySubmissionClosed) return;
     if (onOpenRouletteSpin) {
       onOpenRouletteSpin(projInfo.id, rouletteProgress());
     }
@@ -1057,7 +1064,11 @@ async function changeLayer(delta) {
         </div>
         
         {#if !readOnly}
-          <button class="continue-spinning-btn" onclick={continueRouletteSpinning}>
+          <button
+            class="continue-spinning-btn"
+            onclick={continueRouletteSpinning}
+            disabled={milkywaySubmissionClosed}
+          >
             Continue Spinning
           </button>
         {/if}
@@ -1206,20 +1217,30 @@ async function changeLayer(delta) {
     <div class="project-actions">
       {#if isEditing}
         <div class="edit-actions-left">
-          <button class="save-btn" onclick={saveChanges} disabled={isUpdating}>
+          <button class="save-btn" onclick={saveChanges} disabled={isUpdating || milkywaySubmissionClosed}>
             {isUpdating ? 'Saving...' : 'Save'}
           </button>
           <button class="discard-btn" onclick={discardChanges} disabled={isUpdating}>Discard</button>
         </div>
         <div class="edit-actions-right">
-          <button class="delete-btn" onclick={confirmDelete} disabled={isUpdating || isDeleting}>Delete project</button>
+          <button
+            class="delete-btn"
+            onclick={confirmDelete}
+            disabled={isUpdating || isDeleting || milkywaySubmissionClosed}
+          >Delete project</button>
         </div>
       {:else}
-        <button class="edit-btn" onclick={startEdit}>Edit details</button>
-        <button class="add-hours-btn" onclick={addArtHours}>Create artlog</button>
+        <button class="edit-btn" onclick={startEdit} disabled={milkywaySubmissionClosed}>Edit details</button>
+        <button class="add-hours-btn" onclick={addArtHours} disabled={milkywaySubmissionClosed}>Create artlog</button>
         {@const validation = shipProjectValidation()}
         {@const isReShip = isProjectShipped}
-        {#if validation.canShip}
+        {#if milkywaySubmissionClosed}
+          <Tooltip text="Milkyway project submissions have ended. The shop and review rewards are still available.">
+            <button class="ship-btn disabled" disabled>
+              {isReShip ? 'Re-ship project ✨' : 'Ship project 💫'}
+            </button>
+          </Tooltip>
+        {:else if validation.canShip}
           <button class="ship-btn" onclick={shipProject}>
             {isReShip ? 'Re-ship project ✨' : 'Ship project 💫'}
           </button>

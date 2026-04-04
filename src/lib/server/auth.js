@@ -2,6 +2,7 @@ import crypto from 'crypto';
 
 import { base } from '$lib/server/db.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
+import { getMilkywaySubmissionAccess } from '$lib/server/milkyway-closure.js';
 
 /**
  * @param {string} sessionid
@@ -71,6 +72,8 @@ export async function getUserInfoBySessionId(sessionid) {
 		hackclub_address: fields.hackclub_address || null, // SERVER SIDE ONLY - never expose to frontend
 		hackclub_birthday: fields.hackclub_birthday || null, // SERVER SIDE ONLY - never expose to frontend
 		hackclub_verification_status: fields.hackclub_verification_status || null,
+		// Date field: submit until end of this day (UTC) when set (see milkyway-closure.js)
+		extension: fields.extension ?? null,
 		__serverOnly: true // Flag to indicate this should not be sent to frontend
 	};
 }
@@ -83,6 +86,8 @@ export async function getUserInfoBySessionId(sessionid) {
  */
 export function sanitizeUserForFrontend(serverUser) {
 	if (!serverUser) return null;
+
+	const mw = getMilkywaySubmissionAccess(serverUser);
 
 	return {
 		recId: serverUser.recId,
@@ -106,7 +111,11 @@ export function sanitizeUserForFrontend(serverUser) {
 		// Hack Club Auth - only include non-sensitive fields
 		hackclub_id: serverUser.hackclub_id || null,
 		hackclub_name: serverUser.hackclub_name || null,
-		hackclub_slack_id: serverUser.hackclub_slack_id || null
+		hackclub_slack_id: serverUser.hackclub_slack_id || null,
+		/** When true, project eggs / submission / project edits are disabled (unless extension applies). */
+		milkywaySubmissionClosed: !mw.submissionOpen,
+		/** ISO timestamp (end of extension UTC day) for messaging; null if user has no extension date */
+		milkywayExtensionDeadline: mw.extensionDeadlineIso
 		// DO NOT include: email, address, idv, lastHackatimeUpdate, lastDevlogDate, hackclub_address, hackclub_birthday, __serverOnly, or other internal fields
 	};
 }

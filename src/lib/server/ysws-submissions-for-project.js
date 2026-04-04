@@ -2,7 +2,17 @@ import { base } from '$lib/server/db.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
 
 function getCreatedIso(record) {
-	return String(record.fields.Created || record._rawJson?.createdTime || '');
+	// Match reviewer APIs: prefer API createdTime so ordering matches computeReviewContext.
+	return String(record._rawJson?.createdTime || record.fields.Created || '');
+}
+
+/**
+ * `hoursLogged` on the YSWS Project Submission table — snapshot of project code+art hours at ship
+ * (set in create-submission from Projects.hackatimeHours + Projects.artHours).
+ * @param {any} record
+ */
+export function getYswsSubmissionHoursLogged(record) {
+	return Number(record?.fields?.hoursLogged ?? 0);
 }
 
 /**
@@ -29,7 +39,7 @@ export function getYswsSubmissionIdsFromProject(projectFields) {
  * @param {{ maxRecords?: number }} [opts]
  */
 export async function fetchYswsSubmissionsForProject(projectId, projectFields, opts = {}) {
-	const maxRecords = opts.maxRecords ?? 50;
+	const maxRecords = opts.maxRecords ?? 120;
 
 	/** @type {Map<string, any>} */
 	const byId = new Map();

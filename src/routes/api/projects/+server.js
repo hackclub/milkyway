@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { createProject, updateProject, deleteProject, verifyProjectOwnership } from '$lib/server/projects.js';
 import { sanitizeErrorMessage, checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
+import { MilkywaySubmissionClosedError } from '$lib/server/milkyway-closure.js';
 import { getFirstAttachment, getAttachmentUrl } from '$lib/server/attachments.js';
 
 // GET - Get a single project by ID (used for refreshing project data)
@@ -131,6 +132,9 @@ export async function POST({ request, locals, cookies }) {
     return json({ success: true, project });
 
   } catch (error) {
+    if (error instanceof MilkywaySubmissionClosedError) {
+      return json({ error: error.message }, { status: 403 });
+    }
     console.error('Error creating project:', error);
     return json({
       error: sanitizeErrorMessage(/** @type {Error} */ (error), 'Failed to create project')
@@ -254,6 +258,9 @@ export async function PUT({ request, locals, cookies }) {
     const project = await updateProject(projectId, safeUpdates);
     return json({ success: true, project });
   } catch (error) {
+    if (error instanceof MilkywaySubmissionClosedError) {
+      return json({ error: error.message }, { status: 403 });
+    }
     console.error('Error updating project:', error);
     return json({
       error: sanitizeErrorMessage(/** @type {Error} */ (error), 'Failed to update project')
@@ -289,6 +296,9 @@ export async function DELETE({ request, locals, cookies }) {
     await deleteProject(projectId);
     return json({ success: true });
   } catch (error) {
+    if (error instanceof MilkywaySubmissionClosedError) {
+      return json({ error: error.message }, { status: 403 });
+    }
     console.error('Error deleting project:', error);
     return json({
       error: sanitizeErrorMessage(/** @type {Error} */ (error), 'Failed to delete project')

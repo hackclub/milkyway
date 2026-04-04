@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
 import { getUserInfoBySessionId } from '$lib/server/auth.js';
+import { MilkywaySubmissionClosedError } from '$lib/server/milkyway-closure.js';
+import { assertMilkywayProjectMutationsAllowedForUser } from '$lib/server/projects.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
 import { getCreatureImageFromEgg } from '$lib/data/prompt-data.js';
 
@@ -159,6 +161,21 @@ export async function POST({ request, cookies }) {
 				},
 				{ status: 403 }
 			);
+		}
+
+		try {
+			await assertMilkywayProjectMutationsAllowedForUser(userInfo.recId);
+		} catch (e) {
+			if (e instanceof MilkywaySubmissionClosedError) {
+				return json(
+					{
+						success: false,
+						error: { message: e.message, code: 'MILKYWAY_CLOSED' }
+					},
+					{ status: 403 }
+				);
+			}
+			throw e;
 		}
 
 		// Validate ship requirements

@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { isSelectedCountOk, areSelectedOptionsValid } from '$lib/data/wheel-options.js';
 import { updateProject, verifyProjectOwnership } from '$lib/server/projects.js';
 import { sanitizeErrorMessage } from '$lib/server/security.js';
+import { MilkywaySubmissionClosedError } from '$lib/server/milkyway-closure.js';
 
 export async function POST({ request, locals }) {
   try {
@@ -85,9 +86,12 @@ export async function POST({ request, locals }) {
 
     return json({ success: true, result: spinResult });
   } catch (error) {
+    if (error instanceof MilkywaySubmissionClosedError) {
+      return json({ error: error.message }, { status: 403 });
+    }
     console.error('Error spinning wheel:', error);
     return json({
-      error: sanitizeErrorMessage(error, 'Failed to spin wheel')
+      error: sanitizeErrorMessage(/** @type {Error} */ (error), 'Failed to spin wheel')
     }, { status: 500 });
   }
 }

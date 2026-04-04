@@ -1,14 +1,24 @@
 import { json } from '@sveltejs/kit';
 import { uploadImageAttachment } from '$lib/server/attachments.js';
-import { verifyProjectOwnership, updateProject } from '$lib/server/projects.js';
+import { verifyProjectOwnership, assertMilkywayProjectMutationsAllowedForUser } from '$lib/server/projects.js';
 import { sanitizeErrorMessage, checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
 import { base } from '$lib/server/db.js';
+import { MilkywaySubmissionClosedError } from '$lib/server/milkyway-closure.js';
 
 // POST - Upload project image using Airtable's uploadAttachment API
 export async function POST({ request, locals, cookies }) {
   try {
     if (!locals.user) {
       return json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+      await assertMilkywayProjectMutationsAllowedForUser(locals.user.recId);
+    } catch (e) {
+      if (e instanceof MilkywaySubmissionClosedError) {
+        return json({ error: e.message }, { status: 403 });
+      }
+      throw e;
     }
 
     // Rate limiting: 10 image uploads per minute

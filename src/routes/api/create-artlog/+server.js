@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { base } from '$lib/server/db.js';
 import { uploadImageAttachment } from '$lib/server/attachments.js';
-import { verifyProjectOwnership } from '$lib/server/projects.js';
-import { checkRateLimit, getClientIdentifier, sanitizeErrorMessage } from '$lib/server/security.js';
+import { verifyProjectOwnership, assertMilkywayProjectMutationsAllowedForUser } from '$lib/server/projects.js';
+import { checkRateLimit, getClientIdentifier } from '$lib/server/security.js';
+import { MilkywaySubmissionClosedError } from '$lib/server/milkyway-closure.js';
 
 export async function POST({ request, cookies }) {
   try {
@@ -23,6 +24,15 @@ export async function POST({ request, cookies }) {
         success: false,
         error: 'User not found'
       }, { status: 404 });
+    }
+
+    try {
+      await assertMilkywayProjectMutationsAllowedForUser(userInfo.recId);
+    } catch (e) {
+      if (e instanceof MilkywaySubmissionClosedError) {
+        return json({ success: false, error: e.message }, { status: 403 });
+      }
+      throw e;
     }
 
     // Rate limiting: 10 artlog creations per minute
