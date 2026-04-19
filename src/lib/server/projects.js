@@ -9,7 +9,7 @@ import { isMilkywaySubmissionOpen, MilkywaySubmissionClosedError } from '$lib/se
  */
 async function assertUserCanMutateProjects(/** @type {string} */ userRecId) {
 	const record = await base('User').find(userRecId);
-	if (!isMilkywaySubmissionOpen({ extension: record.fields.extension ?? null })) {
+	if (!isMilkywaySubmissionOpen(record.fields)) {
 		throw new MilkywaySubmissionClosedError();
 	}
 }

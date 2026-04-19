@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 import { base } from '$lib/server/db.js';
 import { escapeAirtableFormula } from '$lib/server/security.js';
-import { getMilkywaySubmissionAccess } from '$lib/server/milkyway-closure.js';
+import { getMilkywayExtensionRaw, getMilkywaySubmissionAccess } from '$lib/server/milkyway-closure.js';
 
 /**
  * @param {string} sessionid
@@ -73,7 +73,7 @@ export async function getUserInfoBySessionId(sessionid) {
 		hackclub_birthday: fields.hackclub_birthday || null, // SERVER SIDE ONLY - never expose to frontend
 		hackclub_verification_status: fields.hackclub_verification_status || null,
 		// Date field: submit until end of this day (UTC) when set (see milkyway-closure.js)
-		extension: fields.extension ?? null,
+		extension: getMilkywayExtensionRaw(fields) ?? null,
 		__serverOnly: true // Flag to indicate this should not be sent to frontend
 	};
 }
